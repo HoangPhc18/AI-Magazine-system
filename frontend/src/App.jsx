@@ -71,48 +71,50 @@ const App = () => {
             },
           }}
         />
-        <Routes>
-          {/* User Routes */}
-          <Route path="/" element={<UserLayout />}>
-            <Route index element={<Home />} />
-            <Route path="articles" element={<Articles />} />
-            <Route path="articles/:id" element={<ArticleDetail />} />
-            <Route path="categories" element={<Categories />} />
-            <Route path="categories/:id" element={<CategoryDetail />} />
-            <Route path="about" element={<About />} />
-            <Route path="contact" element={<Contact />} />
+        <div className="container mx-auto px-4 py-8">
+          <Routes>
+            {/* User Routes */}
+            <Route path="/" element={<UserLayout />}>
+              <Route index element={<Home />} />
+              <Route path="articles" element={<Articles />} />
+              <Route path="articles/:id" element={<ArticleDetail />} />
+              <Route path="categories" element={<Categories />} />
+              <Route path="categories/:id" element={<CategoryDetail />} />
+              <Route path="about" element={<About />} />
+              <Route path="contact" element={<Contact />} />
+              <Route
+                path="profile"
+                element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="login" element={<Login />} />
+              <Route path="register" element={<Register />} />
+            </Route>
+
+            {/* Admin Routes */}
             <Route
-              path="profile"
+              path="/admin"
               element={
-                <ProtectedRoute>
-                  <Profile />
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <AdminLayout />
                 </ProtectedRoute>
               }
-            />
-            <Route path="login" element={<Login />} />
-            <Route path="register" element={<Register />} />
-          </Route>
+            >
+              <Route index element={<AdminDashboard />} />
+              <Route path="articles" element={<AdminArticles />} />
+              <Route path="categories" element={<AdminCategories />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="ai-settings" element={<AdminAISettings />} />
+              <Route path="settings" element={<AdminSettings />} />
+            </Route>
 
-          {/* Admin Routes */}
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <AdminLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<AdminDashboard />} />
-            <Route path="articles" element={<AdminArticles />} />
-            <Route path="categories" element={<AdminCategories />} />
-            <Route path="users" element={<AdminUsers />} />
-            <Route path="ai-settings" element={<AdminAISettings />} />
-            <Route path="settings" element={<AdminSettings />} />
-          </Route>
-
-          {/* Catch all route */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+            {/* Catch all route */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
       </Router>
     </AuthProvider>
   );

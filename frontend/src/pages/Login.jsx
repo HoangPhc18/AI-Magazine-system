@@ -24,9 +24,15 @@ const Login = () => {
     setLoading(true);
 
     try {
-      await login(formData.email, formData.password);
+      const user = await login(formData.email, formData.password);
       toast.success('Đăng nhập thành công!');
-      navigate('/');
+      
+      // Chuyển hướng dựa vào role của user
+      if (user.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/');
+      }
     } catch (error) {
       toast.error(error.message || 'Đăng nhập thất bại!');
     } finally {

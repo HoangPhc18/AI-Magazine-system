@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { mockUsers } from '../utils/mockData';
+import { authService } from '../api/authService';
 
 const AuthContext = createContext(null);
 
@@ -23,11 +23,10 @@ export const AuthProvider = ({ children }) => {
     try {
       const token = localStorage.getItem('token');
       if (token) {
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 500));
-        // In a real app, this would be an API call
-        const mockUser = mockUsers[0]; // Use first user as mock logged in user
-        setUser(mockUser);
+        const user = authService.getCurrentUser();
+        if (user) {
+          setUser(user);
+        }
       }
     } catch (error) {
       console.error('Auth check failed:', error);
@@ -38,30 +37,43 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      // In a real app, this would be an API call
-      const mockUser = mockUsers.find(u => u.email === email);
-      if (!mockUser) {
-        throw new Error('Invalid credentials');
-      }
-      const token = 'mock-jwt-token';
+      const response = await authService.login({ email, password });
+      const { token, user } = response;
       localStorage.setItem('token', token);
-      setUser(mockUser);
-      return mockUser;
+      localStorage.setItem('user', JSON.stringify(user));
+      setUser(user);
+      return user;
     } catch (error) {
-      throw error.message;
+      throw new Error(error.response?.data?.message || 'Đăng nhập thất bại');
+    }
+  };
+
+  const register = async (name, email, password) => {
+    try {
+      const response = await authService.register({ name, email, password });
+      return response;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Đăng ký thất bại');
     }
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    authService.logout();
     setUser(null);
   };
 
+  const value = {
+    user,
+    loading,
+    login,
+    logout,
+    register,
+    isAuthenticated: !!user
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
-      {children}
+    <AuthContext.Provider value={value}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 }; 
