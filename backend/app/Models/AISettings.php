@@ -9,6 +9,8 @@ class AISettings extends Model
 {
     use HasFactory;
 
+    protected $table = 'ai_settings';
+
     protected $fillable = [
         'openai_api_key',
         'ollama_api_url',
@@ -23,11 +25,11 @@ class AISettings extends Model
     ];
 
     protected $casts = [
-        'max_tokens' => 'integer',
+        'is_active' => 'boolean',
         'temperature' => 'float',
+        'max_tokens' => 'integer',
         'top_p' => 'float',
         'frequency_penalty' => 'float',
-        'presence_penalty' => 'float',
-        'is_active' => 'boolean'
+        'presence_penalty' => 'float'
     ];
 } 

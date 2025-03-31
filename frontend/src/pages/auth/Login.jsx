@@ -25,9 +25,16 @@ const Login = () => {
     setLoading(true);
 
     try {
-      await authService.login(formData);
+      const response = await authService.login(formData);
       toast.success('Login successful!');
-      navigate('/admin/dashboard');
+      
+      // Kiểm tra role admin
+      const isAdmin = await authService.isAdmin();
+      if (isAdmin) {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       const errorMessage = errorService.handleApiError(err);
       toast.error(errorMessage);

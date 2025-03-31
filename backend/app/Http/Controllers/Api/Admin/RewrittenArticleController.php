@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\RewrittenArticleResource;
 use App\Models\RewrittenArticle;
 use App\Models\ApprovedArticle;
 use Illuminate\Http\Request;
@@ -12,55 +13,39 @@ class RewrittenArticleController extends Controller
 {
     public function index()
     {
-        $articles = RewrittenArticle::with('category')->get();
-        return response()->json($articles);
+        $articles = RewrittenArticle::with(['originalArticle', 'category'])->get();
+        return RewrittenArticleResource::collection($articles);
     }
 
     public function show(RewrittenArticle $rewrittenArticle)
     {
-        return response()->json($rewrittenArticle->load('category'));
+        $rewrittenArticle->load(['originalArticle', 'category']);
+        return new RewrittenArticleResource($rewrittenArticle);
     }
 
     public function update(Request $request, RewrittenArticle $rewrittenArticle)
     {
         $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'content' => 'required|string',
-            'category_id' => 'required|exists:categories,id'
+            'title' => 'sometimes|string|max:255',
+            'content' => 'sometimes|string',
+            'category_id' => 'sometimes|exists:categories,id',
+            'status' => 'sometimes|in:draft,pending,approved,rejected',
         ]);
 
         $rewrittenArticle->update($validated);
-        return response()->json($rewrittenArticle->load('category'));
+        return new RewrittenArticleResource($rewrittenArticle);
     }
 
     public function approve(RewrittenArticle $rewrittenArticle)
     {
-        try {
-            DB::beginTransaction();
-
-            // Tạo bài viết mới trong bảng approved_articles
-            ApprovedArticle::create([
-                'title' => $rewrittenArticle->title,
-                'content' => $rewrittenArticle->content,
-                'category_id' => $rewrittenArticle->category_id,
-                'status' => 'approved'
-            ]);
-
-            // Xóa bài viết từ bảng rewritten_articles
-            $rewrittenArticle->delete();
-
-            DB::commit();
-            return response()->json(['message' => 'Article approved successfully']);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['message' => 'Error approving article'], 500);
-        }
+        $rewrittenArticle->update(['status' => 'approved']);
+        return new RewrittenArticleResource($rewrittenArticle);
     }
 
     public function reject(RewrittenArticle $rewrittenArticle)
     {
         $rewrittenArticle->update(['status' => 'rejected']);
-        return response()->json(['message' => 'Article rejected successfully']);
+        return new RewrittenArticleResource($rewrittenArticle);
     }
 
     public function destroy(RewrittenArticle $rewrittenArticle)

@@ -8,12 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('rewritten_articles', function (Blueprint $table) {
+        Schema::create('articles', function (Blueprint $table) {
             $table->id();
             $table->string('title');
             $table->text('content');
             $table->foreignId('category_id')->constrained()->onDelete('cascade');
-            $table->foreignId('original_article_id')->constrained('articles')->onDelete('cascade');
             $table->string('status')->default('draft');
             $table->timestamps();
         });
@@ -21,6 +20,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('rewritten_articles');
+        Schema::dropIfExists('articles');
     }
 }; 

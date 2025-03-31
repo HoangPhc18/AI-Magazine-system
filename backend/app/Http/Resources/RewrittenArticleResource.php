@@ -16,10 +16,11 @@ class RewrittenArticleResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'rewritten_content' => $this->rewritten_content,
+            'title' => $this->title,
+            'content' => $this->content,
             'status' => $this->status,
-            'reviewer' => new UserResource($this->whenLoaded('reviewer')),
-            'edit_history' => EditHistoryResource::collection($this->whenLoaded('editHistory')),
+            'category' => new CategoryResource($this->whenLoaded('category')),
+            'original_article' => $this->whenLoaded('originalArticle'),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

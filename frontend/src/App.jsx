@@ -62,6 +62,9 @@ const App = () => {
             <Route path="forgot-password" element={<ForgotPassword />} />
           </Route>
 
+          {/* Redirect /login to /auth/login */}
+          <Route path="/login" element={<Navigate to="/auth/login" replace />} />
+
           {/* Admin Routes */}
           <Route
             path="/admin"

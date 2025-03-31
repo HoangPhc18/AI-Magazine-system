@@ -44,13 +44,13 @@ Route::middleware('auth:sanctum')->group(function () {
 // Admin routes
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
     // User Management
-    Route::get('/users', [UserController::class, 'index']);
-    Route::post('/users', [UserController::class, 'store']);
-    Route::get('/users/{user}', [UserController::class, 'show']);
-    Route::put('/users/{user}', [UserController::class, 'update']);
-    Route::delete('/users/{user}', [UserController::class, 'destroy']);
-    Route::put('/users/{user}/role', [UserController::class, 'updateRole']);
-    Route::put('/users/{user}/toggle-status', [UserController::class, 'toggleStatus']);
+    Route::get('/users', [AdminUserController::class, 'index']);
+    Route::post('/users', [AdminUserController::class, 'store']);
+    Route::get('/users/{user}', [AdminUserController::class, 'show']);
+    Route::put('/users/{user}', [AdminUserController::class, 'update']);
+    Route::delete('/users/{user}', [AdminUserController::class, 'destroy']);
+    Route::put('/users/{user}/role', [AdminUserController::class, 'updateRole']);
+    Route::put('/users/{user}/toggle-status', [AdminUserController::class, 'toggleStatus']);
 
     // Rewritten Articles Management
     Route::get('/articles/rewritten', [RewrittenArticleController::class, 'index']);
@@ -77,6 +77,6 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     // AI Settings management
     Route::get('/ai-settings', [AdminAiSettingController::class, 'index']);
     Route::put('/ai-settings', [AdminAiSettingController::class, 'update']);
-    Route::post('/ai-settings/test-connection', [AISettingsController::class, 'testConnection']);
-    Route::post('/ai-settings/reset', [AISettingsController::class, 'resetSettings']);
+    Route::post('/ai-settings/test-connection', [AdminAiSettingController::class, 'testConnection']);
+    Route::post('/ai-settings/reset', [AdminAiSettingController::class, 'resetSettings']);
 }); 

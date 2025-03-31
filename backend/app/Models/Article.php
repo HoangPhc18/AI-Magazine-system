@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class RewrittenArticle extends Model
+class Article extends Model
 {
     use HasFactory, SoftDeletes;
 
@@ -14,12 +14,7 @@ class RewrittenArticle extends Model
         'title',
         'content',
         'category_id',
-        'original_article_id',
         'status'
-    ];
-
-    protected $casts = [
-        'status' => 'string'
     ];
 
     public function category()
@@ -27,8 +22,8 @@ class RewrittenArticle extends Model
         return $this->belongsTo(Category::class);
     }
 
-    public function originalArticle()
+    public function rewrittenArticles()
     {
-        return $this->belongsTo(Article::class, 'original_article_id');
+        return $this->hasMany(RewrittenArticle::class, 'original_article_id');
     }
 } 
