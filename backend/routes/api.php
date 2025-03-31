@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\Admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\Api\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\Admin\AiSettingController as AdminAiSettingController;
+use App\Http\Controllers\Api\Admin\RewrittenArticleController;
+use App\Http\Controllers\Api\Admin\ApprovedArticleController;
 use App\Http\Controllers\Api\ArticleController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
@@ -40,16 +42,25 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // Admin routes
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
-    // Article management
-    Route::get('/articles/rewritten', [AdminArticleController::class, 'index']);
-    Route::get('/articles/rewritten/{rewrittenArticle}', [AdminArticleController::class, 'show']);
-    Route::post('/articles/rewritten/{rewrittenArticle}/approve', [AdminArticleController::class, 'approve']);
-    Route::put('/articles/rewritten/{rewrittenArticle}', [AdminArticleController::class, 'update']);
-    Route::delete('/articles/rewritten/{rewrittenArticle}', [AdminArticleController::class, 'destroy']);
+    // Rewritten Articles Management
+    Route::get('/articles/rewritten', [RewrittenArticleController::class, 'index']);
+    Route::get('/articles/rewritten/{rewrittenArticle}', [RewrittenArticleController::class, 'show']);
+    Route::put('/articles/rewritten/{rewrittenArticle}', [RewrittenArticleController::class, 'update']);
+    Route::post('/articles/rewritten/{rewrittenArticle}/approve', [RewrittenArticleController::class, 'approve']);
+    Route::post('/articles/rewritten/{rewrittenArticle}/reject', [RewrittenArticleController::class, 'reject']);
+    Route::delete('/articles/rewritten/{rewrittenArticle}', [RewrittenArticleController::class, 'destroy']);
 
-    // Category management
+    // Approved Articles Management
+    Route::get('/articles/approved', [ApprovedArticleController::class, 'index']);
+    Route::get('/articles/approved/{approvedArticle}', [ApprovedArticleController::class, 'show']);
+    Route::put('/articles/approved/{approvedArticle}', [ApprovedArticleController::class, 'update']);
+    Route::post('/articles/approved/{approvedArticle}/archive', [ApprovedArticleController::class, 'archive']);
+    Route::delete('/articles/approved/{approvedArticle}', [ApprovedArticleController::class, 'destroy']);
+
+    // Categories Management
     Route::get('/categories', [AdminCategoryController::class, 'index']);
     Route::post('/categories', [AdminCategoryController::class, 'store']);
+    Route::get('/categories/{category}', [AdminCategoryController::class, 'show']);
     Route::put('/categories/{category}', [AdminCategoryController::class, 'update']);
     Route::delete('/categories/{category}', [AdminCategoryController::class, 'destroy']);
 
@@ -63,4 +74,6 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     // AI Settings management
     Route::get('/ai-settings', [AdminAiSettingController::class, 'index']);
     Route::put('/ai-settings', [AdminAiSettingController::class, 'update']);
+    Route::post('/ai-settings/test-connection', [AISettingsController::class, 'testConnection']);
+    Route::post('/ai-settings/reset', [AISettingsController::class, 'resetSettings']);
 }); 

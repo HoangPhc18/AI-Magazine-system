@@ -3,40 +3,40 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\ArticleCollection;
-use App\Http\Resources\ArticleResource;
-use App\Models\Article;
-use Illuminate\Http\JsonResponse;
+use App\Models\ApprovedArticle;
+use App\Models\Category;
 use Illuminate\Http\Request;
 
 class ArticleController extends Controller
 {
-    public function index(): ArticleCollection
+    public function index()
     {
-        $articles = Article::with(['category', 'rewrittenArticle'])
+        $articles = ApprovedArticle::with('category')
+            ->where('status', 'approved')
             ->latest()
-            ->paginate(10);
-
-        return new ArticleCollection($articles);
+            ->get();
+        return response()->json($articles);
     }
 
-    public function show(Article $article): ArticleResource
+    public function show(ApprovedArticle $article)
     {
-        return new ArticleResource($article->load(['category', 'rewrittenArticle']));
+        if ($article->status !== 'approved') {
+            return response()->json(['message' => 'Article not found'], 404);
+        }
+        return response()->json($article->load('category'));
     }
 
-    public function search(Request $request): ArticleCollection
+    public function search(Request $request)
     {
-        $keyword = $request->get('q');
-        
-        $articles = Article::with(['category', 'rewrittenArticle'])
-            ->where(function($query) use ($keyword) {
-                $query->where('title', 'like', "%{$keyword}%")
-                    ->orWhere('content', 'like', "%{$keyword}%");
+        $query = $request->input('query');
+        $articles = ApprovedArticle::with('category')
+            ->where('status', 'approved')
+            ->where(function($q) use ($query) {
+                $q->where('title', 'like', "%{$query}%")
+                  ->orWhere('content', 'like', "%{$query}%");
             })
             ->latest()
-            ->paginate(10);
-
-        return new ArticleCollection($articles);
+            ->get();
+        return response()->json($articles);
     }
 }

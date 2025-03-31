@@ -3,46 +3,47 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\Admin\Category\StoreRequest;
-use App\Http\Requests\Api\Admin\Category\UpdateRequest;
-use App\Http\Resources\CategoryResource;
 use App\Models\Category;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Request;
 
 class CategoryController extends Controller
 {
-    public function index(): AnonymousResourceCollection
+    public function index()
     {
-        return CategoryResource::collection(Category::all());
+        $categories = Category::all();
+        return response()->json($categories);
     }
 
-    public function store(StoreRequest $request): JsonResponse
+    public function store(Request $request)
     {
-        $category = Category::create($request->validated());
-
-        return response()->json([
-            'message' => 'Category created successfully',
-            'category' => new CategoryResource($category)
-        ], 201);
-    }
-
-    public function update(UpdateRequest $request, Category $category): JsonResponse
-    {
-        $category->update($request->validated());
-
-        return response()->json([
-            'message' => 'Category updated successfully',
-            'category' => new CategoryResource($category)
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string'
         ]);
+
+        $category = Category::create($validated);
+        return response()->json($category, 201);
     }
 
-    public function destroy(Category $category): JsonResponse
+    public function show(Category $category)
+    {
+        return response()->json($category);
+    }
+
+    public function update(Request $request, Category $category)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string'
+        ]);
+
+        $category->update($validated);
+        return response()->json($category);
+    }
+
+    public function destroy(Category $category)
     {
         $category->delete();
-
-        return response()->json([
-            'message' => 'Category deleted successfully'
-        ]);
+        return response()->json(['message' => 'Category deleted successfully']);
     }
 }

@@ -2,27 +2,32 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class AISettings extends Model
 {
-    protected $table = 'ai_settings';
+    use HasFactory;
 
     protected $fillable = [
-        'api_key',
-        'model',
-        'temperature',
+        'openai_api_key',
+        'ollama_api_url',
+        'model_name',
         'max_tokens',
+        'temperature',
         'top_p',
         'frequency_penalty',
-        'presence_penalty'
+        'presence_penalty',
+        'system_prompt',
+        'is_active'
     ];
 
     protected $casts = [
-        'temperature' => 'float',
         'max_tokens' => 'integer',
+        'temperature' => 'float',
         'top_p' => 'float',
         'frequency_penalty' => 'float',
-        'presence_penalty' => 'float'
+        'presence_penalty' => 'float',
+        'is_active' => 'boolean'
     ];
 } 

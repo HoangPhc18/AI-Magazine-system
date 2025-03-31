@@ -3,34 +3,28 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\ArticleCollection;
-use App\Http\Resources\CategoryCollection;
-use App\Http\Resources\CategoryResource;
 use App\Models\Category;
-use Illuminate\Http\JsonResponse;
+use App\Models\ApprovedArticle;
 
 class CategoryController extends Controller
 {
-    public function index(): CategoryCollection
+    public function index()
     {
-        return new CategoryCollection(Category::all());
+        $categories = Category::all();
+        return response()->json($categories);
     }
 
-    public function show(Category $category): CategoryResource
+    public function show(Category $category)
     {
-        return new CategoryResource($category);
+        return response()->json($category);
     }
 
-    public function articles(Category $category): ArticleCollection
+    public function articles(Category $category)
     {
-        $articles = $category->articles()
-            ->with('rewrittenArticle')
-            ->whereHas('rewrittenArticle', function($query) {
-                $query->where('status', 'approved');
-            })
+        $articles = ApprovedArticle::where('category_id', $category->id)
+            ->where('status', 'approved')
             ->latest()
-            ->paginate(10);
-
-        return new ArticleCollection($articles);
+            ->get();
+        return response()->json($articles);
     }
 }
