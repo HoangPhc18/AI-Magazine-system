@@ -1,75 +1,87 @@
-import api from './api';
+import axios from 'axios';
+import errorService from './errorService';
 
-export const userService = {
-  getAll: async () => {
+const userService = {
+  getAll: async (params = {}) => {
     try {
-      console.log('Fetching users...');
-      const response = await api.get('/users');
-      console.log('Users API response:', response.data);
-      return response.data.data || [];
+      const response = await axios.get('/api/users', { params });
+      return response.data;
     } catch (error) {
-      console.error('Error in userService.getAll:', error);
-      throw error;
+      throw errorService.handleApiError(error);
     }
   },
 
   getById: async (id) => {
     try {
-      console.log('Fetching user by ID:', id);
-      const response = await api.get(`/users/${id}`);
-      console.log('User API response:', response.data);
-      return response.data.data;
+      const response = await axios.get(`/api/users/${id}`);
+      return response.data;
     } catch (error) {
-      console.error('Error in userService.getById:', error);
-      throw error;
+      throw errorService.handleApiError(error);
     }
   },
 
   create: async (data) => {
     try {
-      console.log('Creating user with data:', data);
-      const response = await api.post('/users', data);
-      console.log('Create user API response:', response.data);
-      return response.data.data;
+      const response = await axios.post('/api/users', data);
+      return response.data;
     } catch (error) {
-      console.error('Error in userService.create:', error);
-      throw error;
+      throw errorService.handleApiError(error);
     }
   },
 
   update: async (id, data) => {
     try {
-      console.log('Updating user:', id, 'with data:', data);
-      const response = await api.put(`/users/${id}`, data);
-      console.log('Update user API response:', response.data);
-      return response.data.data;
+      const response = await axios.put(`/api/users/${id}`, data);
+      return response.data;
     } catch (error) {
-      console.error('Error in userService.update:', error);
-      throw error;
+      throw errorService.handleApiError(error);
     }
   },
 
   delete: async (id) => {
     try {
-      console.log('Deleting user:', id);
-      const response = await api.delete(`/users/${id}`);
-      console.log('Delete user API response:', response.data);
-      return response.data.data;
+      await axios.delete(`/api/users/${id}`);
+      return true;
     } catch (error) {
-      console.error('Error in userService.delete:', error);
-      throw error;
+      throw errorService.handleApiError(error);
     }
   },
 
-  updateRole: async (id, role) => {
+  updateProfile: async (data) => {
     try {
-      console.log('Updating user role:', id, 'to:', role);
-      const response = await api.put(`/users/${id}/role`, { role });
-      console.log('Update role API response:', response.data);
-      return response.data.data;
+      const response = await axios.put('/api/users/profile', data);
+      return response.data;
     } catch (error) {
-      console.error('Error in userService.updateRole:', error);
-      throw error;
+      throw errorService.handleApiError(error);
     }
-  }
-}; 
+  },
+
+  changePassword: async (data) => {
+    try {
+      const response = await axios.put('/api/users/change-password', data);
+      return response.data;
+    } catch (error) {
+      throw errorService.handleApiError(error);
+    }
+  },
+
+  forgotPassword: async (email) => {
+    try {
+      const response = await axios.post('/api/users/forgot-password', { email });
+      return response.data;
+    } catch (error) {
+      throw errorService.handleApiError(error);
+    }
+  },
+
+  resetPassword: async (token, data) => {
+    try {
+      const response = await axios.post(`/api/users/reset-password/${token}`, data);
+      return response.data;
+    } catch (error) {
+      throw errorService.handleApiError(error);
+    }
+  },
+};
+
+export default userService; 

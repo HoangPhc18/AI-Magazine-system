@@ -1,10 +1,13 @@
 import axios from 'axios';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL: `${API_URL}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 10000, // 10 seconds
 });
 
 // Add a request interceptor
@@ -17,6 +20,7 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    console.error('Request Error:', error);
     return Promise.reject(error);
   }
 );
@@ -25,9 +29,19 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.code === 'ERR_NETWORK') {
+      console.error('Network Error: Unable to connect to the server. Please check if the backend server is running.');
+    } else if (error.response?.status === 401) {
       localStorage.removeItem('token');
       window.location.href = '/login';
+    } else if (error.response?.status === 403) {
+      console.error('Access Denied: You do not have permission to access this resource.');
+    } else if (error.response?.status === 404) {
+      console.error('Resource Not Found: The requested resource does not exist.');
+    } else if (error.response?.status === 500) {
+      console.error('Server Error: An unexpected error occurred on the server.');
+    } else {
+      console.error('API Error:', error.message);
     }
     return Promise.reject(error);
   }

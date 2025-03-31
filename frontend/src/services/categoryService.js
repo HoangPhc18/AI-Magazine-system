@@ -1,62 +1,85 @@
 import api from './api';
+import errorService from './errorService';
 
-export const categoryService = {
-  getAll: async () => {
+const categoryService = {
+  // Lấy danh sách danh mục
+  getAll: async (params = {}) => {
     try {
-      console.log('Fetching categories');
-      const response = await api.get('/categories');
-      console.log('Categories API response:', response.data);
-      return response.data.data || [];
+      const response = await api.get('/categories', { params });
+      return response.data;
     } catch (error) {
-      console.error('Error fetching categories:', error);
-      return [];
+      throw errorService.handleApiError(error);
     }
   },
 
+  // Lấy thông tin chi tiết danh mục
   getById: async (id) => {
     try {
-      console.log('Fetching category with ID:', id);
       const response = await api.get(`/categories/${id}`);
-      console.log('Category API response:', response.data);
-      return response.data.data;
+      return response.data;
     } catch (error) {
-      console.error('Error fetching category:', error);
-      throw error;
+      throw errorService.handleApiError(error);
     }
   },
 
+  // Tạo danh mục mới
   create: async (data) => {
     try {
-      console.log('Creating category with data:', data);
       const response = await api.post('/categories', data);
-      console.log('Create category API response:', response.data);
-      return response.data.data;
+      return response.data;
     } catch (error) {
-      console.error('Error creating category:', error);
-      throw error;
+      throw errorService.handleApiError(error);
     }
   },
 
+  // Cập nhật danh mục
   update: async (id, data) => {
     try {
-      console.log('Updating category with ID:', id, 'data:', data);
       const response = await api.put(`/categories/${id}`, data);
-      console.log('Update category API response:', response.data);
-      return response.data.data;
+      return response.data;
     } catch (error) {
-      console.error('Error updating category:', error);
-      throw error;
+      throw errorService.handleApiError(error);
     }
   },
 
+  // Xóa danh mục
   delete: async (id) => {
     try {
-      console.log('Deleting category with ID:', id);
-      await api.delete(`/categories/${id}`);
-      console.log('Delete category successful');
+      const response = await api.delete(`/categories/${id}`);
+      return response.data;
     } catch (error) {
-      console.error('Error deleting category:', error);
-      throw error;
+      throw errorService.handleApiError(error);
     }
-  }
-}; 
+  },
+
+  // Chuyển đổi trạng thái danh mục
+  toggleCategoryStatus: async (id) => {
+    try {
+      const response = await api.put(`/admin/categories/${id}/toggle-status`);
+      return response.data;
+    } catch (error) {
+      throw errorService.handleApiError(error);
+    }
+  },
+
+  // Public categories
+  getPublicCategories: async () => {
+    try {
+      const response = await api.get('/categories');
+      return response.data;
+    } catch (error) {
+      throw errorService.handleApiError(error);
+    }
+  },
+
+  getArticles: async (id, params = {}) => {
+    try {
+      const response = await api.get(`/categories/${id}/articles`, { params });
+      return response.data;
+    } catch (error) {
+      throw errorService.handleApiError(error);
+    }
+  },
+};
+
+export default categoryService; 

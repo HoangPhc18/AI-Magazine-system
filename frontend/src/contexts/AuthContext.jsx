@@ -1,7 +1,72 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authService } from '../api/authService';
+import { authService } from '../services';
 
 const AuthContext = createContext(null);
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const checkAuth = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      const userData = await authService.getCurrentUser();
+      setUser(userData);
+    } catch (err) {
+      console.error('Auth check failed:', err);
+      setError(err.message);
+      if (err.code === 'ERR_NETWORK') {
+        console.error('Network Error: Please check if the backend server is running.');
+      }
+      localStorage.removeItem('token');
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const login = async (credentials) => {
+    try {
+      const response = await authService.login(credentials);
+      setUser(response.user);
+      return response;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const logout = () => {
+    authService.logout();
+    setUser(null);
+    setError(null);
+  };
+
+  const value = {
+    user,
+    loading,
+    error,
+    login,
+    logout,
+    checkAuth
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {!loading && children}
+    </AuthContext.Provider>
+  );
+};
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -11,69 +76,4 @@ export const useAuth = () => {
   return context;
 };
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      if (token) {
-        const user = authService.getCurrentUser();
-        if (user) {
-          setUser(user);
-        }
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const login = async (email, password) => {
-    try {
-      const response = await authService.login({ email, password });
-      const { token, user } = response;
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      setUser(user);
-      return user;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || 'Đăng nhập thất bại');
-    }
-  };
-
-  const register = async (name, email, password) => {
-    try {
-      const response = await authService.register({ name, email, password });
-      return response;
-    } catch (error) {
-      throw new Error(error.response?.data?.message || 'Đăng ký thất bại');
-    }
-  };
-
-  const logout = () => {
-    authService.logout();
-    setUser(null);
-  };
-
-  const value = {
-    user,
-    loading,
-    login,
-    logout,
-    register,
-    isAuthenticated: !!user
-  };
-
-  return (
-    <AuthContext.Provider value={value}>
-      {!loading && children}
-    </AuthContext.Provider>
-  );
-}; 
+export default AuthContext; 

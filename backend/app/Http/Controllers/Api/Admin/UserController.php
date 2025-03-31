@@ -3,71 +3,85 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Api\Admin\User\StoreRequest;
-use App\Http\Requests\Api\Admin\User\UpdateRequest;
-use App\Http\Requests\Api\Admin\User\UpdateRoleRequest;
-use App\Http\Resources\UserResource;
 use App\Models\User;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules\Password;
 
 class UserController extends Controller
 {
-    public function index(): AnonymousResourceCollection
+    public function index()
     {
-        return UserResource::collection(User::all());
+        $users = User::all();
+        return response()->json($users);
     }
 
-    public function store(StoreRequest $request): JsonResponse
+    public function store(Request $request)
     {
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'role' => $request->role,
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => ['required', Password::defaults()],
+            'role' => 'required|in:admin,editor',
+            'is_active' => 'boolean'
         ]);
 
-        return response()->json([
-            'message' => 'User created successfully',
-            'user' => new UserResource($user)
-        ], 201);
+        $validated['password'] = Hash::make($validated['password']);
+        
+        $user = User::create($validated);
+        return response()->json($user, 201);
     }
 
-    public function update(UpdateRequest $request, User $user): JsonResponse
+    public function show(User $user)
     {
-        $data = $request->validated();
-        
-        if (isset($data['password'])) {
-            $data['password'] = Hash::make($data['password']);
+        return response()->json($user);
+    }
+
+    public function update(Request $request, User $user)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+            'role' => 'required|in:admin,editor',
+            'is_active' => 'boolean'
+        ]);
+
+        if ($request->has('password')) {
+            $request->validate([
+                'password' => ['required', Password::defaults()]
+            ]);
+            $validated['password'] = Hash::make($request->password);
         }
 
-        $user->update($data);
-
-        return response()->json([
-            'message' => 'User updated successfully',
-            'user' => new UserResource($user)
-        ]);
+        $user->update($validated);
+        return response()->json($user);
     }
 
-    public function destroy(User $user): JsonResponse
+    public function updateRole(Request $request, User $user)
     {
-        $user->delete();
-
-        return response()->json([
-            'message' => 'User deleted successfully'
-        ]);
-    }
-
-    public function updateRole(UpdateRoleRequest $request, User $user): JsonResponse
-    {
-        $user->update([
-            'role' => $request->role
+        $validated = $request->validate([
+            'role' => 'required|in:admin,editor'
         ]);
 
+        $user->update($validated);
         return response()->json([
             'message' => 'User role updated successfully',
-            'user' => new UserResource($user)
+            'user' => $user
         ]);
+    }
+
+    public function toggleStatus(User $user)
+    {
+        $user->update(['is_active' => !$user->is_active]);
+        return response()->json([
+            'message' => 'User status updated successfully',
+            'user' => $user
+        ]);
+    }
+
+    public function destroy(User $user)
+    {
+        $user->delete();
+        return response()->json(['message' => 'User deleted successfully']);
     }
 }

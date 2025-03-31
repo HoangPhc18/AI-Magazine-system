@@ -19,6 +19,7 @@ Route::post('/auth/login', [AuthController::class, 'login']);
 
 // Public article and category routes
 Route::get('/articles', [ArticleController::class, 'index']);
+Route::get('/articles/latest', [ArticleController::class, 'latest']);
 Route::get('/articles/{article}', [ArticleController::class, 'show']);
 Route::get('/articles/search', [ArticleController::class, 'search']);
 Route::get('/categories', [CategoryController::class, 'index']);
@@ -42,6 +43,15 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // Admin routes
 Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
+    // User Management
+    Route::get('/users', [UserController::class, 'index']);
+    Route::post('/users', [UserController::class, 'store']);
+    Route::get('/users/{user}', [UserController::class, 'show']);
+    Route::put('/users/{user}', [UserController::class, 'update']);
+    Route::delete('/users/{user}', [UserController::class, 'destroy']);
+    Route::put('/users/{user}/role', [UserController::class, 'updateRole']);
+    Route::put('/users/{user}/toggle-status', [UserController::class, 'toggleStatus']);
+
     // Rewritten Articles Management
     Route::get('/articles/rewritten', [RewrittenArticleController::class, 'index']);
     Route::get('/articles/rewritten/{rewrittenArticle}', [RewrittenArticleController::class, 'show']);
@@ -63,13 +73,6 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::get('/categories/{category}', [AdminCategoryController::class, 'show']);
     Route::put('/categories/{category}', [AdminCategoryController::class, 'update']);
     Route::delete('/categories/{category}', [AdminCategoryController::class, 'destroy']);
-
-    // User management
-    Route::get('/users', [AdminUserController::class, 'index']);
-    Route::post('/users', [AdminUserController::class, 'store']);
-    Route::put('/users/{user}', [AdminUserController::class, 'update']);
-    Route::delete('/users/{user}', [AdminUserController::class, 'destroy']);
-    Route::put('/users/{user}/role', [AdminUserController::class, 'updateRole']);
 
     // AI Settings management
     Route::get('/ai-settings', [AdminAiSettingController::class, 'index']);

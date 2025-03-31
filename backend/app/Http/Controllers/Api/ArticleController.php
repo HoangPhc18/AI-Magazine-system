@@ -39,4 +39,15 @@ class ArticleController extends Controller
             ->get();
         return response()->json($articles);
     }
+
+    public function latest(Request $request)
+    {
+        $limit = $request->input('limit', 6);
+        $articles = ApprovedArticle::with('category')
+            ->where('status', 'approved')
+            ->latest()
+            ->take($limit)
+            ->get();
+        return response()->json($articles);
+    }
 }
