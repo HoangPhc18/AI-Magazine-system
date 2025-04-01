@@ -1,132 +1,134 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { categoryService, errorService } from '../../../services';
+import { useNavigate } from 'react-router-dom';
+import { Button, Table, Search, Pagination } from '../../../components/ui';
+import { categoryService } from '../../../services';
+import errorService from '../../../services/errorService';
 import { toast } from 'react-toastify';
 
 const CategoryList = () => {
+  const navigate = useNavigate();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
+  const columns = [
+    {
+      header: 'ID',
+      key: 'id'
+    },
+    {
+      header: 'Tên danh mục',
+      key: 'name'
+    },
+    {
+      header: 'Slug',
+      key: 'slug'
+    },
+    {
+      header: 'Mô tả',
+      key: 'description'
+    },
+    {
+      header: 'Số bài viết',
+      key: 'articles_count',
+      render: (row) => row.articles_count || 0
+    },
+    {
+      header: 'Thao tác',
+      key: 'actions',
+      render: (row) => (
+        <div className="flex space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/admin/categories/${row.id}`)}
+          >
+            Chi tiết
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => handleDelete(row.id)}
+          >
+            Xóa
+          </Button>
+        </div>
+      )
+    }
+  ];
 
-  const fetchCategories = async () => {
+  const loadCategories = async () => {
     try {
       setLoading(true);
-      const response = await categoryService.getAll();
-      // Kiểm tra response.data.data hoặc response.data
-      setCategories(response.data?.data || response.data || []);
+      const response = await categoryService.getCategories();
+      setCategories(response.data || []);
+      setError(null);
     } catch (err) {
       setError(errorService.handleApiError(err));
-      toast.error('Failed to fetch categories');
-      setCategories([]); // Set empty array on error
+      toast.error('Không thể tải danh sách danh mục');
     } finally {
       setLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this category?')) {
+    if (window.confirm('Bạn có chắc chắn muốn xóa danh mục này?')) {
       try {
-        await categoryService.delete(id);
-        toast.success('Category deleted successfully');
-        fetchCategories();
+        await categoryService.deleteCategory(id);
+        toast.success('Danh mục đã được xóa');
+        loadCategories();
       } catch (err) {
-        toast.error(errorService.handleApiError(err));
+        toast.error('Không thể xóa danh mục');
       }
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    loadCategories();
+  }, []);
 
-  if (error) {
-    return (
-      <div className="p-4 bg-red-100 text-red-700 rounded-md">
-        Error: {error}
-      </div>
-    );
-  }
+  const filteredCategories = categories.filter(category =>
+    category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    category.slug.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    category.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) return <div>Đang tải...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold">Categories</h2>
-        <Link
-          to="/admin/categories/create"
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          Create New Category
-        </Link>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Quản lý danh mục</h1>
+        <div className="flex space-x-4">
+          <Search
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Tìm kiếm danh mục..."
+          />
+          <Button
+            onClick={() => navigate('/admin/categories/new')}
+          >
+            Thêm danh mục
+          </Button>
+        </div>
       </div>
 
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Name
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Slug
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Description
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {categories && categories.length > 0 ? (
-              categories.map((category) => (
-                <tr key={category.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {category.name}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{category.slug}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">
-                      {category.description}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <Link
-                      to={`/admin/categories/${category.id}/edit`}
-                      className="text-blue-600 hover:text-blue-900 mr-4"
-                    >
-                      Edit
-                    </Link>
-                    <button
-                      onClick={() => handleDelete(category.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="4" className="px-6 py-4 text-center text-gray-500">
-                  No categories found
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <Table
+        columns={columns}
+        data={filteredCategories}
+        emptyMessage="Không có danh mục nào"
+      />
+
+      <div className="flex justify-center">
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
       </div>
     </div>
   );

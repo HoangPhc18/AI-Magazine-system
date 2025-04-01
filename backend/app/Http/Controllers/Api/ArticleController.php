@@ -15,7 +15,9 @@ class ArticleController extends Controller
             ->where('status', 'approved')
             ->latest()
             ->get();
-        return response()->json($articles);
+        return response()->json([
+            'data' => $articles
+        ]);
     }
 
     public function show(ApprovedArticle $article)
@@ -23,7 +25,9 @@ class ArticleController extends Controller
         if ($article->status !== 'approved') {
             return response()->json(['message' => 'Article not found'], 404);
         }
-        return response()->json($article->load('category'));
+        return response()->json([
+            'data' => $article->load('category')
+        ]);
     }
 
     public function search(Request $request)
@@ -37,7 +41,9 @@ class ArticleController extends Controller
             })
             ->latest()
             ->get();
-        return response()->json($articles);
+        return response()->json([
+            'data' => $articles
+        ]);
     }
 
     public function latest(Request $request)
@@ -48,6 +54,8 @@ class ArticleController extends Controller
             ->latest()
             ->take($limit)
             ->get();
-        return response()->json($articles);
+        return response()->json([
+            'data' => $articles
+        ]);
     }
 }

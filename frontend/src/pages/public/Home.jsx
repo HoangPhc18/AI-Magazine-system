@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { articleService, categoryService, dateService, errorService } from '../../services';
 import { ArticleCard } from '../../components/common';
+import { toast } from 'react-toastify';
 
 const Home = () => {
   const [latestArticles, setLatestArticles] = useState([]);
@@ -13,13 +14,14 @@ const Home = () => {
     const fetchData = async () => {
       try {
         const [articlesData, categoriesData] = await Promise.all([
-          articleService.getLatest(6),
+          articleService.getLatest(),
           categoryService.getAll()
         ]);
-        setLatestArticles(articlesData);
+        setLatestArticles(articlesData.data || []);
         setCategories(categoriesData);
       } catch (err) {
-        setError(errorService.handleApiError(err));
+        setError(errorService.handleApiError(err).message);
+        toast.error(errorService.handleApiError(err).message);
       } finally {
         setLoading(false);
       }
@@ -29,7 +31,7 @@ const Home = () => {
   }, []);
 
   if (loading) return <div>Đang tải...</div>;
-  if (error) return <div>Lỗi: {error}</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -50,13 +52,34 @@ const Home = () => {
         <h2 className="text-2xl font-bold mb-6">Bài viết mới nhất</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {latestArticles.map((article) => (
-            <ArticleCard
-              key={article.id}
-              article={article}
-              date={dateService.formatDate(article.created_at)}
-            />
+            <div key={article.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+              {article.image && (
+                <img
+                  src={article.image}
+                  alt={article.title}
+                  className="w-full h-48 object-cover"
+                />
+              )}
+              <div className="p-4">
+                <h2 className="text-xl font-semibold mb-2">
+                  <Link to={`/articles/${article.id}`} className="text-blue-600 hover:text-blue-800">
+                    {article.title}
+                  </Link>
+                </h2>
+                <p className="text-gray-600 mb-4">{article.excerpt}</p>
+                <div className="flex justify-between items-center text-sm text-gray-500">
+                  <span>{new Date(article.created_at).toLocaleDateString()}</span>
+                  <span>{article.category?.name}</span>
+                </div>
+              </div>
+            </div>
           ))}
         </div>
+        {latestArticles.length === 0 && (
+          <div className="text-center text-gray-500 py-8">
+            Chưa có bài viết nào
+          </div>
+        )}
         <div className="text-center mt-8">
           <Link
             to="/articles"

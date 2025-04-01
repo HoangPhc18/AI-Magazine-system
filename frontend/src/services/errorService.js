@@ -1,9 +1,13 @@
+import { toast } from 'react-toastify';
+
 const errorService = {
   handleApiError: (error) => {
     if (error.response) {
       // Server trả về lỗi với status code
       const status = error.response.status;
       const message = error.response.data?.message || 'Đã xảy ra lỗi';
+
+      toast.error(message);
 
       switch (status) {
         case 400:
@@ -25,10 +29,14 @@ const errorService = {
       }
     } else if (error.request) {
       // Không nhận được phản hồi từ server
-      return 'Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.';
+      const message = 'Không thể kết nối đến server';
+      toast.error(message);
+      return message;
     } else {
       // Lỗi khi tạo request
-      return `Lỗi: ${error.message}`;
+      const message = error.message || 'Có lỗi xảy ra';
+      toast.error(message);
+      return message;
     }
   },
 

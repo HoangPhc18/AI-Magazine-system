@@ -38,7 +38,22 @@ class RewrittenArticleController extends Controller
 
     public function approve(RewrittenArticle $rewrittenArticle)
     {
-        $rewrittenArticle->update(['status' => 'approved']);
+        DB::transaction(function () use ($rewrittenArticle) {
+            // Create approved article
+            ApprovedArticle::create([
+                'title' => $rewrittenArticle->title,
+                'content' => $rewrittenArticle->content,
+                'category_id' => $rewrittenArticle->category_id,
+                'original_article_id' => $rewrittenArticle->original_article_id,
+                'status' => 'published',
+                'approved_at' => now(),
+                'approved_by' => auth()->id()
+            ]);
+
+            // Update rewritten article status
+            $rewrittenArticle->update(['status' => 'approved']);
+        });
+
         return new RewrittenArticleResource($rewrittenArticle);
     }
 

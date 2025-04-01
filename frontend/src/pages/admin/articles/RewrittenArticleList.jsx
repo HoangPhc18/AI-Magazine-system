@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Table, Search, Pagination } from '../../../components/common';
+import { Button, Table, Search, Pagination } from '../../../components/ui';
 import { articleService, dateService } from '../../../services';
-import { handleApiError } from '../../../services/errorService';
+import errorService from '../../../services/errorService';
+import { toast } from 'react-toastify';
 
 const RewrittenArticleList = () => {
   const navigate = useNavigate();
@@ -28,22 +29,21 @@ const RewrittenArticleList = () => {
       render: (row) => row.category?.name || 'Chưa phân loại'
     },
     {
-      header: 'Tác giả',
-      key: 'author',
-      render: (row) => row.user?.name || 'N/A'
+      header: 'Bài viết gốc',
+      key: 'original_article',
+      render: (row) => row.original_article?.title || 'N/A'
     },
     {
       header: 'Trạng thái',
       key: 'status',
       render: (row) => (
-        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
           row.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
           row.status === 'approved' ? 'bg-green-100 text-green-800' :
-          'bg-red-100 text-red-800'
+          row.status === 'rejected' ? 'bg-red-100 text-red-800' :
+          'bg-gray-100 text-gray-800'
         }`}>
-          {row.status === 'pending' ? 'Chờ duyệt' :
-           row.status === 'approved' ? 'Đã duyệt' :
-           'Từ chối'}
+          {row.status}
         </span>
       )
     },
@@ -64,13 +64,24 @@ const RewrittenArticleList = () => {
           >
             Chi tiết
           </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={() => handleDeleteArticle(row.id)}
-          >
-            Xóa
-          </Button>
+          {row.status === 'pending' && (
+            <>
+              <Button
+                variant="success"
+                size="sm"
+                onClick={() => handleApprove(row.id)}
+              >
+                Duyệt
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => handleReject(row.id)}
+              >
+                Từ chối
+              </Button>
+            </>
+          )}
         </div>
       )
     }
@@ -79,78 +90,72 @@ const RewrittenArticleList = () => {
   const loadArticles = async () => {
     try {
       setLoading(true);
-      const response = await articleService.getRewrittenArticles({
-        page: currentPage,
-        search: searchTerm
-      });
-      setArticles(response.data);
-      setTotalPages(response.last_page);
-    } catch (error) {
-      setError(handleApiError(error).message);
+      const response = await articleService.getRewrittenArticles();
+      setArticles(response.data || []);
+      setError(null);
+    } catch (err) {
+      setError(errorService.handleApiError(err));
+      toast.error('Không thể tải danh sách bài viết');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadArticles();
-  }, [currentPage, searchTerm]);
-
-  const handleSearch = (value) => {
-    setSearchTerm(value);
-    setCurrentPage(1);
-  };
-
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-  };
-
-  const handleDeleteArticle = async (id) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa bài viết này?')) {
-      try {
-        await articleService.deleteRewrittenArticle(id);
-        loadArticles();
-      } catch (error) {
-        setError(handleApiError(error).message);
-      }
+  const handleApprove = async (id) => {
+    try {
+      await articleService.approveRewrittenArticle(id);
+      toast.success('Bài viết đã được duyệt');
+      loadArticles();
+    } catch (err) {
+      toast.error('Không thể duyệt bài viết');
     }
   };
 
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Quản lý bài viết đã viết lại</h1>
-        <Button onClick={() => navigate('/admin/articles/rewritten/create')}>
-          Thêm bài viết mới
-        </Button>
-      </div>
+  const handleReject = async (id) => {
+    try {
+      await articleService.rejectRewrittenArticle(id);
+      toast.success('Bài viết đã bị từ chối');
+      loadArticles();
+    } catch (err) {
+      toast.error('Không thể từ chối bài viết');
+    }
+  };
 
-      <div className="mb-6">
+  useEffect(() => {
+    loadArticles();
+  }, []);
+
+  const filteredArticles = articles.filter(article =>
+    article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    article.category?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    article.original_article?.title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) return <div>Đang tải...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Bài viết đã viết lại</h1>
         <Search
           value={searchTerm}
-          onChange={(e) => handleSearch(e.target.value)}
+          onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Tìm kiếm bài viết..."
         />
       </div>
 
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-md">
-          {error}
-        </div>
-      )}
-
       <Table
         columns={columns}
-        data={articles}
-        loading={loading}
-        emptyMessage="Không có bài viết nào"
+        data={filteredArticles}
+        emptyMessage="Không có bài viết nào đã viết lại"
       />
 
-      <div className="mt-6">
+      <div className="flex justify-center">
         <Pagination
           currentPage={currentPage}
           totalPages={totalPages}
-          onPageChange={handlePageChange}
+          onPageChange={setCurrentPage}
         />
       </div>
     </div>

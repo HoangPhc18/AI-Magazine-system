@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button, Input, TextArea, Select } from '../../../components/ui';
 import { articleService, categoryService } from '../../../services';
-import { handleApiError } from '../../../services/errorService';
+import errorService from '../../../services/errorService';
 import { formatDate } from '../../../services/dateService';
+import { toast } from 'react-toastify';
 
 const RewrittenArticleDetail = () => {
   const { id } = useParams();
@@ -38,7 +39,7 @@ const RewrittenArticleDetail = () => {
         status: data.status
       });
     } catch (error) {
-      setError(handleApiError(error).message);
+      setError(errorService.handleApiError(error).message);
     } finally {
       setLoading(false);
     }
@@ -71,14 +72,14 @@ const RewrittenArticleDetail = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setErrors({});
-
     try {
       await articleService.updateRewrittenArticle(id, formData);
+      toast.success('Bài viết đã được cập nhật');
       navigate('/admin/articles/rewritten');
     } catch (error) {
-      const errorData = handleApiError(error);
-      setErrors(errorData.errors || {});
+      const errorMessage = errorService.handleApiError(error).message;
+      setErrors({ submit: errorMessage });
+      toast.error(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -86,43 +87,32 @@ const RewrittenArticleDetail = () => {
 
   const handleApprove = async () => {
     try {
-      await articleService.approveArticle(id);
-      loadArticle();
+      await articleService.approveRewrittenArticle(id);
+      toast.success('Bài viết đã được duyệt');
+      navigate('/admin/articles/rewritten');
     } catch (error) {
-      setError(handleApiError(error).message);
+      toast.error('Không thể duyệt bài viết');
     }
   };
 
   const handleReject = async () => {
     try {
-      await articleService.rejectArticle(id);
-      loadArticle();
+      await articleService.rejectRewrittenArticle(id);
+      toast.success('Bài viết đã bị từ chối');
+      navigate('/admin/articles/rewritten');
     } catch (error) {
-      setError(handleApiError(error).message);
+      toast.error('Không thể từ chối bài viết');
     }
   };
 
-  if (loading) {
-    return <div>Đang tải...</div>;
-  }
-
-  if (error) {
-    return <div className="text-red-600">{error}</div>;
-  }
-
-  if (!article) {
-    return <div>Không tìm thấy bài viết</div>;
-  }
-
-  const categoryOptions = categories.map(category => ({
-    value: category.id,
-    label: category.name
-  }));
+  if (loading) return <div>Đang tải...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
+  if (!article) return <div>Không tìm thấy bài viết</div>;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="max-w-4xl mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Chi tiết bài viết</h1>
+        <h1 className="text-2xl font-bold">Chi tiết bài viết đã viết lại</h1>
         <div className="flex space-x-2">
           {article.status === 'pending' && (
             <>
@@ -130,7 +120,7 @@ const RewrittenArticleDetail = () => {
                 variant="success"
                 onClick={handleApprove}
               >
-                Duyệt bài
+                Duyệt
               </Button>
               <Button
                 variant="danger"
@@ -149,90 +139,93 @@ const RewrittenArticleDetail = () => {
         </div>
       </div>
 
-      <div className="bg-white shadow rounded-lg p-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <Input
-              label="Tiêu đề"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              error={errors.title}
-              required
-            />
-          </div>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Tiêu đề
+          </label>
+          <Input
+            name="title"
+            value={formData.title}
+            onChange={handleChange}
+            error={errors.title}
+          />
+        </div>
 
-          <div>
-            <Select
-              label="Danh mục"
-              name="category_id"
-              value={formData.category_id}
-              onChange={handleChange}
-              error={errors.category_id}
-              options={categoryOptions}
-              required
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Nội dung
+          </label>
+          <TextArea
+            name="content"
+            value={formData.content}
+            onChange={handleChange}
+            rows={10}
+            error={errors.content}
+          />
+        </div>
 
-          <div>
-            <TextArea
-              label="Nội dung"
-              name="content"
-              value={formData.content}
-              onChange={handleChange}
-              error={errors.content}
-              required
-              rows={10}
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Danh mục
+          </label>
+          <Select
+            name="category_id"
+            value={formData.category_id}
+            onChange={handleChange}
+            error={errors.category_id}
+          >
+            <option value="">Chọn danh mục</option>
+            {categories.map(category => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </Select>
+        </div>
 
-          <div className="flex justify-end space-x-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate('/admin/articles/rewritten')}
-            >
-              Hủy
-            </Button>
-            <Button
-              type="submit"
-              loading={saving}
-            >
-              Lưu thay đổi
-            </Button>
-          </div>
-        </form>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Trạng thái
+          </label>
+          <Select
+            name="status"
+            value={formData.status}
+            onChange={handleChange}
+            error={errors.status}
+          >
+            <option value="pending">Chờ duyệt</option>
+            <option value="approved">Đã duyệt</option>
+            <option value="rejected">Từ chối</option>
+          </Select>
+        </div>
 
-        <div className="mt-8 pt-8 border-t">
-          <h2 className="text-lg font-medium text-gray-900 mb-4">Thông tin bổ sung</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-sm text-gray-500">Tác giả</p>
-              <p className="mt-1">{article.user?.name || 'N/A'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Trạng thái</p>
-              <p className="mt-1">
-                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                  article.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                  article.status === 'approved' ? 'bg-green-100 text-green-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {article.status === 'pending' ? 'Chờ duyệt' :
-                   article.status === 'approved' ? 'Đã duyệt' :
-                   'Từ chối'}
-                </span>
-              </p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Ngày tạo</p>
-              <p className="mt-1">{formatDate(article.created_at)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Cập nhật lúc</p>
-              <p className="mt-1">{formatDate(article.updated_at)}</p>
-            </div>
-          </div>
+        {errors.submit && (
+          <div className="text-red-500 text-sm">{errors.submit}</div>
+        )}
+
+        <div className="flex justify-end space-x-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => navigate('/admin/articles/rewritten')}
+          >
+            Hủy
+          </Button>
+          <Button
+            type="submit"
+            disabled={saving}
+          >
+            {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+          </Button>
+        </div>
+      </form>
+
+      <div className="mt-8">
+        <h2 className="text-xl font-semibold mb-4">Bài viết gốc</h2>
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="font-medium">{article.original_article?.title}</h3>
+          <p className="text-gray-600 mt-2">{article.original_article?.content}</p>
         </div>
       </div>
     </div>

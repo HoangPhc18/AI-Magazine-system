@@ -1,7 +1,7 @@
 import api from './api';
 import errorService from './errorService';
 
-const categoryService = {
+export const categoryService = {
   // Lấy danh sách danh mục
   getAll: async (params = {}) => {
     try {
@@ -80,6 +80,31 @@ const categoryService = {
       throw errorService.handleApiError(error);
     }
   },
+
+  getCategories: async (page = 1) => {
+    const response = await api.get(`/admin/categories?page=${page}`);
+    return response.data;
+  },
+
+  getCategory: async (id) => {
+    const response = await api.get(`/admin/categories/${id}`);
+    return response.data;
+  },
+
+  createCategory: async (data) => {
+    const response = await api.post('/admin/categories', data);
+    return response.data;
+  },
+
+  updateCategory: async (id, data) => {
+    const response = await api.put(`/admin/categories/${id}`, data);
+    return response.data;
+  },
+
+  deleteCategory: async (id) => {
+    const response = await api.delete(`/admin/categories/${id}`);
+    return response.data;
+  }
 };
 
 export default categoryService; 

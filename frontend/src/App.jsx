@@ -27,6 +27,8 @@ import Dashboard from './pages/admin/Dashboard';
 import ArticleList from './pages/admin/articles/ArticleList';
 import ArticleCreate from './pages/admin/articles/ArticleCreate';
 import ArticleEdit from './pages/admin/articles/ArticleEdit';
+import RewrittenArticleList from './pages/admin/articles/RewrittenArticleList';
+import ApprovedArticleList from './pages/admin/articles/ApprovedArticleList';
 import CategoryList from './pages/admin/categories/CategoryList';
 import CategoryCreate from './pages/admin/categories/CategoryCreate';
 import CategoryEdit from './pages/admin/categories/CategoryEdit';
@@ -40,7 +42,7 @@ import PrivateRoute from './components/common/PrivateRoute';
 
 const App = () => {
   return (
-    <Router>
+    <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AuthProvider>
         <ToastContainer />
         <Routes>
@@ -80,6 +82,8 @@ const App = () => {
               <Route index element={<ArticleList />} />
               <Route path="create" element={<ArticleCreate />} />
               <Route path=":id/edit" element={<ArticleEdit />} />
+              <Route path="rewritten" element={<RewrittenArticleList />} />
+              <Route path="approved" element={<ApprovedArticleList />} />
             </Route>
             <Route path="categories">
               <Route index element={<CategoryList />} />

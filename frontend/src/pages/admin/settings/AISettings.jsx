@@ -1,30 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Input, TextArea, Select } from '../../../components/ui';
+import { Button, Input, TextArea } from '../../../components/ui';
 import { aiService } from '../../../services';
 import { handleApiError } from '../../../services/errorService';
+import { toast } from 'react-toastify';
 
 const AISettings = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     api_key: '',
     model: 'gpt-3.5-turbo',
     temperature: 0.7,
     max_tokens: 2000,
-    top_p: 1,
-    frequency_penalty: 0,
-    presence_penalty: 0,
-    system_prompt: '',
-    user_prompt: ''
+    prompt_template: ''
   });
   const [errors, setErrors] = useState({});
-
-  const modelOptions = [
-    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
-    { value: 'gpt-4', label: 'GPT-4' },
-    { value: 'gpt-4-turbo-preview', label: 'GPT-4 Turbo' }
-  ];
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -60,185 +52,190 @@ const AISettings = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
-    setErrors({});
-
     try {
       await aiService.updateSettings(formData);
-      setError(null);
+      toast.success('Cài đặt AI đã được cập nhật');
     } catch (error) {
-      const errorData = handleApiError(error);
-      setErrors(errorData.errors || {});
+      const errorMessage = handleApiError(error).message;
+      setErrors({ submit: errorMessage });
+      toast.error(errorMessage);
     } finally {
       setSaving(false);
     }
   };
 
   const handleTestConnection = async () => {
+    setTesting(true);
     try {
-      setLoading(true);
       await aiService.testConnection();
-      alert('Kết nối thành công!');
+      toast.success('Kết nối AI thành công');
     } catch (error) {
-      alert(handleApiError(error).message);
+      toast.error(handleApiError(error).message);
     } finally {
-      setLoading(false);
+      setTesting(false);
     }
   };
 
-  if (loading) {
-    return <div>Đang tải...</div>;
-  }
+  const handleResetSettings = async () => {
+    if (!window.confirm('Bạn có chắc chắn muốn đặt lại cài đặt AI?')) {
+      return;
+    }
+
+    try {
+      await aiService.resetSettings();
+      toast.success('Cài đặt AI đã được đặt lại');
+      loadSettings();
+    } catch (error) {
+      toast.error(handleApiError(error).message);
+    }
+  };
+
+  if (loading) return <div>Đang tải...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="max-w-2xl mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Cài đặt AI</h1>
-        <Button
-          variant="outline"
-          onClick={handleTestConnection}
-          loading={loading}
-        >
-          Kiểm tra kết nối
-        </Button>
+        <h1 className="text-2xl font-bold">Cài đặt AI</h1>
+        <div className="flex space-x-2">
+          <Button
+            variant="outline"
+            onClick={handleTestConnection}
+            disabled={testing}
+          >
+            {testing ? 'Đang kiểm tra...' : 'Kiểm tra kết nối'}
+          </Button>
+          <Button
+            variant="danger"
+            onClick={handleResetSettings}
+          >
+            Đặt lại cài đặt
+          </Button>
+        </div>
       </div>
 
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-md">
-          {error}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            API Key
+          </label>
+          <Input
+            type="password"
+            name="api_key"
+            value={formData.api_key}
+            onChange={handleChange}
+            error={errors.api_key}
+            required
+          />
         </div>
-      )}
 
-      <div className="bg-white shadow rounded-lg p-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <Input
-              label="API Key"
-              name="api_key"
-              type="password"
-              value={formData.api_key}
-              onChange={handleChange}
-              error={errors.api_key}
-              required
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Model
+          </label>
+          <Input
+            name="model"
+            value={formData.model}
+            onChange={handleChange}
+            error={errors.model}
+            required
+          />
+        </div>
 
-          <div>
-            <Select
-              label="Model"
-              name="model"
-              value={formData.model}
-              onChange={handleChange}
-              error={errors.model}
-              options={modelOptions}
-              required
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Temperature
+          </label>
+          <Input
+            type="number"
+            name="temperature"
+            value={formData.temperature}
+            onChange={handleChange}
+            error={errors.temperature}
+            min="0"
+            max="1"
+            step="0.1"
+            required
+          />
+        </div>
 
-          <div>
-            <Input
-              label="Temperature"
-              name="temperature"
-              type="number"
-              min="0"
-              max="2"
-              step="0.1"
-              value={formData.temperature}
-              onChange={handleChange}
-              error={errors.temperature}
-              required
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Max Tokens
+          </label>
+          <Input
+            type="number"
+            name="max_tokens"
+            value={formData.max_tokens}
+            onChange={handleChange}
+            error={errors.max_tokens}
+            min="1"
+            max="4000"
+            required
+          />
+        </div>
 
-          <div>
-            <Input
-              label="Max Tokens"
-              name="max_tokens"
-              type="number"
-              min="1"
-              max="4000"
-              value={formData.max_tokens}
-              onChange={handleChange}
-              error={errors.max_tokens}
-              required
-            />
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            Prompt Template
+          </label>
+          <TextArea
+            name="prompt_template"
+            value={formData.prompt_template}
+            onChange={handleChange}
+            rows={6}
+            error={errors.prompt_template}
+            placeholder="Nhập template cho prompt AI..."
+          />
+        </div>
 
-          <div>
-            <Input
-              label="Top P"
-              name="top_p"
-              type="number"
-              min="0"
-              max="1"
-              step="0.1"
-              value={formData.top_p}
-              onChange={handleChange}
-              error={errors.top_p}
-              required
-            />
-          </div>
+        {errors.submit && (
+          <div className="text-red-500 text-sm">{errors.submit}</div>
+        )}
 
-          <div>
-            <Input
-              label="Frequency Penalty"
-              name="frequency_penalty"
-              type="number"
-              min="-2"
-              max="2"
-              step="0.1"
-              value={formData.frequency_penalty}
-              onChange={handleChange}
-              error={errors.frequency_penalty}
-              required
-            />
-          </div>
+        <div className="flex justify-end">
+          <Button
+            type="submit"
+            disabled={saving}
+          >
+            {saving ? 'Đang lưu...' : 'Lưu cài đặt'}
+          </Button>
+        </div>
+      </form>
 
+      <div className="mt-8">
+        <h2 className="text-xl font-semibold mb-4">Thông tin về cài đặt</h2>
+        <div className="bg-gray-50 p-4 rounded-lg space-y-4">
           <div>
-            <Input
-              label="Presence Penalty"
-              name="presence_penalty"
-              type="number"
-              min="-2"
-              max="2"
-              step="0.1"
-              value={formData.presence_penalty}
-              onChange={handleChange}
-              error={errors.presence_penalty}
-              required
-            />
+            <h3 className="font-medium mb-2">Temperature</h3>
+            <p className="text-sm text-gray-600">
+              Điều chỉnh độ sáng tạo của AI. Giá trị từ 0 đến 1, trong đó:
+            </p>
+            <ul className="list-disc list-inside text-sm text-gray-600 mt-1">
+              <li>0: Câu trả lời chính xác và nhất quán</li>
+              <li>1: Câu trả lời sáng tạo và đa dạng</li>
+            </ul>
           </div>
 
           <div>
-            <TextArea
-              label="System Prompt"
-              name="system_prompt"
-              value={formData.system_prompt}
-              onChange={handleChange}
-              error={errors.system_prompt}
-              rows={4}
-            />
+            <h3 className="font-medium mb-2">Max Tokens</h3>
+            <p className="text-sm text-gray-600">
+              Giới hạn độ dài của câu trả lời. Mỗi token tương đương với khoảng 4 ký tự.
+            </p>
           </div>
 
           <div>
-            <TextArea
-              label="User Prompt"
-              name="user_prompt"
-              value={formData.user_prompt}
-              onChange={handleChange}
-              error={errors.user_prompt}
-              rows={4}
-            />
+            <h3 className="font-medium mb-2">Prompt Template</h3>
+            <p className="text-sm text-gray-600">
+              Template mẫu cho prompt AI. Có thể sử dụng các biến:
+            </p>
+            <ul className="list-disc list-inside text-sm text-gray-600 mt-1">
+              <li>{'{title}'}: Tiêu đề bài viết</li>
+              <li>{'{content}'}: Nội dung bài viết</li>
+              <li>{'{category}'}: Danh mục bài viết</li>
+            </ul>
           </div>
-
-          <div className="flex justify-end">
-            <Button
-              type="submit"
-              loading={saving}
-            >
-              Lưu cài đặt
-            </Button>
-          </div>
-        </form>
+        </div>
       </div>
     </div>
   );

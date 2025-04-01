@@ -1,79 +1,143 @@
 import React, { useState, useEffect } from 'react';
-import api from '../../services/api';
+import { Link } from 'react-router-dom';
+import { Button } from '../../components/ui';
+import { dashboardService } from '../../services';
+import errorService from '../../services/errorService';
+import { toast } from 'react-toastify';
 
 const Dashboard = () => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [stats, setStats] = useState({
+    totalUsers: 0,
     totalArticles: 0,
     pendingArticles: 0,
-    totalUsers: 0,
-    categories: [],
+    approvedArticles: 0,
+    totalCategories: 0,
+    recentArticles: [],
+    recentUsers: []
   });
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchStats();
+    loadStats();
   }, []);
 
-  const fetchStats = async () => {
+  const loadStats = async () => {
     try {
-      const [articlesRes, usersRes, categoriesRes] = await Promise.all([
-        api.get('/admin/articles/rewritten'),
-        api.get('/admin/users'),
-        api.get('/admin/categories'),
-      ]);
-
-      const articles = articlesRes.data.data;
-      const pendingArticles = articles.filter(
-        (article) => article.status === 'pending'
-      );
-
-      setStats({
-        totalArticles: articles.length,
-        pendingArticles: pendingArticles.length,
-        totalUsers: usersRes.data.data.length,
-        categories: categoriesRes.data.data,
-      });
+      setLoading(true);
+      const data = await dashboardService.getStats();
+      setStats(data);
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      setError(errorService.handleApiError(error));
+      toast.error(errorService.handleApiError(error));
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
+  if (loading) return <div>Đang tải...</div>;
+  if (error) return <div className="text-red-500">{error}</div>;
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-2">Total Articles</h2>
-          <p className="text-3xl font-bold text-blue-600">{stats.totalArticles}</p>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Tổng quan</h1>
+        <Button onClick={loadStats}>
+          Làm mới
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-gray-500 text-sm font-medium">Tổng số người dùng</h3>
+          <p className="text-3xl font-bold mt-2">{stats.totalUsers}</p>
+          <Link to="/admin/users" className="text-blue-600 text-sm mt-2 inline-block">
+            Xem chi tiết →
+          </Link>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-2">Pending Articles</h2>
-          <p className="text-3xl font-bold text-yellow-600">{stats.pendingArticles}</p>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-gray-500 text-sm font-medium">Tổng số bài viết</h3>
+          <p className="text-3xl font-bold mt-2">{stats.totalArticles}</p>
+          <Link to="/admin/articles" className="text-blue-600 text-sm mt-2 inline-block">
+            Xem chi tiết →
+          </Link>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-2">Total Users</h2>
-          <p className="text-3xl font-bold text-green-600">{stats.totalUsers}</p>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-gray-500 text-sm font-medium">Bài viết chờ duyệt</h3>
+          <p className="text-3xl font-bold mt-2">{stats.pending_articles}</p>
+          <Link to="/admin/articles/pending" className="text-blue-600 text-sm mt-2 inline-block">
+            Xem chi tiết →
+          </Link>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-gray-500 text-sm font-medium">Bài viết đã duyệt</h3>
+          <p className="text-3xl font-bold mt-2">{stats.approved_articles}</p>
+          <Link to="/admin/articles/approved" className="text-blue-600 text-sm mt-2 inline-block">
+            Xem chi tiết →
+          </Link>
         </div>
       </div>
-      <div className="mt-8">
-        <h2 className="text-xl font-semibold mb-4">Categories</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {stats.categories.map((category) => (
-            <div key={category.id} className="bg-white p-4 rounded-lg shadow">
-              <h3 className="font-semibold">{category.name}</h3>
-              <p className="text-gray-600">{category.description}</p>
-            </div>
-          ))}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-lg shadow">
+          <div className="p-6 border-b">
+            <h2 className="text-lg font-semibold">Bài viết gần đây</h2>
+          </div>
+          <div className="p-6">
+            {stats.recent_articles.length > 0 ? (
+              <div className="space-y-4">
+                {stats.recent_articles.map(article => (
+                  <div key={article.id} className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium">{article.title}</h3>
+                      <p className="text-sm text-gray-500">
+                        {new Date(article.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Link
+                      to={`/admin/articles/${article.id}`}
+                      className="text-blue-600 text-sm"
+                    >
+                      Chi tiết →
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500">Không có bài viết nào</p>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow">
+          <div className="p-6 border-b">
+            <h2 className="text-lg font-semibold">Người dùng mới</h2>
+          </div>
+          <div className="p-6">
+            {stats.recent_users.length > 0 ? (
+              <div className="space-y-4">
+                {stats.recent_users.map(user => (
+                  <div key={user.id} className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium">{user.name}</h3>
+                      <p className="text-sm text-gray-500">{user.email}</p>
+                    </div>
+                    <Link
+                      to={`/admin/users/${user.id}`}
+                      className="text-blue-600 text-sm"
+                    >
+                      Chi tiết →
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500">Không có người dùng mới</p>
+            )}
+          </div>
         </div>
       </div>
     </div>

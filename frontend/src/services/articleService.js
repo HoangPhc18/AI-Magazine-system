@@ -161,87 +161,46 @@ const articleService = {
     }
   },
 
-  // Rewritten Articles
-  getRewrittenArticles: async (params = {}) => {
-    try {
-      const response = await api.get('/admin/rewritten-articles', { params });
-      return response.data;
-    } catch (error) {
-      throw errorService.handleApiError(error);
-    }
+  // Quản lý bài viết đã viết lại
+  getRewrittenArticles: async (page = 1) => {
+    const response = await api.get(`/admin/articles/rewritten?page=${page}`);
+    return response.data;
   },
 
   getRewrittenArticle: async (id) => {
-    try {
-      const response = await api.get(`/admin/rewritten-articles/${id}`);
-      return response.data;
-    } catch (error) {
-      throw errorService.handleApiError(error);
-    }
+    const response = await api.get(`/admin/articles/rewritten/${id}`);
+    return response.data;
   },
 
-  updateRewrittenArticle: async (id, data) => {
-    try {
-      const response = await api.put(`/admin/rewritten-articles/${id}`, data);
-      return response.data;
-    } catch (error) {
-      throw errorService.handleApiError(error);
-    }
+  approveArticle: async (id) => {
+    const response = await api.post(`/admin/articles/rewritten/${id}/approve`);
+    return response.data;
   },
 
-  approveRewrittenArticle: async (id) => {
-    try {
-      const response = await api.post(`/admin/rewritten-articles/${id}/approve`);
-      return response.data;
-    } catch (error) {
-      throw errorService.handleApiError(error);
-    }
+  rejectArticle: async (id) => {
+    const response = await api.post(`/admin/articles/rewritten/${id}/reject`);
+    return response.data;
   },
 
-  rejectRewrittenArticle: async (id) => {
-    try {
-      const response = await api.post(`/admin/rewritten-articles/${id}/reject`);
-      return response.data;
-    } catch (error) {
-      throw errorService.handleApiError(error);
-    }
-  },
-
-  // Approved Articles
-  getApprovedArticles: async (params = {}) => {
-    try {
-      const response = await api.get('/admin/approved-articles', { params });
-      return response.data;
-    } catch (error) {
-      throw errorService.handleApiError(error);
-    }
+  // Quản lý bài viết đã duyệt
+  getApprovedArticles: async (page = 1) => {
+    const response = await api.get(`/admin/articles/approved?page=${page}`);
+    return response.data;
   },
 
   getApprovedArticle: async (id) => {
-    try {
-      const response = await api.get(`/admin/approved-articles/${id}`);
-      return response.data;
-    } catch (error) {
-      throw errorService.handleApiError(error);
-    }
+    const response = await api.get(`/admin/articles/approved/${id}`);
+    return response.data;
   },
 
-  updateApprovedArticle: async (id, data) => {
-    try {
-      const response = await api.put(`/admin/approved-articles/${id}`, data);
-      return response.data;
-    } catch (error) {
-      throw errorService.handleApiError(error);
-    }
+  archiveArticle: async (id) => {
+    const response = await api.post(`/admin/articles/approved/${id}/archive`);
+    return response.data;
   },
 
-  deleteApprovedArticle: async (id) => {
-    try {
-      const response = await api.delete(`/admin/approved-articles/${id}`);
-      return response.data;
-    } catch (error) {
-      throw errorService.handleApiError(error);
-    }
+  deleteArticle: async (id) => {
+    const response = await api.delete(`/admin/articles/approved/${id}`);
+    return response.data;
   },
 
   // Public Articles

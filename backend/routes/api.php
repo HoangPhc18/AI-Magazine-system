@@ -3,14 +3,15 @@
 use App\Http\Controllers\Api\Admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\Api\Admin\CategoryController as AdminCategoryController;
 use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
-use App\Http\Controllers\Api\Admin\AiSettingController as AdminAiSettingController;
+use App\Http\Controllers\Api\Admin\AISettingsController;
 use App\Http\Controllers\Api\Admin\RewrittenArticleController;
 use App\Http\Controllers\Api\Admin\ApprovedArticleController;
+use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\ArticleController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\UserController;
-use App\Http\Controllers\Api\AISettingsController;
+use App\Http\Controllers\Api\AISettingsController as PublicAISettingsController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes
@@ -37,12 +38,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('users/{id}/role', [UserController::class, 'updateRole']);
 
     // AI Settings routes
-    Route::get('ai-settings', [AISettingsController::class, 'index']);
-    Route::put('ai-settings', [AISettingsController::class, 'update']);
+    Route::get('ai-settings', [PublicAISettingsController::class, 'index']);
+    Route::put('ai-settings', [PublicAISettingsController::class, 'update']);
 });
 
 // Admin routes
-Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
+Route::prefix('admin')->middleware(['auth:sanctum', \App\Http\Middleware\AdminMiddleware::class])->group(function () {
+    // Dashboard
+    Route::get('/dashboard/stats', [DashboardController::class, 'getStats']);
+    
     // User Management
     Route::get('/users', [AdminUserController::class, 'index']);
     Route::post('/users', [AdminUserController::class, 'store']);
@@ -75,8 +79,8 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::delete('/categories/{category}', [AdminCategoryController::class, 'destroy']);
 
     // AI Settings management
-    Route::get('/ai-settings', [AdminAiSettingController::class, 'index']);
-    Route::put('/ai-settings', [AdminAiSettingController::class, 'update']);
-    Route::post('/ai-settings/test-connection', [AdminAiSettingController::class, 'testConnection']);
-    Route::post('/ai-settings/reset', [AdminAiSettingController::class, 'resetSettings']);
+    Route::get('/ai-settings', [AISettingsController::class, 'index']);
+    Route::put('/ai-settings', [AISettingsController::class, 'update']);
+    Route::post('/ai-settings/test-connection', [AISettingsController::class, 'testConnection']);
+    Route::post('/ai-settings/reset', [AISettingsController::class, 'resetSettings']);
 }); 

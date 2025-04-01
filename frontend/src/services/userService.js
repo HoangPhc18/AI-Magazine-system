@@ -1,55 +1,35 @@
-import axios from 'axios';
+import api from './api';
 import errorService from './errorService';
 
-const userService = {
-  getAll: async (params = {}) => {
-    try {
-      const response = await axios.get('/api/users', { params });
-      return response.data;
-    } catch (error) {
-      throw errorService.handleApiError(error);
-    }
+export const userService = {
+  getUsers: async (page = 1) => {
+    const response = await api.get(`/admin/users?page=${page}`);
+    return response.data;
   },
 
-  getById: async (id) => {
-    try {
-      const response = await axios.get(`/api/users/${id}`);
-      return response.data;
-    } catch (error) {
-      throw errorService.handleApiError(error);
-    }
+  getUser: async (id) => {
+    const response = await api.get(`/admin/users/${id}`);
+    return response.data;
   },
 
-  create: async (data) => {
-    try {
-      const response = await axios.post('/api/users', data);
-      return response.data;
-    } catch (error) {
-      throw errorService.handleApiError(error);
-    }
+  createUser: async (data) => {
+    const response = await api.post('/admin/users', data);
+    return response.data;
   },
 
-  update: async (id, data) => {
-    try {
-      const response = await axios.put(`/api/users/${id}`, data);
-      return response.data;
-    } catch (error) {
-      throw errorService.handleApiError(error);
-    }
+  updateUser: async (id, data) => {
+    const response = await api.put(`/admin/users/${id}`, data);
+    return response.data;
   },
 
-  delete: async (id) => {
-    try {
-      await axios.delete(`/api/users/${id}`);
-      return true;
-    } catch (error) {
-      throw errorService.handleApiError(error);
-    }
+  deleteUser: async (id) => {
+    const response = await api.delete(`/admin/users/${id}`);
+    return response.data;
   },
 
   updateProfile: async (data) => {
     try {
-      const response = await axios.put('/api/users/profile', data);
+      const response = await api.put('/api/users/profile', data);
       return response.data;
     } catch (error) {
       throw errorService.handleApiError(error);
@@ -58,7 +38,7 @@ const userService = {
 
   changePassword: async (data) => {
     try {
-      const response = await axios.put('/api/users/change-password', data);
+      const response = await api.put('/api/users/change-password', data);
       return response.data;
     } catch (error) {
       throw errorService.handleApiError(error);
@@ -67,7 +47,7 @@ const userService = {
 
   forgotPassword: async (email) => {
     try {
-      const response = await axios.post('/api/users/forgot-password', { email });
+      const response = await api.post('/api/users/forgot-password', { email });
       return response.data;
     } catch (error) {
       throw errorService.handleApiError(error);
@@ -76,7 +56,7 @@ const userService = {
 
   resetPassword: async (token, data) => {
     try {
-      const response = await axios.post(`/api/users/reset-password/${token}`, data);
+      const response = await api.post(`/api/users/reset-password/${token}`, data);
       return response.data;
     } catch (error) {
       throw errorService.handleApiError(error);

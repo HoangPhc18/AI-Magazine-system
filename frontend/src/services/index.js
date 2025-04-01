@@ -9,6 +9,8 @@ import validationService from './validationService';
 import contactService from './contactService';
 import authService from './authService';
 import settingsService from './settingsService';
+import dashboardService from './dashboardService';
+import aiService from './aiService';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
@@ -52,5 +54,7 @@ export {
   validationService,
   contactService,
   authService,
-  settingsService
+  settingsService,
+  dashboardService,
+  aiService
 }; 

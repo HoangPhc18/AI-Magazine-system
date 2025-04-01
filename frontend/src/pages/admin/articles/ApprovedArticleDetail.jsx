@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button, Input, TextArea, Select } from '../../../components/ui';
 import { articleService, categoryService } from '../../../services';
-import { handleApiError } from '../../../services/errorService';
+import errorService from '../../../services/errorService';
 import { formatDate } from '../../../services/dateService';
+import { toast } from 'react-toastify';
 
 const ApprovedArticleDetail = () => {
   const { id } = useParams();
@@ -38,7 +39,7 @@ const ApprovedArticleDetail = () => {
         status: data.status
       });
     } catch (error) {
-      setError(handleApiError(error).message);
+      setError(errorService.handleApiError(error).message);
     } finally {
       setLoading(false);
     }
@@ -77,7 +78,7 @@ const ApprovedArticleDetail = () => {
       await articleService.updateApprovedArticle(id, formData);
       navigate('/admin/articles/approved');
     } catch (error) {
-      const errorData = handleApiError(error);
+      const errorData = errorService.handleApiError(error);
       setErrors(errorData.errors || {});
     } finally {
       setSaving(false);
@@ -90,7 +91,7 @@ const ApprovedArticleDetail = () => {
       await articleService.updateArticleStatus(id, newStatus);
       loadArticle();
     } catch (error) {
-      setError(handleApiError(error).message);
+      setError(errorService.handleApiError(error).message);
     }
   };
 
