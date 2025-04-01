@@ -1,140 +1,176 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Button, Table, Search, Pagination } from '../../../components/ui';
+import { useNavigate } from 'react-router-dom';
+import { Button, Table, Input, Pagination, message, Modal } from 'antd';
 import { userService } from '../../../services';
-import errorService from '../../../services/errorService';
-import { toast } from 'react-toastify';
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+
+const { Search } = Input;
 
 const UserList = () => {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  useEffect(() => {
-    loadUsers();
-  }, [currentPage]);
+  const columns = [
+    {
+      title: 'ID',
+      dataIndex: 'id',
+      key: 'id',
+    },
+    {
+      title: 'Họ tên',
+      dataIndex: 'name',
+      key: 'name',
+    },
+    {
+      title: 'Email',
+      dataIndex: 'email',
+      key: 'email',
+    },
+    {
+      title: 'Vai trò',
+      dataIndex: 'role',
+      key: 'role',
+      render: (role) => {
+        const roleMap = {
+          admin: 'Quản trị viên',
+          editor: 'Biên tập viên',
+          user: 'Người dùng'
+        };
+        return roleMap[role] || role;
+      }
+    },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      render: (isActive) => (
+        <span className={`px-2 py-1 rounded-full text-sm ${
+          isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+        }`}>
+          {isActive ? 'Hoạt động' : 'Không hoạt động'}
+        </span>
+      ),
+    },
+    {
+      title: 'Ngày tạo',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      render: (date) => new Date(date).toLocaleDateString('vi-VN'),
+    },
+    {
+      title: 'Thao tác',
+      key: 'actions',
+      render: (_, record) => (
+        <div className="space-x-2">
+          <Button
+            type="primary"
+            icon={<EditOutlined />}
+            onClick={() => navigate(`/admin/users/${record.id}/edit`)}
+          >
+            Sửa
+          </Button>
+          <Button
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(record.id)}
+          >
+            Xóa
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   const loadUsers = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await userService.getUsers(currentPage);
       setUsers(response.data);
-      setTotalPages(response.last_page);
+      setTotalPages(response.meta.last_page);
     } catch (error) {
-      setError(errorService.handleApiError(error));
-      toast.error(errorService.handleApiError(error));
+      setError('Không thể tải danh sách người dùng');
+      message.error('Không thể tải danh sách người dùng');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (userId) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa người dùng này?')) {
-      try {
-        await userService.deleteUser(userId);
-        toast.success('Xóa người dùng thành công');
-        loadUsers();
-      } catch (error) {
-        toast.error(errorService.handleApiError(error));
-      }
-    }
-  };
+  useEffect(() => {
+    loadUsers();
+  }, [currentPage]);
 
-  const columns = [
-    {
-      header: 'ID',
-      key: 'id'
-    },
-    {
-      header: 'Tên',
-      key: 'name'
-    },
-    {
-      header: 'Email',
-      key: 'email'
-    },
-    {
-      header: 'Vai trò',
-      key: 'role',
-      render: (user) => (
-        <span className={`px-2 py-1 rounded-full text-xs ${
-          user.role === 'admin' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-        }`}>
-          {user.role === 'admin' ? 'Admin' : 'User'}
-        </span>
-      )
-    },
-    {
-      header: 'Trạng thái',
-      key: 'status',
-      render: (user) => (
-        <span className={`px-2 py-1 rounded-full text-xs ${
-          user.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-        }`}>
-          {user.status === 'active' ? 'Hoạt động' : 'Đã khóa'}
-        </span>
-      )
-    },
-    {
-      header: 'Thao tác',
-      render: (user) => (
-        <div className="flex space-x-2">
-          <Link
-            to={`/admin/users/${user.id}`}
-            className="text-blue-600 hover:text-blue-800"
-          >
-            Chi tiết
-          </Link>
-          <button
-            onClick={() => handleDelete(user.id)}
-            className="text-red-600 hover:text-red-800"
-          >
-            Xóa
-          </button>
-        </div>
-      )
-    }
-  ];
+  const handleDelete = async (userId) => {
+    Modal.confirm({
+      title: 'Xác nhận xóa',
+      content: 'Bạn có chắc chắn muốn xóa người dùng này?',
+      okText: 'Xóa',
+      okType: 'danger',
+      cancelText: 'Hủy',
+      onOk: async () => {
+        try {
+          await userService.deleteUser(userId);
+          message.success('Xóa người dùng thành công');
+          loadUsers();
+        } catch (error) {
+          message.error('Không thể xóa người dùng');
+        }
+      },
+    });
+  };
 
   const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) return <div>Đang tải...</div>;
-  if (error) return <div className="text-red-500">{error}</div>;
-
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Quản lý người dùng</h1>
-        <Link to="/admin/users/new">
-          <Button>Thêm người dùng</Button>
-        </Link>
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={() => navigate('/admin/users/create')}
+        >
+          Thêm người dùng
+        </Button>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-4">
         <Search
-          value={searchTerm}
+          placeholder="Tìm kiếm theo tên hoặc email"
+          allowClear
           onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Tìm kiếm người dùng..."
+          style={{ width: 300 }}
         />
       </div>
 
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {error}
+        </div>
+      )}
+
       <Table
         columns={columns}
-        data={filteredUsers}
-        emptyMessage="Không tìm thấy người dùng nào"
+        dataSource={filteredUsers}
+        rowKey="id"
+        loading={loading}
+        pagination={false}
       />
 
-      <div className="mt-6 flex justify-center">
+      <div className="mt-4 flex justify-end">
         <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
+          current={currentPage}
+          total={totalPages * 10}
+          onChange={(page) => setCurrentPage(page)}
+          showSizeChanger={false}
         />
       </div>
     </div>

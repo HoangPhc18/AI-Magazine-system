@@ -2,7 +2,7 @@
 
 use App\Http\Controllers\Api\Admin\ArticleController as AdminArticleController;
 use App\Http\Controllers\Api\Admin\CategoryController as AdminCategoryController;
-use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Api\Admin\UserController;
 use App\Http\Controllers\Api\Admin\AISettingsController;
 use App\Http\Controllers\Api\Admin\RewrittenArticleController;
 use App\Http\Controllers\Api\Admin\ApprovedArticleController;
@@ -10,7 +10,7 @@ use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\ArticleController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
-use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\UserController as PublicUserController;
 use App\Http\Controllers\Api\AISettingsController as PublicAISettingsController;
 use Illuminate\Support\Facades\Route;
 
@@ -34,8 +34,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/auth/profile', [AuthController::class, 'profile']);
 
     // User routes
-    Route::apiResource('users', UserController::class);
-    Route::put('users/{id}/role', [UserController::class, 'updateRole']);
+    Route::get('/users/profile', [PublicUserController::class, 'profile']);
+    Route::put('/users/profile', [PublicUserController::class, 'updateProfile']);
+    Route::put('/users/change-password', [PublicUserController::class, 'changePassword']);
 
     // AI Settings routes
     Route::get('ai-settings', [PublicAISettingsController::class, 'index']);
@@ -43,18 +44,17 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 // Admin routes
-Route::prefix('admin')->middleware(['auth:sanctum', \App\Http\Middleware\AdminMiddleware::class])->group(function () {
+Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function () {
     // Dashboard
     Route::get('/dashboard/stats', [DashboardController::class, 'getStats']);
     
     // User Management
-    Route::get('/users', [AdminUserController::class, 'index']);
-    Route::post('/users', [AdminUserController::class, 'store']);
-    Route::get('/users/{user}', [AdminUserController::class, 'show']);
-    Route::put('/users/{user}', [AdminUserController::class, 'update']);
-    Route::delete('/users/{user}', [AdminUserController::class, 'destroy']);
-    Route::put('/users/{user}/role', [AdminUserController::class, 'updateRole']);
-    Route::put('/users/{user}/toggle-status', [AdminUserController::class, 'toggleStatus']);
+    Route::get('/users', [UserController::class, 'index']);
+    Route::post('/users', [UserController::class, 'store']);
+    Route::get('/users/{id}', [UserController::class, 'show']);
+    Route::put('/users/{id}', [UserController::class, 'update']);
+    Route::delete('/users/{id}', [UserController::class, 'destroy']);
+    Route::patch('/users/{id}/status', [UserController::class, 'updateStatus']);
 
     // Rewritten Articles Management
     Route::get('/articles/rewritten', [RewrittenArticleController::class, 'index']);

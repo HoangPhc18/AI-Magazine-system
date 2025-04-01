@@ -25,7 +25,7 @@ const UserCreate = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await userService.create(formData);
+      await userService.createUser(formData);
       toast.success('User created successfully');
       navigate('/admin/users');
     } catch (err) {

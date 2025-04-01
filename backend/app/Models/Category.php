@@ -18,16 +18,11 @@ class Category extends Model
 
     public function articles()
     {
-        return $this->hasMany(Article::class);
+        return $this->hasMany(ApprovedArticle::class);
     }
 
     public function rewrittenArticles()
     {
         return $this->hasMany(RewrittenArticle::class);
-    }
-
-    public function approvedArticles()
-    {
-        return $this->hasMany(ApprovedArticle::class);
     }
 } 

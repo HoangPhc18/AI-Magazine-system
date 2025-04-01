@@ -3,76 +3,125 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rules\Password;
 
 class UserController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $users = User::all();
-        return UserResource::collection($users);
+        $users = User::query()
+            ->when($request->search, function ($query, $search) {
+                $query->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
+            })
+            ->orderBy('created_at', 'desc')
+            ->paginate(10);
+
+        return response()->json([
+            'data' => $users->items(),
+            'meta' => [
+                'current_page' => $users->currentPage(),
+                'last_page' => $users->lastPage(),
+                'per_page' => $users->perPage(),
+                'total' => $users->total()
+            ]
+        ]);
+    }
+
+    public function show($id)
+    {
+        $user = User::findOrFail($id);
+        return response()->json(['data' => $user]);
     }
 
     public function store(Request $request)
     {
+        try {
+            Log::info('Creating user with data:', $request->all());
+            
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|string|email|max:255|unique:users',
+                'password' => ['required', Password::defaults()],
+                'role' => 'required|in:admin,editor,user',
+                'is_active' => 'boolean'
+            ]);
+
+            Log::info('Validation passed:', $validated);
+
+            $user = User::create([
+                'name' => $validated['name'],
+                'email' => $validated['email'],
+                'password' => Hash::make($validated['password']),
+                'role' => $validated['role'],
+                'is_active' => $validated['is_active'] ?? true
+            ]);
+
+            Log::info('User created successfully:', $user->toArray());
+
+            return response()->json([
+                'message' => 'User created successfully',
+                'data' => $user
+            ], 201);
+        } catch (\Exception $e) {
+            Log::error('Error creating user:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'message' => 'Error creating user',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function update(Request $request, $id)
+    {
+        $user = User::findOrFail($id);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8',
-            'role' => 'required|string|in:admin,editor,user',
-        ]);
-
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'role' => $validated['role'],
-            'is_active' => true,
-        ]);
-
-        return new UserResource($user);
-    }
-
-    public function show(User $user)
-    {
-        return new UserResource($user);
-    }
-
-    public function update(Request $request, User $user)
-    {
-        $validated = $request->validate([
-            'name' => 'sometimes|string|max:255',
-            'email' => 'sometimes|string|email|max:255|unique:users,email,' . $user->id,
-            'role' => 'sometimes|string|in:admin,editor,user',
+            'email' => 'required|string|email|max:255|unique:users,email,' . $id,
+            'role' => 'required|in:admin,editor,user',
+            'is_active' => 'boolean'
         ]);
 
         $user->update($validated);
-        return new UserResource($user);
+
+        return response()->json([
+            'message' => 'User updated successfully',
+            'data' => $user
+        ]);
     }
 
-    public function destroy(User $user)
+    public function destroy($id)
     {
+        $user = User::findOrFail($id);
         $user->delete();
-        return response()->json(['message' => 'User deleted successfully']);
+
+        return response()->json([
+            'message' => 'User deleted successfully'
+        ]);
     }
 
-    public function updateRole(Request $request, User $user)
+    public function updateStatus(Request $request, $id)
     {
+        $user = User::findOrFail($id);
+
         $validated = $request->validate([
-            'role' => 'required|string|in:admin,editor,user',
+            'is_active' => 'required|boolean'
         ]);
 
-        $user->update(['role' => $validated['role']]);
-        return new UserResource($user);
-    }
+        $user->update($validated);
 
-    public function toggleStatus(User $user)
-    {
-        $user->update(['is_active' => !$user->is_active]);
-        return new UserResource($user);
+        return response()->json([
+            'message' => 'User status updated successfully',
+            'data' => $user
+        ]);
     }
 }

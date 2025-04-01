@@ -24,7 +24,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
-        'is_active'
+        'status',
     ];
 
     /**
@@ -42,14 +42,10 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
-    protected function casts(): array
-    {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-            'is_active' => 'boolean',
-        ];
-    }
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+    ];
 
     public function isAdmin()
     {
@@ -59,5 +55,20 @@ class User extends Authenticatable
     public function isEditor()
     {
         return $this->role === 'editor';
+    }
+
+    public function isActive()
+    {
+        return $this->status === 'active';
+    }
+
+    public function articles()
+    {
+        return $this->hasMany(Article::class);
+    }
+
+    public function approvedArticles()
+    {
+        return $this->hasMany(ApprovedArticle::class);
     }
 }

@@ -8,31 +8,27 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('categories', function (Blueprint $table) {
-            $table->softDeletes();
-        });
-
-        Schema::table('articles', function (Blueprint $table) {
-            $table->softDeletes();
-        });
-
-        Schema::table('rewritten_articles', function (Blueprint $table) {
-            $table->softDeletes();
-        });
+        $tables = ['categories', 'articles', 'rewritten_articles'];
+        
+        foreach ($tables as $table) {
+            if (Schema::hasTable($table)) {
+                Schema::table($table, function (Blueprint $table) {
+                    $table->softDeletes();
+                });
+            }
+        }
     }
 
     public function down(): void
     {
-        Schema::table('categories', function (Blueprint $table) {
-            $table->dropSoftDeletes();
-        });
-
-        Schema::table('articles', function (Blueprint $table) {
-            $table->dropSoftDeletes();
-        });
-
-        Schema::table('rewritten_articles', function (Blueprint $table) {
-            $table->dropSoftDeletes();
-        });
+        $tables = ['categories', 'articles', 'rewritten_articles'];
+        
+        foreach ($tables as $table) {
+            if (Schema::hasTable($table)) {
+                Schema::table($table, function (Blueprint $table) {
+                    $table->dropSoftDeletes();
+                });
+            }
+        }
     }
 }; 

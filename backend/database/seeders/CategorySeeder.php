@@ -4,36 +4,27 @@ namespace Database\Seeders;
 
 use App\Models\Category;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class CategorySeeder extends Seeder
 {
-    public function run(): void
+    public function run()
     {
         $categories = [
-            [
-                'name' => 'Công nghệ',
-                'slug' => 'cong-nghe',
-                'description' => 'Các bài viết về công nghệ và đổi mới'
-            ],
-            [
-                'name' => 'Khoa học',
-                'slug' => 'khoa-hoc',
-                'description' => 'Các bài viết về khám phá và nghiên cứu khoa học'
-            ],
-            [
-                'name' => 'Sức khỏe',
-                'slug' => 'suc-khoe',
-                'description' => 'Các bài viết về sức khỏe và đời sống'
-            ],
-            [
-                'name' => 'Kinh doanh',
-                'slug' => 'kinh-doanh',
-                'description' => 'Các bài viết về kinh doanh và khởi nghiệp'
-            ]
+            'Công nghệ' => 'Các bài viết về xu hướng và đổi mới công nghệ mới nhất',
+            'Khoa học' => 'Khám phá khoa học và kết quả nghiên cứu mới',
+            'Kinh doanh' => 'Tin tức kinh doanh, chiến lược và phân tích thị trường',
+            'Sức khỏe' => 'Mẹo sức khỏe, đột phá y tế và lời khuyên về sức khỏe tổng thể',
+            'Đời sống' => 'Chủ đề về cuộc sống hàng ngày, văn hóa, giải trí và sở thích',
+            'Du lịch' => 'Điểm đến du lịch, hướng dẫn và trải nghiệm du lịch'
         ];
-
-        foreach ($categories as $category) {
-            Category::create($category);
+        
+        foreach ($categories as $name => $description) {
+            Category::create([
+                'name' => $name,
+                'slug' => Str::slug($name),
+                'description' => $description
+            ]);
         }
     }
 } 
