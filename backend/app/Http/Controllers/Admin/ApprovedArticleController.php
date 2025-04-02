@@ -19,42 +19,55 @@ class ApprovedArticleController extends Controller
      */
     public function index()
     {
-        // Lấy tất cả các bài viết đã được chấp thuận
-        $articles = ApprovedArticle::with(['category', 'user'])
-            ->latest()
-            ->paginate(10);
-        
-        // Ghi log và kiểm tra xem có bài viết tương ứng trong bảng rewritten_articles không
+        $query = ApprovedArticle::query();
+
+        // Filter by status
+        if (request()->has('status') && request('status') != '') {
+            $query->where('status', request('status'));
+        }
+
+        // Filter by creation date range
+        if (request()->has('created_from') && request('created_from') != '') {
+            $query->whereDate('created_at', '>=', request('created_from'));
+        }
+
+        if (request()->has('created_to') && request('created_to') != '') {
+            $query->whereDate('created_at', '<=', request('created_to'));
+        }
+
+        // Filter by publication date range
+        if (request()->has('published_from') && request('published_from') != '') {
+            $query->whereDate('published_at', '>=', request('published_from'));
+        }
+
+        if (request()->has('published_to') && request('published_to') != '') {
+            $query->whereDate('published_at', '<=', request('published_to'));
+        }
+
+        // Filter by category
+        if (request()->has('category_id') && request('category_id') != '') {
+            $query->where('category_id', request('category_id'));
+        }
+
+        $articles = $query->with(['category', 'user'])->latest()->paginate(10);
+
+        // Loop through articles to check if they have a corresponding rewritten_article
+        // that needs to be deleted
         foreach ($articles as $article) {
-            // Kiểm tra nếu bài viết này được tạo từ một bài viết rewritten
             if ($article->original_article_id) {
-                $rewrittenArticle = \App\Models\RewrittenArticle::withTrashed()->find($article->original_article_id);
-                
-                if ($rewrittenArticle) {
-                    Log::info('Xóa bài viết gốc từ bảng rewritten_articles', [
-                        'approved_article_id' => $article->id,
-                        'rewritten_article_id' => $rewrittenArticle->id,
-                        'title' => $rewrittenArticle->title
-                    ]);
-                    
+                $rewrittenArticle = \App\Models\RewrittenArticle::find($article->original_article_id);
+                if ($rewrittenArticle && $rewrittenArticle->status === 'approved') {
                     try {
-                        // Xóa triệt để
+                        // Permanently delete the rewritten article
                         $rewrittenArticle->forceDelete();
                         
-                        // Kiểm tra xem bài viết đã thực sự bị xóa chưa
-                        $checkArticle = \App\Models\RewrittenArticle::withTrashed()->find($rewrittenArticle->id);
-                        if ($checkArticle) {
-                            Log::warning('Bài viết vẫn tồn tại sau khi forceDelete trong ApprovedArticleController', [
-                                'rewritten_article_id' => $rewrittenArticle->id,
-                                'is_trashed' => $checkArticle->trashed(),
-                                'status' => $checkArticle->status
-                            ]);
-                            
-                            // Thử xóa một lần nữa bằng query builder
-                            DB::table('rewritten_articles')->where('id', $rewrittenArticle->id)->delete();
-                        }
+                        // Log for tracking purposes
+                        \Log::info('Deleted rewritten article after finding it in approved articles list', [
+                            'rewritten_article_id' => $rewrittenArticle->id,
+                            'approved_article_id' => $article->id
+                        ]);
                     } catch (\Exception $e) {
-                        Log::error('Lỗi khi xóa bài viết rewritten trong ApprovedArticleController', [
+                        \Log::error('Error deleting rewritten article', [
                             'rewritten_article_id' => $rewrittenArticle->id,
                             'error' => $e->getMessage()
                         ]);
@@ -62,7 +75,7 @@ class ApprovedArticleController extends Controller
                 }
             }
         }
-            
+
         return view('admin.approved-articles.index', compact('articles'));
     }
 

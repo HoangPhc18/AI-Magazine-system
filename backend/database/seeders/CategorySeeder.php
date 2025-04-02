@@ -2,29 +2,53 @@
 
 namespace Database\Seeders;
 
-use App\Models\Category;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class CategorySeeder extends Seeder
 {
-    public function run()
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
     {
+        // Kiểm tra nếu bảng không tồn tại
+        if (!Schema::hasTable('categories')) {
+            $this->command->error('Bảng categories không tồn tại! Hãy chạy migrations trước.');
+            return;
+        }
+
         $categories = [
-            'Công nghệ' => 'Các bài viết về xu hướng và đổi mới công nghệ mới nhất',
-            'Khoa học' => 'Khám phá khoa học và kết quả nghiên cứu mới',
-            'Kinh doanh' => 'Tin tức kinh doanh, chiến lược và phân tích thị trường',
-            'Sức khỏe' => 'Mẹo sức khỏe, đột phá y tế và lời khuyên về sức khỏe tổng thể',
-            'Đời sống' => 'Chủ đề về cuộc sống hàng ngày, văn hóa, giải trí và sở thích',
-            'Du lịch' => 'Điểm đến du lịch, hướng dẫn và trải nghiệm du lịch'
+            ['name' => 'Công nghệ', 'slug' => 'cong-nghe', 'description' => 'Tin tức về công nghệ, AI, blockchain, gadget mới nhất'],
+            ['name' => 'Kinh doanh', 'slug' => 'kinh-doanh', 'description' => 'Thông tin về kinh doanh, thị trường và tài chính'],
+            ['name' => 'Giải trí', 'slug' => 'giai-tri', 'description' => 'Tin tức về phim ảnh, âm nhạc, nghệ sĩ và sự kiện giải trí'],
+            ['name' => 'Thể thao', 'slug' => 'the-thao', 'description' => 'Cập nhật tin tức thể thao trong nước và quốc tế'],
+            ['name' => 'Đời sống', 'slug' => 'doi-song', 'description' => 'Thông tin về đời sống, gia đình, sức khỏe và xu hướng'],
         ];
-        
-        foreach ($categories as $name => $description) {
-            Category::create([
-                'name' => $name,
-                'slug' => Str::slug($name),
-                'description' => $description
-            ]);
+
+        $count = 0;
+        foreach ($categories as $category) {
+            // Kiểm tra xem category đã tồn tại chưa
+            $existing = DB::table('categories')->where('slug', $category['slug'])->first();
+            
+            if (!$existing) {
+                DB::table('categories')->insert([
+                    'name' => $category['name'],
+                    'slug' => $category['slug'],
+                    'description' => $category['description'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                $count++;
+            }
+        }
+
+        if ($count > 0) {
+            $this->command->info("Đã tạo $count danh mục mới.");
+        } else {
+            $this->command->info('Không có danh mục mới nào được tạo. Tất cả đã tồn tại.');
         }
     }
 } 

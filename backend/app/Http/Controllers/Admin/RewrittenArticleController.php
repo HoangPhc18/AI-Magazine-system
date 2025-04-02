@@ -21,57 +21,37 @@ class RewrittenArticleController extends Controller
      */
     public function index()
     {
-        // Xóa tất cả bài viết có trạng thái 'approved' (có thể vẫn tồn tại sau khi chuyển đến approved_articles)
-        $approvedArticles = RewrittenArticle::where('status', 'approved')->get();
-        
-        if ($approvedArticles->count() > 0) {
-            Log::info('Tìm thấy ' . $approvedArticles->count() . ' bài viết đã duyệt còn tồn tại trong rewritten_articles');
-            
-            foreach ($approvedArticles as $article) {
-                Log::info('Xóa bài viết đã duyệt: ' . $article->id . ' - ' . $article->title);
-                
-                try {
-                    // Xóa triệt để
-                    $article->forceDelete();
-                    
-                    // Kiểm tra xem bài viết đã thực sự bị xóa chưa
-                    $checkArticle = RewrittenArticle::withTrashed()->find($article->id);
-                    if ($checkArticle) {
-                        Log::warning('Bài viết vẫn tồn tại sau khi forceDelete trong index()', [
-                            'rewritten_article_id' => $article->id,
-                            'is_trashed' => $checkArticle->trashed(),
-                            'status' => $checkArticle->status
-                        ]);
-                        
-                        // Thử xóa một lần nữa bằng query builder
-                        DB::table('rewritten_articles')->where('id', $article->id)->delete();
-                    }
-                } catch (\Exception $e) {
-                    Log::error('Lỗi khi xóa bài viết đã duyệt trong index()', [
-                        'rewritten_article_id' => $article->id,
-                        'error' => $e->getMessage()
-                    ]);
-                }
-            }
+        $query = RewrittenArticle::query();
+
+        // Filter by status
+        if (request()->has('status') && request('status') != '') {
+            $query->where('status', request('status'));
         }
-        
-        // Lấy tất cả bài viết có trạng thái 'pending' hoặc 'rejected'
-        $rewrittenArticles = RewrittenArticle::whereNotIn('status', ['approved'])
-            ->orderBy('created_at', 'desc')
+
+        // Filter by creation date range
+        if (request()->has('created_from') && request('created_from') != '') {
+            $query->whereDate('created_at', '>=', request('created_from'));
+        }
+
+        if (request()->has('created_to') && request('created_to') != '') {
+            $query->whereDate('created_at', '<=', request('created_to'));
+        }
+
+        // Filter by category
+        if (request()->has('category_id') && request('category_id') != '') {
+            $query->where('category_id', request('category_id'));
+        }
+
+        // Delete any approved articles automatically
+        $query->where(function($q) {
+            $q->where('status', '!=', 'approved')
+              ->orWhereNull('status');
+        });
+
+        $rewrittenArticles = $query->with(['category', 'user'])
+            ->latest()
             ->paginate(10);
-        
-        // Ghi log để debug
-        Log::info('Danh sách bài viết trong index', [
-            'count' => $rewrittenArticles->count(),
-            'articles' => $rewrittenArticles->map(function($article) {
-                return [
-                    'id' => $article->id,
-                    'title' => $article->title,
-                    'status' => $article->status
-                ];
-            })
-        ]);
-        
+
         return view('admin.rewritten-articles.index', compact('rewrittenArticles'));
     }
 
@@ -355,36 +335,72 @@ class RewrittenArticleController extends Controller
      */
     public function rewriteForm($originalArticleId = null)
     {
-        $categories = Category::all();
-        $originalArticles = ApprovedArticle::where('status', 'published')->get();
-        $selectedArticle = null;
-        
-        if ($originalArticleId) {
-            $selectedArticle = ApprovedArticle::findOrFail($originalArticleId);
-        }
-        
-        // Get AI settings
-        $aiSettings = AISetting::first();
-        if (!$aiSettings || empty($aiSettings->api_key)) {
-            return redirect()->route('admin.ai-settings.index')
-                ->with('error', 'AI settings are not configured. Please configure the API settings first.');
-        }
-        
-        // Check daily limit
-        if ($aiSettings->max_daily_rewrites > 0) {
-            $today = now()->startOfDay();
-            $dailyCount = RewrittenArticle::where('user_id', Auth::id())
-                ->where('created_at', '>=', $today)
-                ->where('ai_generated', true)
-                ->count();
+        try {
+            // Log để kiểm tra hàm có được gọi không
+            Log::info('Accessing rewriteForm method', [
+                'originalArticleId' => $originalArticleId,
+                'user_id' => Auth::id()
+            ]);
             
-            if ($dailyCount >= $aiSettings->max_daily_rewrites) {
-                return redirect()->route('admin.rewritten-articles.index')
-                    ->with('error', "You've reached the maximum daily limit of {$aiSettings->max_daily_rewrites} AI rewrites.");
+            $categories = Category::all();
+            $originalArticles = ApprovedArticle::where('status', 'published')->get();
+            $selectedArticle = null;
+            
+            if ($originalArticleId) {
+                $selectedArticle = ApprovedArticle::findOrFail($originalArticleId);
+                Log::info('Selected original article', ['article_id' => $selectedArticle->id, 'title' => $selectedArticle->title]);
             }
+            
+            // Get AI settings
+            try {
+                $aiSettings = DB::table('ai_settings')->first();
+                Log::info('AI settings loaded', ['settings' => $aiSettings ? true : false]);
+            } catch (\Exception $e) {
+                Log::error('Error querying ai_settings table: ' . $e->getMessage());
+                return redirect()->route('admin.rewritten-articles.index')
+                    ->with('error', 'Cài đặt AI chưa được thiết lập. Vui lòng liên hệ quản trị viên.');
+            }
+            
+            if (!$aiSettings) {
+                Log::error('AI settings not found');
+                return redirect()->route('admin.ai-settings.index')
+                    ->with('error', 'Cài đặt AI chưa được thiết lập. Vui lòng cài đặt API trước.');
+            }
+            
+            if (empty($aiSettings->api_key)) {
+                Log::error('AI API key is empty');
+                return redirect()->route('admin.ai-settings.index')
+                    ->with('error', 'API key AI chưa được cấu hình. Vui lòng thêm API key của bạn trong phần cài đặt AI.');
+            }
+            
+            // Check daily limit
+            if ($aiSettings->max_daily_rewrites > 0) {
+                $today = now()->startOfDay();
+                $dailyCount = RewrittenArticle::where('user_id', Auth::id())
+                    ->where('created_at', '>=', $today)
+                    ->where('ai_generated', true)
+                    ->count();
+                
+                Log::info('Checking daily limit', [
+                    'daily_count' => $dailyCount,
+                    'max_limit' => $aiSettings->max_daily_rewrites
+                ]);
+                
+                if ($dailyCount >= $aiSettings->max_daily_rewrites) {
+                    return redirect()->route('admin.rewritten-articles.index')
+                        ->with('error', "Bạn đã đạt đến giới hạn tối đa hàng ngày là {$aiSettings->max_daily_rewrites} bài viết AI.");
+                }
+            }
+            
+            return view('admin.rewritten-articles.rewrite', compact('categories', 'originalArticles', 'selectedArticle', 'aiSettings'));
+        } catch (\Exception $e) {
+            Log::error('Error in rewriteForm method: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()->route('admin.rewritten-articles.index')
+                ->with('error', 'Đã xảy ra lỗi khi hiển thị form viết lại: ' . $e->getMessage());
         }
-        
-        return view('admin.rewritten-articles.rewrite', compact('categories', 'originalArticles', 'selectedArticle', 'aiSettings'));
     }
 
     /**
@@ -398,7 +414,14 @@ class RewrittenArticleController extends Controller
         ]);
         
         $originalArticle = ApprovedArticle::findOrFail($validated['original_article_id']);
-        $aiSettings = AISetting::first();
+        
+        try {
+            $aiSettings = DB::table('ai_settings')->first();
+        } catch (\Exception $e) {
+            Log::error('Error querying ai_settings table: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Cài đặt AI chưa được thiết lập. Vui lòng liên hệ quản trị viên.');
+        }
         
         if (!$aiSettings) {
             return redirect()->back()->with('error', 'AI settings are not configured.');
@@ -468,7 +491,14 @@ class RewrittenArticleController extends Controller
     public function aiRewriteForm(RewrittenArticle $rewrittenArticle)
     {
         $categories = Category::orderBy('name')->get();
-        $aiSettings = AISetting::first();
+        
+        try {
+            $aiSettings = DB::table('ai_settings')->first();
+        } catch (\Exception $e) {
+            Log::error('Error querying ai_settings table: ' . $e->getMessage());
+            return redirect()->route('admin.rewritten-articles.index')
+                ->with('error', 'Cài đặt AI chưa được thiết lập. Vui lòng liên hệ quản trị viên.');
+        }
         
         if (!$aiSettings) {
             return redirect()->route('admin.rewritten-articles.index')
@@ -506,7 +536,13 @@ class RewrittenArticleController extends Controller
             'category_id' => 'required|exists:categories,id',
         ]);
         
-        $aiSettings = AISetting::first();
+        try {
+            $aiSettings = DB::table('ai_settings')->first();
+        } catch (\Exception $e) {
+            Log::error('Error querying ai_settings table: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Cài đặt AI chưa được thiết lập. Vui lòng liên hệ quản trị viên.');
+        }
         
         if (!$aiSettings) {
             return redirect()->back()->with('error', 'Cài đặt AI chưa được thiết lập.');

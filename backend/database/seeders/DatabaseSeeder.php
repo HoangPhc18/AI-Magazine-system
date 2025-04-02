@@ -9,11 +9,14 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            AdminSeeder::class,
-            CategorySeeder::class,
-            // Bỏ comment dưới đây khi tạo xong bảng articles
-            // ArticleSeeder::class,
-            // RewrittenArticleSeeder::class,
+            // Chỉ chạy các seeder cơ bản
+            AdminSeeder::class,     // Tạo admin
+            CategorySeeder::class,  // Tạo danh mục
+            AISettingsSeeder::class, // Cài đặt AI
+            ArticleSeeder::class, // Tạo bài viết
+            UserSeeder::class,
+            RewrittenArticleSeeder::class, // Tạo bài viết đã được viết lại
+            
         ]);
     }
 } 
