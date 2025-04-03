@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\UserController as PublicUserController;
 use App\Http\Controllers\Api\AISettingsController as PublicAISettingsController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 
 // Public routes
 Route::post('/auth/register', [AuthController::class, 'register']);
@@ -83,4 +84,22 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::put('/ai-settings', [AISettingsController::class, 'update']);
     Route::post('/ai-settings/test-connection', [AISettingsController::class, 'testConnection']);
     Route::post('/ai-settings/reset', [AISettingsController::class, 'resetSettings']);
+});
+
+Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+    return $request->user();
+});
+
+// Article routes
+Route::prefix('articles')->group(function () {
+    Route::get('/', [ArticleController::class, 'index']);
+    Route::post('/', [ArticleController::class, 'store']);
+    Route::get('/{id}', [ArticleController::class, 'show']);
+    Route::put('/{id}', [ArticleController::class, 'update']);
+    Route::delete('/{id}', [ArticleController::class, 'destroy']);
+    
+    // Additional article routes
+    Route::get('/unprocessed', [ArticleController::class, 'getUnprocessedArticles']);
+    Route::post('/{id}/ai-content', [ArticleController::class, 'updateAiContent']);
+    Route::post('/import', [ArticleController::class, 'importFromScraper']);
 }); 

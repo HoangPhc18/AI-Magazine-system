@@ -1,0 +1,92 @@
+[
+    {
+        "title": "Tin tức Công nghệ cập nhật mới nhất",
+        "summary": "Tổng hợp tin tức Công nghệ đáng chú ý trong ngày",
+        "content": null,
+        "source_name": {
+            "name": "Thanhnien",
+            "icon": "https://thanhnien.vn/favicon.ico"
+        },
+        "source_url": "https://thanhnien.vn",
+        "source_icon": "https://thanhnien.vn/favicon.ico",
+        "published_at": "2025-04-03T14:50:22Z",
+        "category": "Công nghệ",
+        "meta_data": {
+            "original_source": "direct",
+            "scraped_at": "2025-04-03T14:50:22.097910",
+            "position": 1
+        }
+    },
+    {
+        "title": "Tin tức Kinh doanh cập nhật mới nhất",
+        "summary": "Tổng hợp tin tức Kinh doanh đáng chú ý trong ngày",
+        "content": null,
+        "source_name": {
+            "name": "Vietnamnet",
+            "icon": "https://vietnamnet.vn/favicon.ico"
+        },
+        "source_url": "https://vietnamnet.vn",
+        "source_icon": "https://vietnamnet.vn/favicon.ico",
+        "published_at": "2025-04-03T14:50:22Z",
+        "category": "Kinh doanh",
+        "meta_data": {
+            "original_source": "direct",
+            "scraped_at": "2025-04-03T14:50:22.097910",
+            "position": 1
+        }
+    },
+    {
+        "title": "Tin tức Giải trí cập nhật mới nhất",
+        "summary": "Tổng hợp tin tức Giải trí đáng chú ý trong ngày",
+        "content": null,
+        "source_name": {
+            "name": "Tuoitre",
+            "icon": "https://tuoitre.vn/favicon.ico"
+        },
+        "source_url": "https://tuoitre.vn",
+        "source_icon": "https://tuoitre.vn/favicon.ico",
+        "published_at": "2025-04-03T14:50:22Z",
+        "category": "Giải trí",
+        "meta_data": {
+            "original_source": "direct",
+            "scraped_at": "2025-04-03T14:50:22.097910",
+            "position": 1
+        }
+    },
+    {
+        "title": "Kết quả các trận đấu bóng đá mới nhất",
+        "summary": "Cập nhật tin tức thể thao trong và ngoài nước",
+        "content": null,
+        "source_name": {
+            "name": "VnExpress",
+            "icon": "https://s.vnecdn.net/vnexpress/i/v1/logos/vne_logo_rss.png"
+        },
+        "source_url": "https://vnexpress.net/the-thao",
+        "source_icon": "https://s.vnecdn.net/vnexpress/i/v1/logos/vne_logo_rss.png",
+        "published_at": "2025-04-03T14:50:22Z",
+        "category": "Thể thao",
+        "meta_data": {
+            "original_source": "direct",
+            "scraped_at": "2025-04-03T14:50:22.097910",
+            "position": 1
+        }
+    },
+    {
+        "title": "Tin tức mới nhất về đời sống",
+        "summary": "Cập nhật thông tin đời sống hôm nay",
+        "content": null,
+        "source_name": {
+            "name": "Nhân Dân",
+            "icon": "https://img.nhandan.com.vn/Files/Images/2020/10/27/logo_d-1603758303260.png"
+        },
+        "source_url": "https://nhandan.vn/đời-sống",
+        "source_icon": "https://img.nhandan.com.vn/Files/Images/2020/10/27/logo_d-1603758303260.png",
+        "published_at": "2025-04-03T14:50:22Z",
+        "category": "Đời sống",
+        "meta_data": {
+            "original_source": "direct",
+            "scraped_at": "2025-04-03T14:50:22.097910",
+            "position": 1
+        }
+    }
+]
