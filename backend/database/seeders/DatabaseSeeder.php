@@ -13,9 +13,7 @@ class DatabaseSeeder extends Seeder
             AdminSeeder::class,     // Tạo admin
             CategorySeeder::class,  // Tạo danh mục
             AISettingsSeeder::class, // Cài đặt AI
-            ArticleSeeder::class, // Tạo bài viết
             UserSeeder::class,
-            RewrittenArticleSeeder::class, // Tạo bài viết đã được viết lại
             
         ]);
     }

@@ -322,7 +322,7 @@ def send_to_backend(articles, auto_send=False):
                 for error in result['errors']:
                     print(f"  - {error}")
             return True
-        else:
+else:
             print(f"[ERROR] Lỗi khi gửi bài viết tới backend: {response.status_code} - {response.text}")
             return False
     except Exception as e:

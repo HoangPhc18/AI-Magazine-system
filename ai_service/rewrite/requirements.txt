@@ -1,0 +1,11 @@
+langchain>=0.1.0
+langchain-core>=0.1.1
+langchain-openai>=0.0.5
+langchain-community>=0.0.15
+openai>=1.0.0
+requests>=2.25.1
+python-dotenv>=0.19.0
+pydantic>=2.0.0
+typing-extensions>=4.5.0
+langsmith>=0.0.65
+mysql-connector-python>=8.0.32 
