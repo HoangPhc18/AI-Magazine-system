@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
@@ -293,7 +293,7 @@ def send_to_backend(articles, auto_send=False):
     
     Args:
         articles (list): Danh sách bài viết
-        auto_send (bool): Tự động gửi không cần xác nhận
+        auto_send (bool): Tự động gửi mà không cần xác nhận
         
     Returns:
         bool: Trạng thái thành công
@@ -303,17 +303,17 @@ def send_to_backend(articles, auto_send=False):
         return False
     
     send_option = "y" if auto_send else input("Bạn có muốn gửi bài viết tới backend? (y/n): ").lower()
-    
+
     if send_option != "y":
         print("Đã hủy gửi dữ liệu tới backend")
         return False
-    
+
     try:
         payload = {"articles": articles}
         headers = {"Content-Type": "application/json"}
-        
+
         response = requests.post(BACKEND_API_URL, json=payload, headers=headers)
-        
+
         if response.status_code in (200, 201):
             result = response.json()
             print(f"[OK] Đã gửi thành công {result.get('message', '')}")
@@ -322,7 +322,7 @@ def send_to_backend(articles, auto_send=False):
                 for error in result['errors']:
                     print(f"  - {error}")
             return True
-else:
+        else:
             print(f"[ERROR] Lỗi khi gửi bài viết tới backend: {response.status_code} - {response.text}")
             return False
     except Exception as e:

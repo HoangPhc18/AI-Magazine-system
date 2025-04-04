@@ -487,23 +487,51 @@ def main():
         if not args.skip_send and articles:
             logger.info(f"[STEP 3] Gửi {len(articles)} bài viết tới backend")
             
-            # Áp dụng tập tin enrich_json.py để chuẩn hóa dữ liệu
-            import enrich_json
-            
-            # Lưu dữ liệu vào tệp tạm thời
-            temp_file = os.path.join(TEMP_DIR, f"temp_articles_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
-            with open(temp_file, "w", encoding="utf-8") as f:
-                json.dump(articles, f, ensure_ascii=False, indent=4)
+            # Chuẩn hóa dữ liệu trước khi gửi
+            normalized_articles = []
+            for article in articles:
+                normalized = article.copy()
                 
-            # Sử dụng function từ enrich_json để chuẩn hóa
-            api_ready_file = enrich_json.fix_json_for_api(temp_file)
+                # Đảm bảo source_name là chuỗi
+                if isinstance(normalized.get("source_name"), dict):
+                    normalized["source_name"] = normalized["source_name"].get("name", "Unknown Source")
+                
+                # Đảm bảo meta_data là chuỗi JSON
+                if isinstance(normalized.get("meta_data"), dict):
+                    normalized["meta_data"] = json.dumps(normalized["meta_data"])
+                elif normalized.get("meta_data") is None:
+                    normalized["meta_data"] = json.dumps({})
+                
+                # Đảm bảo summary không bao giờ là None
+                if normalized.get("summary") is None:
+                    normalized["summary"] = ""
+                
+                # Đảm bảo content không bao giờ là None
+                if normalized.get("content") is None:
+                    normalized["content"] = ""
+                
+                # Xử lý published_at
+                if normalized.get("published_at"):
+                    try:
+                        # Chuẩn hóa định dạng ngày tháng
+                        date_obj = datetime.fromisoformat(normalized["published_at"].replace('Z', '+00:00'))
+                        normalized["published_at"] = date_obj.isoformat()
+                    except (ValueError, TypeError):
+                        # Nếu không phân tích được, sử dụng thời gian hiện tại
+                        normalized["published_at"] = datetime.now().isoformat()
+                
+                normalized_articles.append(normalized)
             
-            # Đọc dữ liệu đã chuẩn hóa
-            with open(api_ready_file, "r", encoding="utf-8") as f:
-                api_ready_articles = json.load(f)
+            # Lưu dữ liệu đã chuẩn hóa vào tệp tạm thời
+            os.makedirs(TEMP_DIR, exist_ok=True)
+            api_ready_file = os.path.join(TEMP_DIR, f"api_ready_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+            with open(api_ready_file, "w", encoding="utf-8") as f:
+                json.dump(normalized_articles, f, ensure_ascii=False, indent=4)
+            
+            logger.info(f"[INFO] Đã chuẩn hóa và lưu {len(normalized_articles)} bài viết vào {api_ready_file}")
                 
             # Gửi dữ liệu đã chuẩn hóa - luôn tự động gửi
-            success = send_to_backend(api_ready_articles, args.batch_size, True)
+            success = send_to_backend(normalized_articles, args.batch_size, True)
             
             if success:
                 logger.info("[OK] Đã hoàn thành quy trình scraping!")

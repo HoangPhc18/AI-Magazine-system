@@ -80,3 +80,47 @@ Mỗi bài viết thu thập được sẽ có cấu trúc như sau:
 - Đảm bảo tuân thủ các điều khoản dịch vụ của Google và các trang tin tức khi sử dụng scraper
 - Điều chỉnh tham số `max_articles` trong `fetch_articles_by_category()` để thay đổi số lượng bài viết thu thập từ mỗi danh mục
 - Sử dụng chức năng `time.sleep()` để tránh gửi quá nhiều request trong thời gian ngắn 
+
+## Chạy Tự Động
+
+Scraper có thể được chạy tự động theo lịch định sẵn. Trong thư mục `batch` có sẵn các script để thực hiện việc này:
+
+### Chạy tức thì
+
+Sử dụng file `batch/run_scraper.bat` để chạy scraper ngay lập tức. Script này sẽ:
+- Tự động tìm kiếm bài viết theo danh mục
+- Trích xuất nội dung đầy đủ từ các URL
+- Tự động gửi dữ liệu đến backend mà không cần xác nhận
+- Giữ lại các file tạm thời (không dọn dẹp)
+
+```
+batch\run_scraper.bat
+```
+
+### Thiết lập chạy theo lịch
+
+Sử dụng file `batch/run_scraper_daily.bat` để chạy scraper theo lịch hàng ngày. Script này sẽ:
+- Tự động tìm kiếm bài viết theo danh mục
+- Trích xuất nội dung đầy đủ từ các URL
+- Tự động gửi dữ liệu đến backend mà không cần xác nhận
+- Dọn dẹp các file cũ (giữ lại file trong 7 ngày)
+- Hiển thị thông báo khi bắt đầu và kết thúc quá trình
+
+Để thiết lập lịch chạy tự động bằng Task Scheduler trên Windows:
+
+1. Mở Task Scheduler (tìm kiếm "Task Scheduler" trong Start menu)
+2. Chọn "Create Basic Task" từ panel bên phải
+3. Đặt tên (ví dụ: "AI Magazine Daily Scraper") và mô tả
+4. Chọn tần suất chạy (Daily)
+5. Thiết lập thời gian chạy (ví dụ: 8:00 AM)
+6. Chọn "Start a program"
+7. Đường dẫn đến script: Đường dẫn đầy đủ đến file `batch\run_scraper_daily.bat`
+8. Hoàn thành thiết lập
+
+Các tham số có thể tùy chỉnh trong file batch:
+- `--retention-days X`: Số ngày giữ lại logs và files (mặc định: 7)
+- `--batch-size X`: Số lượng bài viết gửi trong mỗi request (mặc định: 5)
+- `--verbose`: Hiển thị nhiều thông tin hơn
+- `--skip-search`: Bỏ qua bước tìm kiếm bài viết
+- `--skip-extraction`: Bỏ qua bước trích xuất nội dung
+- `--skip-send`: Bỏ qua bước gửi đến backend 
