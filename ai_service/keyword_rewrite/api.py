@@ -1,0 +1,224 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+Flask API for keyword-based article rewriting.
+Handles requests from the Laravel backend.
+"""
+
+import os
+import sys
+import logging
+import time
+import json
+import threading
+import requests
+from datetime import datetime
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+from dotenv import load_dotenv
+
+# Import our modules
+from search import search_google_news
+from scraper import extract_article_content
+from rewriter import rewrite_content
+
+# Load environment variables
+load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler(f"keyword_rewrite_api_{datetime.now().strftime('%Y%m%d')}.log", encoding='utf-8'),
+        logging.StreamHandler(sys.stdout)
+    ]
+)
+logger = logging.getLogger()
+
+# Initialize Flask app
+app = Flask(__name__)
+CORS(app)
+
+# Get Ollama model from environment or use default
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL") or os.getenv("MODEL_NAME", "llama3:latest")
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+
+# Biến toàn cục để theo dõi các yêu cầu đang xử lý
+active_tasks = {}
+
+def process_keyword_task(keyword, rewrite_id, callback_url):
+    """
+    Process a keyword rewrite task asynchronously.
+    
+    Args:
+        keyword (str): The search keyword
+        rewrite_id (int): The ID of the rewrite record in the database
+        callback_url (str): URL to send results back to
+    """
+    logger.info(f"Starting keyword rewrite task for: {keyword} (ID: {rewrite_id})")
+    
+    try:
+        # Step 1: Search Google News for the keyword
+        logger.info(f"Searching Google News for: {keyword}")
+        article_url = search_google_news(keyword)
+        
+        if not article_url:
+            logger.error(f"No article found for keyword: {keyword}")
+            send_callback(callback_url, rewrite_id, "failed", 
+                         error_message="No article found for the given keyword")
+            return
+            
+        logger.info(f"Found article URL: {article_url}")
+        
+        # Step 2: Extract content from the URL
+        logger.info(f"Extracting content from URL: {article_url}")
+        article_data = extract_article_content(article_url)
+        
+        if not article_data["title"] or not article_data["content"]:
+            logger.error(f"Failed to extract content from URL: {article_url}")
+            send_callback(callback_url, rewrite_id, "failed", 
+                         source_url=article_url,
+                         error_message="Failed to extract content from article URL")
+            return
+            
+        logger.info(f"Successfully extracted content - Title: {article_data['title']}, Content length: {len(article_data['content'])}")
+        
+        # Step 3: Rewrite the content using Ollama
+        logger.info(f"Rewriting content using Ollama (model: {OLLAMA_MODEL})")
+        rewritten_content = rewrite_content(article_data["title"], article_data["content"])
+        
+        if rewritten_content.startswith("Error:"):
+            logger.error(f"Error rewriting content: {rewritten_content}")
+            send_callback(callback_url, rewrite_id, "failed", 
+                         source_url=article_url,
+                         source_title=article_data["title"],
+                         source_content=article_data["content"],
+                         error_message=rewritten_content)
+            return
+            
+        logger.info(f"Successfully rewrote content. Rewritten length: {len(rewritten_content)}")
+        
+        # Step 4: Send back the result
+        send_callback(callback_url, rewrite_id, "completed", 
+                     source_url=article_url,
+                     source_title=article_data["title"],
+                     source_content=article_data["content"],
+                     rewritten_content=rewritten_content)
+        
+        logger.info(f"Keyword rewrite task completed for: {keyword} (ID: {rewrite_id})")
+        
+    except Exception as e:
+        logger.error(f"Error processing keyword task: {str(e)}")
+        send_callback(callback_url, rewrite_id, "failed", error_message=f"Processing error: {str(e)}")
+
+def send_callback(callback_url, rewrite_id, status, source_url=None, source_title=None, 
+                 source_content=None, rewritten_content=None, error_message=None):
+    """
+    Send results back to the callback URL.
+    
+    Args:
+        callback_url (str): URL to send results back to
+        rewrite_id (int): The ID of the rewrite record
+        status (str): Status of the process (completed or failed)
+        source_url (str, optional): URL of the source article
+        source_title (str, optional): Title of the source article
+        source_content (str, optional): Content of the source article
+        rewritten_content (str, optional): Rewritten article content
+        error_message (str, optional): Error message if any
+    """
+    try:
+        data = {
+            "rewrite_id": rewrite_id,
+            "status": status,
+            "source_url": source_url,
+            "source_title": source_title,
+            "source_content": source_content,
+            "rewritten_content": rewritten_content,
+            "error_message": error_message
+        }
+        
+        logger.info(f"Sending callback to: {callback_url}")
+        response = requests.post(callback_url, json=data, timeout=30)
+        
+        if response.status_code == 200:
+            logger.info(f"Callback sent successfully for ID: {rewrite_id}")
+        else:
+            logger.error(f"Error sending callback: {response.status_code} - {response.text}")
+            
+    except Exception as e:
+        logger.error(f"Exception sending callback: {str(e)}")
+
+@app.route('/api/keyword_rewrite/process', methods=['POST'])
+def process_keyword():
+    """
+    Process a keyword rewrite request.
+    """
+    data = request.json
+    
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+        
+    keyword = data.get('keyword')
+    rewrite_id = data.get('rewrite_id')
+    callback_url = data.get('callback_url')
+    
+    if not keyword:
+        return jsonify({"error": "No keyword provided"}), 400
+        
+    if not rewrite_id:
+        return jsonify({"error": "No rewrite_id provided"}), 400
+        
+    if not callback_url:
+        return jsonify({"error": "No callback_url provided"}), 400
+        
+    # Start processing in a background thread
+    thread = threading.Thread(
+        target=process_keyword_task, 
+        args=(keyword, rewrite_id, callback_url)
+    )
+    thread.daemon = True
+    thread.start()
+    
+    return jsonify({
+        "status": "processing",
+        "message": f"Processing keyword: {keyword}"
+    })
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """
+    Simple health check endpoint.
+    """
+    return jsonify({
+        "status": "ok",
+        "service": "keyword_rewrite",
+        "timestamp": datetime.now().isoformat(),
+        "ollama_model": OLLAMA_MODEL,
+        "ollama_host": OLLAMA_HOST
+    })
+
+@app.route('/health', methods=['GET'])
+def health_check_all():
+    """
+    Endpoint kiểm tra trạng thái hoạt động của dịch vụ.
+    """
+    return jsonify({
+        "status": "ok",
+        "timestamp": datetime.now().isoformat(),
+        "service": "AI Keyword Rewrite",
+        "version": "1.0.0",
+        "active_tasks": len(active_tasks)
+    })
+
+if __name__ == '__main__':
+    port = int(os.getenv("PORT", 5000))
+    host = os.getenv("HOST", "0.0.0.0")
+    debug = os.getenv("DEBUG", "False").lower() in ('true', '1', 't')
+    
+    logger.info(f"Starting Keyword Rewrite API on {host}:{port} (Debug: {debug})")
+    logger.info(f"Using Ollama model: {OLLAMA_MODEL}")
+    logger.info(f"Using Ollama host: {OLLAMA_HOST}")
+    
+    app.run(host=host, port=port, debug=debug) 

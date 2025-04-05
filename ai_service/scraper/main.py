@@ -3,6 +3,9 @@
 
 """
 Đây là module chính cho scraper bài viết tin tức
+Quy trình: 
+1. Tìm kiếm URL bài viết từ google_news_serpapi.py 
+2. Trích xuất nội dung từ URL bằng scrape_articles_selenium.py
 """
 
 import os
@@ -20,7 +23,6 @@ from urllib.parse import urlparse
 
 # Import các module nội bộ
 import google_news_serpapi
-from google_news_serpapi import fetch_articles_by_category, get_categories
 import scrape_articles_selenium
 
 # Cấu hình logging
@@ -45,84 +47,6 @@ RETENTION_DAYS = 2
 # 🔹 Laravel Backend API URLs
 BACKEND_API_URL = "http://localhost:8000/api/articles/import"
 CATEGORIES_API_URL = "http://localhost:8000/api/categories"
-
-def extract_content(articles, extraction_method="javascript"):
-    """
-    Trích xuất nội dung bài viết từ URLs sử dụng Selenium
-    
-    Args:
-        articles (list): Danh sách các bài viết (dicts)
-        extraction_method (str): Phương thức trích xuất (javascript/readability)
-        
-    Returns:
-        list: Danh sách bài viết đã được bổ sung nội dung
-    """
-    if not articles:
-        logger.warning("Không có bài viết nào để trích xuất nội dung!")
-        return []
-    
-    # Thiết lập driver Selenium
-    driver = scrape_articles_selenium.setup_driver()
-    
-    try:
-        enriched_articles = []
-        
-        for i, article in enumerate(articles, 1):
-            title = article.get("title", "")
-            url = article.get("source_url", "")
-            
-            if not url:
-                logger.warning(f"Bài viết {i} không có URL: {title}")
-                continue
-            
-            # Kiểm tra URL phù hợp
-            if "vtv.vn/video/" in url:
-                logger.info(f"[INFO] Bỏ qua bài viết video: {title} - {url}")
-                continue
-            
-            logger.info(f"[INFO] Đang trích xuất nội dung cho bài viết {i}/{len(articles)}: {title}")
-            
-            try:
-                # Sử dụng Selenium để trích xuất nội dung
-                content = scrape_articles_selenium.extract_content(driver, url, title)
-                
-                # Cập nhật bài viết với nội dung đã trích xuất
-                enriched_article = article.copy()
-                enriched_article["content"] = content
-                
-                # Cập nhật meta_data
-                if isinstance(enriched_article.get("meta_data"), dict):
-                    enriched_article["meta_data"]["extracted_at"] = datetime.now().isoformat()
-                    enriched_article["meta_data"]["word_count"] = len(content.split())
-                else:
-                    # Tạo metadata nếu chưa có
-                    enriched_article["meta_data"] = {
-                        "extracted_at": datetime.now().isoformat(),
-                        "word_count": len(content.split())
-                    }
-                
-                # Đảm bảo source_name là chuỗi
-                if isinstance(enriched_article.get("source_name"), dict):
-                    enriched_article["source_name"] = enriched_article["source_name"].get("name", "Unknown Source")
-                
-                enriched_articles.append(enriched_article)
-                logger.info(f"[OK] Đã trích xuất nội dung cho bài viết {i}/{len(articles)}: {title}")
-                
-                # Thêm độ trễ giữa các request để tránh tải quá mức
-                if i < len(articles):
-                    time.sleep(2)
-                
-            except Exception as e:
-                logger.error(f"[ERROR] Lỗi khi trích xuất {url}: {str(e)}")
-                # Vẫn thêm bài viết vào danh sách kể cả khi lỗi, nhưng với nội dung rỗng
-                article["content"] = f"Lỗi trích xuất: {str(e)}"
-                enriched_articles.append(article)
-    
-    finally:
-        # Đóng driver khi hoàn thành
-        driver.quit()
-    
-    return enriched_articles
 
 def save_articles_to_file(articles, output_file=None):
     """
@@ -236,8 +160,14 @@ def send_to_backend(articles, batch_size=DEFAULT_BATCH_SIZE, auto_send=True):
         
         normalized_articles.append(normalized)
     
-    # Tự động gửi mà không cần hỏi
-    logger.info(f"Tự động gửi {len(normalized_articles)} bài viết tới backend")
+    # Xác nhận gửi nếu không tự động
+    if not auto_send:
+        confirm = input(f"Bạn có muốn gửi {len(normalized_articles)} bài viết tới backend? (y/n): ").lower().strip()
+        if confirm != 'y':
+            logger.info("Đã hủy gửi bài viết tới backend.")
+            return False
+    
+    logger.info(f"Gửi {len(normalized_articles)} bài viết tới backend...")
     
     success = True
     total_batches = (len(normalized_articles) + batch_size - 1) // batch_size
@@ -399,12 +329,97 @@ def cleanup_old_files(days=RETENTION_DAYS):
     
     logger.info(f"[OK] Đã dọn dẹp {cleaned_count} files cũ")
 
+def search_articles():
+    """
+    Tìm kiếm URL bài viết sử dụng google_news_serpapi.py
+    
+    Returns:
+        tuple: (articles, output_file)
+    """
+    logger.info("[STEP 1] Tìm kiếm URL bài viết từ danh mục")
+    
+    # Lấy danh sách danh mục từ backend
+    categories = google_news_serpapi.get_categories()
+    
+    articles = []
+    # Tìm kiếm bài viết cho mỗi danh mục
+    for category in categories:
+        logger.info(f"Tìm kiếm bài viết cho danh mục: {category}")
+        category_articles = google_news_serpapi.fetch_articles_by_category(category)
+        articles.extend(category_articles)
+    
+    logger.info(f"[OK] Đã tìm thấy tổng cộng {len(articles)} bài viết")
+    
+    # Lưu trữ kết quả tìm kiếm
+    if articles:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_file = os.path.join(OUTPUT_DIR, f"search_results_{timestamp}.json")
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(articles, f, ensure_ascii=False, indent=4)
+        logger.info(f"[OK] Đã lưu kết quả tìm kiếm vào {output_file}")
+        return articles, output_file
+    
+    return articles, None
+
+def extract_content_from_articles(articles):
+    """
+    Trích xuất nội dung từ URL bài viết sử dụng scrape_articles_selenium.py
+    
+    Args:
+        articles (list): Danh sách bài viết với URL
+        
+    Returns:
+        list: Danh sách bài viết đã trích xuất nội dung
+    """
+    if not articles:
+        logger.warning("Không có bài viết nào để trích xuất nội dung!")
+        return []
+    
+    logger.info(f"[STEP 2] Trích xuất nội dung cho {len(articles)} bài viết")
+    
+    # Thiết lập driver Selenium
+    driver = scrape_articles_selenium.setup_driver()
+    
+    try:
+        enriched_articles = []
+        
+        for i, article in enumerate(articles, 1):
+            title = article.get("title", "Unknown title")
+            url = article.get("source_url", "")
+            
+            if not url:
+                logger.warning(f"Bài viết {i} không có URL: {title}")
+                continue
+            
+            # Kiểm tra URL phù hợp
+            if not scrape_articles_selenium.filter_article(url):
+                logger.info(f"[INFO] Bỏ qua URL không phù hợp: {url}")
+                continue
+            
+            logger.info(f"[INFO] Đang trích xuất nội dung cho bài viết {i}/{len(articles)}: {title}")
+            
+            # Sử dụng hàm enrich_article từ scrape_articles_selenium
+            enriched = scrape_articles_selenium.enrich_article(driver, article)
+            if enriched:
+                enriched_articles.append(enriched)
+            
+            # Thêm độ trễ giữa các request để tránh tải quá mức
+            if i < len(articles):
+                time.sleep(2)
+    
+    finally:
+        # Đóng driver khi hoàn thành
+        driver.quit()
+    
+    logger.info(f"[OK] Đã trích xuất nội dung cho {len(enriched_articles)} bài viết")
+    return enriched_articles
+
 def main():
     """
     Hàm chính điều phối quy trình scraping
     """
     parser = argparse.ArgumentParser(description="Scraper bài viết tin tức")
-    parser.add_argument("--skip-search", action="store_true", help="Bỏ qua bước tìm kiếm bài viết")
+    parser.add_argument("--skip-search", action="store_true", help="Bỏ qua bước tìm kiếm URL bài viết")
     parser.add_argument("--skip-extraction", action="store_true", help="Bỏ qua bước trích xuất nội dung")
     parser.add_argument("--skip-send", action="store_true", help="Bỏ qua bước gửi đến backend")
     parser.add_argument("--input-file", type=str, help="File JSON chứa bài viết để xử lý")
@@ -428,30 +443,13 @@ def main():
     if not args.no_cleanup:
         cleanup_old_files(args.retention_days)
     
-    articles = []
-    
     try:
-        # BƯỚC 1: Tìm kiếm bài viết từ danh mục
+        articles = []
+        search_file = None
+        
+        # BƯỚC 1: Tìm kiếm URL bài viết
         if not args.skip_search and not args.input_file:
-            logger.info("[STEP 1] Tìm kiếm bài viết từ danh mục")
-            
-            # Lấy danh sách danh mục từ backend
-            categories = get_categories()
-            
-            # Tìm kiếm bài viết cho mỗi danh mục
-            for category in categories:
-                category_articles = fetch_articles_by_category(category)
-                articles.extend(category_articles)
-            
-            logger.info(f"[OK] Đã tìm thấy tổng cộng {len(articles)} bài viết")
-            
-            # Lưu trữ kết quả tìm kiếm
-            if articles:
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                output_file = os.path.join(OUTPUT_DIR, f"search_results_{timestamp}.json")
-                with open(output_file, "w", encoding="utf-8") as f:
-                    json.dump(articles, f, ensure_ascii=False, indent=4)
-                logger.info(f"[OK] Đã lưu kết quả tìm kiếm vào {output_file}")
+            articles, search_file = search_articles()
         
         # Nếu có input_file, đọc từ file
         elif args.input_file:
@@ -459,85 +457,54 @@ def main():
                 with open(args.input_file, "r", encoding="utf-8") as f:
                     articles = json.load(f)
                 logger.info(f"[OK] Đã đọc {len(articles)} bài viết từ {args.input_file}")
+                search_file = args.input_file
             except Exception as e:
                 logger.error(f"[ERROR] Lỗi khi đọc file {args.input_file}: {str(e)}")
                 return
         
         # BƯỚC 2: Trích xuất nội dung bài viết
+        enriched_articles = []
+        enriched_file = None
+        
         if not args.skip_extraction and articles:
-            # Kiểm tra nếu bài viết chưa có nội dung
+            # Kiểm tra nếu bài viết đã có nội dung đầy đủ
             articles_without_content = [a for a in articles if not a.get("content")]
             
             if articles_without_content:
-                logger.info(f"[STEP 2] Trích xuất nội dung cho {len(articles_without_content)} bài viết")
-                enriched_articles = extract_content(articles_without_content)
+                logger.info(f"Tiến hành trích xuất nội dung cho {len(articles_without_content)} bài viết")
+                enriched_articles = extract_content_from_articles(articles_without_content)
                 
                 # Cập nhật danh sách bài viết gốc với nội dung đã trích xuất
                 articles_with_content = [a for a in articles if a.get("content")]
-                articles = articles_with_content + enriched_articles
+                enriched_articles = articles_with_content + enriched_articles
                 
                 # Lưu bài viết đã được làm giàu
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                enriched_output_file = os.path.join(OUTPUT_DIR, f"enriched_articles_{timestamp}.json")
-                save_articles_to_file(articles, enriched_output_file)
+                enriched_file = os.path.join(OUTPUT_DIR, f"enriched_articles_{timestamp}.json")
+                save_articles_to_file(enriched_articles, enriched_file)
             else:
-                logger.info("[STEP 2] Tất cả bài viết đã có nội dung, bỏ qua bước trích xuất")
+                logger.info("[INFO] Tất cả bài viết đã có nội dung, bỏ qua bước trích xuất")
+                enriched_articles = articles
+                enriched_file = search_file
+        else:
+            # Nếu bỏ qua bước trích xuất nhưng vẫn có bài viết, sao chép danh sách
+            enriched_articles = articles
         
         # BƯỚC 3: Gửi bài viết đến backend
-        if not args.skip_send and articles:
-            logger.info(f"[STEP 3] Gửi {len(articles)} bài viết tới backend")
-            
-            # Chuẩn hóa dữ liệu trước khi gửi
-            normalized_articles = []
-            for article in articles:
-                normalized = article.copy()
-                
-                # Đảm bảo source_name là chuỗi
-                if isinstance(normalized.get("source_name"), dict):
-                    normalized["source_name"] = normalized["source_name"].get("name", "Unknown Source")
-                
-                # Đảm bảo meta_data là chuỗi JSON
-                if isinstance(normalized.get("meta_data"), dict):
-                    normalized["meta_data"] = json.dumps(normalized["meta_data"])
-                elif normalized.get("meta_data") is None:
-                    normalized["meta_data"] = json.dumps({})
-                
-                # Đảm bảo summary không bao giờ là None
-                if normalized.get("summary") is None:
-                    normalized["summary"] = ""
-                
-                # Đảm bảo content không bao giờ là None
-                if normalized.get("content") is None:
-                    normalized["content"] = ""
-                
-                # Xử lý published_at
-                if normalized.get("published_at"):
-                    try:
-                        # Chuẩn hóa định dạng ngày tháng
-                        date_obj = datetime.fromisoformat(normalized["published_at"].replace('Z', '+00:00'))
-                        normalized["published_at"] = date_obj.isoformat()
-                    except (ValueError, TypeError):
-                        # Nếu không phân tích được, sử dụng thời gian hiện tại
-                        normalized["published_at"] = datetime.now().isoformat()
-                
-                normalized_articles.append(normalized)
-            
-            # Lưu dữ liệu đã chuẩn hóa vào tệp tạm thời
-            os.makedirs(TEMP_DIR, exist_ok=True)
-            api_ready_file = os.path.join(TEMP_DIR, f"api_ready_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
-            with open(api_ready_file, "w", encoding="utf-8") as f:
-                json.dump(normalized_articles, f, ensure_ascii=False, indent=4)
-            
-            logger.info(f"[INFO] Đã chuẩn hóa và lưu {len(normalized_articles)} bài viết vào {api_ready_file}")
-                
-            # Gửi dữ liệu đã chuẩn hóa - luôn tự động gửi
-            success = send_to_backend(normalized_articles, args.batch_size, True)
+        if not args.skip_send and enriched_articles:
+            logger.info(f"[STEP 3] Gửi {len(enriched_articles)} bài viết tới backend")
+            success = send_to_backend(enriched_articles, args.batch_size, args.auto_send)
             
             if success:
                 logger.info("[OK] Đã hoàn thành quy trình scraping!")
             else:
                 logger.warning("[WARN] Quá trình gửi bài viết tới backend không hoàn chỉnh")
-                
+        else:
+            logger.info("Bỏ qua bước gửi bài viết tới backend.")
+            if enriched_file:
+                logger.info(f"Các bài viết đã được lưu vào: {enriched_file}")
+                logger.info(f"Bạn có thể gửi thủ công bằng cách chạy: python main.py --skip-search --skip-extraction --input-file {enriched_file}")
+    
     except KeyboardInterrupt:
         logger.info("[INFO] Quá trình bị dừng bởi người dùng")
     except Exception as e:

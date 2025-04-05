@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\AISettingsController;
 use App\Http\Controllers\Admin\RewrittenArticleController;
 use App\Http\Controllers\Admin\AiSettingController;
 use App\Http\Controllers\Admin\ApprovedArticleController;
+use App\Http\Controllers\Admin\KeywordRewriteController;
 use App\Http\Middleware\AdminMiddleware;
 use Illuminate\Support\Facades\Route;
 
@@ -52,6 +53,13 @@ Route::middleware(['auth', AdminMiddleware::class])->prefix('admin')->name('admi
     Route::patch('rewritten-articles/{rewrittenArticle}/reject', [RewrittenArticleController::class, 'reject'])->name('rewritten-articles.reject');
     Route::get('rewritten-articles/{rewrittenArticle}/approve', [RewrittenArticleController::class, 'approve'])->name('rewritten-articles.approve');
     Route::post('rewritten-articles/{rewrittenArticle}/approve', [RewrittenArticleController::class, 'storeApproved'])->name('rewritten-articles.store-approved');
+    
+    // Keyword Rewrite routes
+    Route::resource('keyword-rewrites', KeywordRewriteController::class)->except(['edit', 'update']);
+    Route::post('keyword-rewrites/{keywordRewrite}/retry', [KeywordRewriteController::class, 'retry'])->name('keyword-rewrites.retry');
+    Route::get('keyword-rewrites/{keywordRewrite}/convert', [KeywordRewriteController::class, 'convert'])->name('keyword-rewrites.convert');
+    Route::post('keyword-rewrites/quick-process', [KeywordRewriteController::class, 'quickProcess'])->name('keyword-rewrites.quick-process');
+    Route::get('keyword-rewrites/{keywordRewrite}/status', [KeywordRewriteController::class, 'getStatus'])->name('keyword-rewrites.status');
     
     // AI Settings
     Route::get('/ai-settings', [AISettingsController::class, 'index'])->name('ai-settings.index');

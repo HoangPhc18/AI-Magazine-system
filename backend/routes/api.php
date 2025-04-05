@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Admin\AISettingsController;
 use App\Http\Controllers\Api\Admin\RewrittenArticleController;
 use App\Http\Controllers\Api\Admin\ApprovedArticleController;
 use App\Http\Controllers\Api\Admin\DashboardController;
+use App\Http\Controllers\Api\Admin\KeywordRewriteController;
 use App\Http\Controllers\Api\ArticleController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
@@ -72,6 +73,12 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::post('/articles/approved/{approvedArticle}/archive', [ApprovedArticleController::class, 'archive']);
     Route::delete('/articles/approved/{approvedArticle}', [ApprovedArticleController::class, 'destroy']);
 
+    // Keyword Rewrite Management
+    Route::get('/keyword-rewrites', [KeywordRewriteController::class, 'index']);
+    Route::post('/keyword-rewrites', [KeywordRewriteController::class, 'store']);
+    Route::get('/keyword-rewrites/{keywordRewrite}', [KeywordRewriteController::class, 'show']);
+    Route::delete('/keyword-rewrites/{keywordRewrite}', [KeywordRewriteController::class, 'destroy']);
+
     // Categories Management
     Route::get('/categories', [AdminCategoryController::class, 'index']);
     Route::post('/categories', [AdminCategoryController::class, 'store']);
@@ -85,6 +92,9 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::post('/ai-settings/test-connection', [AISettingsController::class, 'testConnection']);
     Route::post('/ai-settings/reset', [AISettingsController::class, 'resetSettings']);
 });
+
+// Public callback for keyword rewrite
+Route::post('/admin/keyword-rewrites/callback', [KeywordRewriteController::class, 'callback']);
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();

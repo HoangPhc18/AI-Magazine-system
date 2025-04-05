@@ -75,6 +75,14 @@
                             </div>
                         </div>
 
+                        <a href="{{ route('admin.keyword-rewrites.index') }}" 
+                            class="{{ request()->routeIs('admin.keyword-rewrites.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200">
+                            <svg class="mr-3 h-5 w-5 text-white {{ request()->routeIs('admin.keyword-rewrites.*') ? 'opacity-100' : 'opacity-75 group-hover:opacity-100' }} transition-opacity" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                            Tạo bài từ từ khóa
+                        </a>
+
                         <a href="{{ route('admin.categories.index') }}" 
                             class="{{ request()->routeIs('admin.categories.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200">
                             <svg class="mr-3 h-5 w-5 text-white {{ request()->routeIs('admin.categories.*') ? 'opacity-100' : 'opacity-75 group-hover:opacity-100' }} transition-opacity" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -187,6 +195,8 @@
                             <a href="{{ route('admin.approved-articles.index') }}" class="block px-3 py-2 rounded-md text-sm font-medium {{ request()->routeIs('admin.approved-articles.index') ? 'bg-primary-500 text-white' : 'text-white text-opacity-70 hover:bg-primary-500 hover:text-opacity-100' }} transition-all duration-150">Bài viết đã duyệt</a>
                         </div>
                     </div>
+                    
+                    <a href="{{ route('admin.keyword-rewrites.index') }}" class="block px-3 py-2 rounded-md text-base font-medium {{ request()->routeIs('admin.keyword-rewrites.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} transition-all duration-150">Tạo bài từ từ khóa</a>
                     
                     <a href="{{ route('admin.categories.index') }}" class="block px-3 py-2 rounded-md text-base font-medium {{ request()->routeIs('admin.categories.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} transition-all duration-150">Danh mục</a>
                     
