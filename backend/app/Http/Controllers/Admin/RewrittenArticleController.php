@@ -26,6 +26,9 @@ class RewrittenArticleController extends Controller
         // Filter by status
         if (request()->has('status') && request('status') != '') {
             $query->where('status', request('status'));
+        } else {
+            // Mặc định chỉ hiển thị các bài viết chưa được duyệt
+            $query->where('status', '!=', 'approved');
         }
 
         // Filter by creation date range
@@ -41,12 +44,6 @@ class RewrittenArticleController extends Controller
         if (request()->has('category_id') && request('category_id') != '') {
             $query->where('category_id', request('category_id'));
         }
-
-        // Delete any approved articles automatically
-        $query->where(function($q) {
-            $q->where('status', '!=', 'approved')
-              ->orWhereNull('status');
-        });
 
         $rewrittenArticles = $query->with(['category', 'user'])
             ->latest()
@@ -249,84 +246,46 @@ class RewrittenArticleController extends Controller
     }
 
     /**
-     * Move a rewritten article to the approved articles table
+     * Process approving a rewritten article
      */
-    private function moveToApprovedArticles(RewrittenArticle $rewrittenArticle, array $validated)
+    private function moveToApprovedArticles(RewrittenArticle $rewrittenArticle)
     {
         try {
-            // Lưu ID của bài viết để sử dụng sau khi xóa
-            $rewrittenArticleId = $rewrittenArticle->id;
-            $rewrittenArticleTitle = $rewrittenArticle->title;
-            $originalArticleId = $rewrittenArticle->original_article_id;
-
+            DB::beginTransaction();
+            
             // Tạo bài viết đã duyệt
             $approvedArticle = new ApprovedArticle();
-            $approvedArticle->title = $validated['title'] ?? $rewrittenArticle->title;
-            $approvedArticle->content = $validated['content'] ?? $rewrittenArticle->content;
-            $approvedArticle->category_id = $validated['category_id'] ?? $rewrittenArticle->category_id;
-            $approvedArticle->slug = $validated['slug'];
-            $approvedArticle->seo_title = $validated['seo_title'] ?? $rewrittenArticle->title;
-            $approvedArticle->seo_description = $validated['seo_description'] ?? substr(strip_tags($rewrittenArticle->content), 0, 160);
+            $approvedArticle->title = $rewrittenArticle->title;
+            $approvedArticle->slug = $rewrittenArticle->slug;
+            $approvedArticle->content = $rewrittenArticle->content;
+            $approvedArticle->meta_title = $rewrittenArticle->meta_title;
+            $approvedArticle->meta_description = $rewrittenArticle->meta_description;
             $approvedArticle->featured_image = $rewrittenArticle->featured_image;
-            $approvedArticle->status = 'published';
             $approvedArticle->user_id = Auth::id();
-            $approvedArticle->is_ai_generated = $rewrittenArticle->is_ai_generated;
-            $approvedArticle->original_article_id = $originalArticleId;
-            $approvedArticle->word_count = str_word_count(strip_tags($validated['content'] ?? $rewrittenArticle->content));
+            $approvedArticle->category_id = $rewrittenArticle->category_id;
+            $approvedArticle->original_article_id = $rewrittenArticle->original_article_id;
+            $approvedArticle->status = 'published';
+            $approvedArticle->ai_generated = $rewrittenArticle->ai_generated;
             $approvedArticle->published_at = now();
             $approvedArticle->save();
-
-            // Cập nhật trạng thái bài viết gốc nếu có
-            if ($originalArticleId) {
-                $originalArticle = OriginalArticle::find($originalArticleId);
-                if ($originalArticle) {
-                    $originalArticle->rewritten = true;
-                    $originalArticle->save();
-                }
-            }
-
-            // Cập nhật trạng thái của bài viết được viết lại trước khi xóa
-            $rewrittenArticle->status = 'approved';
-            $rewrittenArticle->save();
             
-            // Xóa bài viết được viết lại khỏi bảng rewritten_articles
-            try {
-                $rewrittenArticle->forceDelete();
-                
-                // Ghi log để debug
-                Log::info('Bài viết đã được duyệt và xóa trong moveToApprovedArticles', [
-                    'rewritten_article_id' => $rewrittenArticleId,
-                    'rewritten_article_title' => $rewrittenArticleTitle,
-                    'approved_article_id' => $approvedArticle->id,
-                    'slug' => $validated['slug']
-                ]);
-                
-                // Kiểm tra xem bài viết đã thực sự bị xóa chưa
-                $checkArticle = RewrittenArticle::withTrashed()->find($rewrittenArticleId);
-                if ($checkArticle) {
-                    Log::warning('Bài viết vẫn tồn tại sau khi forceDelete', [
-                        'rewritten_article_id' => $rewrittenArticleId,
-                        'is_trashed' => $checkArticle->trashed(),
-                        'status' => $checkArticle->status
-                    ]);
-                    
-                    // Thử xóa một lần nữa bằng query builder
-                    DB::table('rewritten_articles')->where('id', $rewrittenArticleId)->delete();
-                }
-            } catch (\Exception $e) {
-                Log::error('Lỗi khi xóa bài viết khỏi rewritten_articles trong moveToApprovedArticles', [
-                    'rewritten_article_id' => $rewrittenArticleId,
-                    'error' => $e->getMessage()
-                ]);
-            }
+            // Xóa bài viết đã duyệt từ RewrittenArticle để không hiển thị nữa
+            $rewrittenArticle->forceDelete();
+            
+            DB::commit();
 
-            return $approvedArticle;
-        } catch (\Exception $e) {
-            Log::error('Lỗi trong moveToApprovedArticles', [
-                'error' => $e->getMessage(),
-                'rewritten_article_id' => $rewrittenArticle->id
+            Log::info('Bài viết đã được duyệt và chuyển sang ApprovedArticle', [
+                'rewritten_id' => $rewrittenArticle->id,
+                'approved_id' => $approvedArticle->id
             ]);
-            throw $e;
+            
+            return true;
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Lỗi khi chuyển bài viết sang ApprovedArticle: ' . $e->getMessage(), [
+                'rewritten_id' => $rewrittenArticle->id
+            ]);
+            return false;
         }
     }
 

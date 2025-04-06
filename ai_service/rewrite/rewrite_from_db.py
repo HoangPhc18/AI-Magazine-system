@@ -103,7 +103,7 @@ def rewrite_with_gemma2(text, word_limit=True):
         
     # Create prompt based on word limit
     if word_limit:
-        prompt = f"""Hãy viết lại bài viết sau đây thành một đoạn văn ngắn gọn khoảng 50-100 từ, tập trung vào thông tin quan trọng nhất:
+        prompt = f"""Hãy viết lại bài viết sau đây thành một đoạn văn ngắn gọn, tập trung vào thông tin quan trọng:
 
 {text}
 """
@@ -168,7 +168,7 @@ def save_rewritten_article(connection, article_id, original_content, rewritten_c
             
         # Create a new title for the rewritten article
         original_title = original_article[0]
-        new_title = f"AI Rewrite: {original_title}"
+        new_title = f"{original_title}"
         
         # Create a new slug based on the new title
         new_slug = f"{original_article[1]}-ai-rewrite"
@@ -292,9 +292,9 @@ def process_article(connection, article):
     print(f"Processing time: {processing_time:.2f} seconds")
     
     # Check if word count is within target range
-    in_target_range = 50 <= rewritten_word_count <= 100
+    in_target_range = 50 <= rewritten_word_count <= 200
     if in_target_range:
-        print("✅ Word count within target range (50-100 words)")
+        print("✅ Word count within target range (50-200 words)")
     else:
         print(f"⚠️ Word count outside target range: {rewritten_word_count} words")
     

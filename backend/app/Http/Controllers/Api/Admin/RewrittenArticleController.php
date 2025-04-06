@@ -13,7 +13,9 @@ class RewrittenArticleController extends Controller
 {
     public function index()
     {
-        $articles = RewrittenArticle::with(['originalArticle', 'category'])->get();
+        $articles = RewrittenArticle::with(['originalArticle', 'category'])
+            ->where('status', '!=', 'approved')
+            ->get();
         return RewrittenArticleResource::collection($articles);
     }
 
@@ -50,11 +52,11 @@ class RewrittenArticleController extends Controller
                 'approved_by' => auth()->id()
             ]);
 
-            // Update rewritten article status
-            $rewrittenArticle->update(['status' => 'approved']);
+            // Permanently delete the rewritten article to avoid duplication
+            $rewrittenArticle->forceDelete();
         });
 
-        return new RewrittenArticleResource($rewrittenArticle);
+        return response()->json(['message' => 'Article approved and published successfully']);
     }
 
     public function reject(RewrittenArticle $rewrittenArticle)

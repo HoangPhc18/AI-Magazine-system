@@ -56,6 +56,7 @@ Route::middleware(['auth', AdminMiddleware::class])->prefix('admin')->name('admi
     
     // Keyword Rewrite routes
     Route::resource('keyword-rewrites', KeywordRewriteController::class)->except(['edit', 'update']);
+    Route::get('keyword-rewrites/{keywordRewrite}/check-status', [KeywordRewriteController::class, 'checkStatus'])->name('keyword-rewrites.check-status');
     Route::post('keyword-rewrites/{keywordRewrite}/retry', [KeywordRewriteController::class, 'retry'])->name('keyword-rewrites.retry');
     Route::get('keyword-rewrites/{keywordRewrite}/convert', [KeywordRewriteController::class, 'convert'])->name('keyword-rewrites.convert');
     Route::post('keyword-rewrites/quick-process', [KeywordRewriteController::class, 'quickProcess'])->name('keyword-rewrites.quick-process');

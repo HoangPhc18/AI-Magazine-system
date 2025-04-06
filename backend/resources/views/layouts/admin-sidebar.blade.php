@@ -27,7 +27,7 @@
                             <svg class="mr-3 h-5 w-5 text-white {{ request()->routeIs('admin.users.*') ? 'opacity-100' : 'opacity-75 group-hover:opacity-100' }} transition-opacity" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                             </svg>
-                            Người dùng
+                            Quản lý người dùng
                         </a>
 
                         <!-- Articles Management -->
@@ -48,18 +48,18 @@
                                 x-transition:enter-start="transform -translate-y-2 opacity-0"
                                 x-transition:enter-end="transform translate-y-0 opacity-100" 
                                 class="pl-7 pr-2 mt-1 space-y-1">
-                                <a href="{{ route('admin.articles.index') }}" class="flex items-center pl-3 pr-2 py-2 text-sm font-medium rounded-md text-white text-opacity-70 hover:text-opacity-100 hover:bg-primary-500 transition-all duration-150 {{ request()->routeIs('admin.articles.index') ? 'bg-primary-500 text-opacity-100' : '' }}">
+                                <!-- <a href="{{ route('admin.articles.index') }}" class="flex items-center pl-3 pr-2 py-2 text-sm font-medium rounded-md text-white text-opacity-70 hover:text-opacity-100 hover:bg-primary-500 transition-all duration-150 {{ request()->routeIs('admin.articles.index') ? 'bg-primary-500 text-opacity-100' : '' }}">
                                     <svg class="w-4 h-4 mr-2 {{ request()->routeIs('admin.articles.index') ? 'text-white' : 'text-white text-opacity-70' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
                                     </svg>
                                     Tất cả bài viết
-                                </a>
-                                <a href="{{ route('admin.articles.create') }}" class="flex items-center pl-3 pr-2 py-2 text-sm font-medium rounded-md text-white text-opacity-70 hover:text-opacity-100 hover:bg-primary-500 transition-all duration-150 {{ request()->routeIs('admin.articles.create') ? 'bg-primary-500 text-opacity-100' : '' }}">
+                                </a> -->
+                                <!-- <a href="{{ route('admin.articles.create') }}" class="flex items-center pl-3 pr-2 py-2 text-sm font-medium rounded-md text-white text-opacity-70 hover:text-opacity-100 hover:bg-primary-500 transition-all duration-150 {{ request()->routeIs('admin.articles.create') ? 'bg-primary-500 text-opacity-100' : '' }}">
                                     <svg class="w-4 h-4 mr-2 {{ request()->routeIs('admin.articles.create') ? 'text-white' : 'text-white text-opacity-70' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
                                     </svg>
                                     Tạo bài viết mới
-                                </a>
+                                </a> -->
                                 <a href="{{ route('admin.rewritten-articles.index') }}" class="flex items-center pl-3 pr-2 py-2 text-sm font-medium rounded-md text-white text-opacity-70 hover:text-opacity-100 hover:bg-primary-500 transition-all duration-150 {{ request()->routeIs('admin.rewritten-articles.index') ? 'bg-primary-500 text-opacity-100' : '' }}">
                                     <svg class="w-4 h-4 mr-2 {{ request()->routeIs('admin.rewritten-articles.index') ? 'text-white' : 'text-white text-opacity-70' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
@@ -91,14 +91,14 @@
                             Danh mục
                         </a>
 
-                        <a href="{{ route('admin.ai-settings.index') }}" 
+                        <!-- <a href="{{ route('admin.ai-settings.index') }}" 
                             class="{{ request()->routeIs('admin.ai-settings.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200">
                             <svg class="mr-3 h-5 w-5 text-white {{ request()->routeIs('admin.ai-settings.*') ? 'opacity-100' : 'opacity-75 group-hover:opacity-100' }} transition-opacity" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
                             Cài đặt AI
-                        </a>
+                        </a> -->
                     </nav>
                 </div>
                 <div class="flex-shrink-0 flex border-t border-primary-800 p-4">

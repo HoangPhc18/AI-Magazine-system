@@ -130,6 +130,16 @@ class KeywordRewriteController extends Controller
             'error_message' => $request->error_message,
         ]);
 
+        // Lưu thông báo vào session với rewrite_id
+        session()->flash('keyword_rewrite_completed_' . $request->rewrite_id, true);
+        session()->flash('keyword_rewrite_status_' . $request->rewrite_id, $request->status);
+        
+        if ($request->status == 'completed') {
+            session()->flash('keyword_rewrite_message_' . $request->rewrite_id, 'Bài viết đã được tạo thành công từ từ khóa "' . $keywordRewrite->keyword . '"');
+        } else {
+            session()->flash('keyword_rewrite_message_' . $request->rewrite_id, 'Xử lý từ khóa "' . $keywordRewrite->keyword . '" thất bại: ' . $request->error_message);
+        }
+
         return response()->json([
             'message' => 'Keyword rewrite updated successfully',
             'keyword_rewrite' => new KeywordRewriteResource($keywordRewrite)

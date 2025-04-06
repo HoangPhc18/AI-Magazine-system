@@ -12,10 +12,12 @@ import time
 import json
 import requests
 from datetime import datetime
-from dotenv import load_dotenv
+# from dotenv import load_dotenv  # Comment out problematic line
 
-# Load environment variables
-load_dotenv()
+# Set environment variables directly
+# load_dotenv()  # Comment out problematic line
+os.environ["OLLAMA_MODEL"] = "gemma2:latest"
+os.environ["OLLAMA_HOST"] = "http://localhost:11434"
 
 # Get Ollama model from environment or use default
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:latest")

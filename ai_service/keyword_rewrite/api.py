@@ -14,17 +14,26 @@ import json
 import threading
 import requests
 from datetime import datetime
+
+# Vô hiệu hóa tự động tải .env của Flask
+os.environ["FLASK_SKIP_DOTENV"] = "1"
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 
 # Import our modules
 from search import search_google_news
 from scraper import extract_article_content
 from rewriter import rewrite_content
 
-# Load environment variables
-load_dotenv()
+# Set environment variables directly
+# load_dotenv()
+os.environ["PORT"] = "5000"
+os.environ["HOST"] = "0.0.0.0"
+os.environ["DEBUG"] = "False"
+os.environ["OLLAMA_MODEL"] = "gemma2:latest"
+os.environ["OLLAMA_HOST"] = "http://localhost:11434"
 
 # Configure logging
 logging.basicConfig(

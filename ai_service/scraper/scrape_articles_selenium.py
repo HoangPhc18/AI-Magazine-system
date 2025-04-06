@@ -69,82 +69,124 @@ def get_site_specific_selectors(url):
     selectors = {
         # VnExpress
         "vnexpress.net": {
-            "title": ["h1.title-detail", "h1.title-post"],
-            "content": ["article.fck_detail", "div.fck_detail", ".content_detail"],
+            "title": ["h1.title-detail", "h1.title-post", ".title-news", ".title_news_detail"],
+            "content": ["article.fck_detail", "div.fck_detail", ".content_detail", "article.content-detail"],
             "paragraphs": ["p.Normal", "p"],
-            "exclude": [".author", ".copyright", ".relatebox", ".box-tag"]
+            "exclude": [".author", ".copyright", ".relatebox", ".box-tag", ".social_pin", ".list-news", ".width_common", ".footer", ".header"]
         },
         # Tuổi Trẻ
         "tuoitre.vn": {
-            "title": ["h1.article-title", "h1.title-2"],
-            "content": ["div.content.fck", "#main-detail-body"],
+            "title": ["h1.article-title", "h1.title-2", "h1.detail-title", ".article-title"],
+            "content": ["div.content.fck", "#main-detail-body", "div.detail-content", "#mainContent", ".content-news", ".detail-content-body"],
             "paragraphs": ["p"],
-            "exclude": [".VCSortableInPreviewMode", ".relate-container"]
+            "exclude": [".VCSortableInPreviewMode", ".relate-container", ".source", ".author", ".date-time"]
         },
         # Dân Trí
         "dantri.com.vn": {
-            "title": ["h1.title-page", "h1.e-title"],
-            "content": ["div.dt-news__content", "div.e-content"],
+            "title": ["h1.title-page", "h1.e-title", "h1.title", ".e-magazine", ".title-news"],
+            "content": ["div.dt-news__content", "div.e-content", ".singular-content", ".article-body", ".dt-news__body"],
             "paragraphs": ["p"],
-            "exclude": [".dt-news__sapo", ".author-info"]
+            "exclude": [".dt-news__sapo", ".author-info", ".article-topic", ".e-magazineplus", ".dt-news__meta"]
         },
         # Thanh Niên
         "thanhnien.vn": {
-            "title": ["h1.detail-title", "h1.cms-title"],
-            "content": ["div.detail-content", "div.cms-body"],
+            "title": ["h1.detail-title", "h1.cms-title", ".details__headline", "h1.title-news"],
+            "content": ["div.detail-content", "div.cms-body", ".l-content", ".details__content", "#abody", "#content-id"],
             "paragraphs": ["p"],
-            "exclude": [".author", ".source"]
+            "exclude": [".author", ".source", ".details__meta", ".details__author", ".related-container"]
         },
         # VietnamNet
         "vietnamnet.vn": {
-            "title": ["h1.content-detail-title", "h1.title"],
-            "content": ["div.content-detail", ".ArticleContent", "#article-body"],
+            "title": ["h1.content-detail-title", "h1.title", ".content-title", "h1.title-item-news", ".title-content"],
+            "content": ["div.content-detail", ".ArticleContent", "#article-body", ".articleContent", ".boxPostDetail", ".detail-content"],
             "paragraphs": ["p"],
-            "exclude": [".author-info", ".article-relate"]
+            "exclude": [".author-info", ".article-relate", ".box-taitro", ".box-title", ".article-tags"]
         },
         # Nhân Dân
         "nhandan.vn": {
-            "title": ["div.box-title h1", ".nd-detail-title"],
-            "content": ["div.box-content-detail", "#nd-article-content"],
+            "title": ["div.box-title h1", ".nd-detail-title", ".title-detail", ".article-title", "h1.article-title"],
+            "content": ["div.box-content-detail", "#nd-article-content", ".article-body", ".detail-content-wrap"],
             "paragraphs": ["p"],
-            "exclude": [".box-author"]
+            "exclude": [".box-author", ".article-meta", ".box-share"]
         },
         # Tiền Phong
         "tienphong.vn": {
-            "title": ["h1.article__title", "h1.cms-title"],
-            "content": ["div.article__body", ".cms-body"],
+            "title": ["h1.article__title", "h1.cms-title", ".headline", ".main-article-title", "h1.article-title"],
+            "content": ["div.article__body", ".cms-body", ".article-body", ".article-content", ".main-article-body"],
             "paragraphs": ["p"],
-            "exclude": [".article__author", ".article__tag", ".article__share"]
+            "exclude": [".article__author", ".article__tag", ".article__share", ".article__meta"]
         },
         # Báo Mới
         "baomoi.com": {
-            "title": ["h1.bm-title", "h1.title"],
-            "content": ["div.content", ".bm-content"],
+            "title": ["h1.bm-title", "h1.title", ".article-title", ".article-header", ".title", ".headline"],
+            "content": ["div.content", ".bm-content", ".article-body", ".story__content", ".article__content"],
             "paragraphs": ["p"],
-            "exclude": [".bm-source", ".bm-resource"]
+            "exclude": [".bm-source", ".bm-resource", ".relate-container", ".bm-avatar", ".top-comments"]
         },
         # Zing News
         "zingnews.vn": {
-            "title": ["h1.the-article-title", "h1.article-title"],
-            "content": ["div.the-article-body", "article.the-article-content"],
+            "title": ["h1.the-article-title", "h1.article-title", ".the-article-header", ".page-title", ".article-header h1"],
+            "content": ["div.the-article-body", "article.the-article-content", ".the-article-content", ".article-content"],
             "paragraphs": ["p"],
-            "exclude": [".author", ".source", ".article-tags", ".article-related"]
+            "exclude": [".author", ".source", ".article-tags", ".article-related", ".the-article-tags", ".the-article-meta"]
         },
         # 24h
         "24h.com.vn": {
-            "title": ["h1.bld", "h1.clrTit"],
-            "content": ["div.text-conent", "div.baiviet-bailienquan"],
+            "title": ["h1.bld", "h1.clrTit", ".titCM", ".tuht-dts", "article h1"],
+            "content": ["div.text-conent", "div.baiviet-bailienquan", ".colCenter-in", ".boxDtlBody", "article .ctTp"],
             "paragraphs": ["p"],
-            "exclude": [".nguontin", ".baiviet-tags"]
+            "exclude": [".nguontin", ".baiviet-tags", ".bv-cp", ".fb-like", ".imgCation"]
+        },
+        # CafeF
+        "cafef.vn": {
+            "title": ["h1.title", ".articledetail_title", ".title-detail", "h1.title_detail"],
+            "content": ["div#mainContent", ".contentdetail", ".article-body", "#CMS_Detail", "#content_detail_news"],
+            "paragraphs": ["p"],
+            "exclude": [".author", ".source", ".relationnews", ".tindlienquan"]
+        },
+        # VOV
+        "vov.vn": {
+            "title": ["h1.article-title", ".main-article h1", ".cms-title", ".vovtitle"],
+            "content": ["div.article-body", ".main-article-body", ".article-content", "#article_content", ".vov-content"],
+            "paragraphs": ["p"],
+            "exclude": [".article-author", ".article-tools", ".article-related"]
+        },
+        # Lao Động
+        "laodong.vn": {
+            "title": ["h1.title", ".article-title", ".headline", "h1.headline_detail"],
+            "content": ["div.article-content", ".cms-body", ".contentbody", ".detail-content-body", "#box_details"],
+            "paragraphs": ["p"],
+            "exclude": [".author", ".source", ".article-meta", ".article-tools", ".boxrelation"]
+        },
+        # Báo Thanh tra
+        "thanhtra.com.vn": {
+            "title": ["h1.title", ".article-title", ".news-title"],
+            "content": [".article-body", ".news-content", ".content-body"],
+            "paragraphs": ["p"],
+            "exclude": [".author", ".article-info", ".tags"]
+        },
+        # Pháp Luật TP.HCM
+        "plo.vn": {
+            "title": ["h1.title", ".article__title", ".article-title"],
+            "content": [".article__body", ".article-content", ".cms-body"],
+            "paragraphs": ["p"],
+            "exclude": [".author", ".source", ".tags-container"]
+        },
+        # Sài Gòn Giải Phóng
+        "sggp.org.vn": {
+            "title": ["h1.title", ".cms-title", ".article-title"],
+            "content": [".article-content", ".cms-body", "#content_detail_news"],
+            "paragraphs": ["p"],
+            "exclude": [".author", ".nguon", ".source"]
         }
     }
     
     # Mặc định cho các trang không có cấu hình cụ thể
     default_selectors = {
-        "title": ["h1", "h1.title", "h1.article-title", ".headline", ".article-headline", ".entry-title"],
-        "content": ["article", "main", ".content", ".article-content", ".entry-content", ".post-content"],
+        "title": ["h1", "h1.title", "h1.article-title", ".headline", ".article-headline", ".entry-title", ".post-title", ".main-title"],
+        "content": ["article", "main", ".content", ".article-content", ".entry-content", ".post-content", ".news-content", ".main-content", "#content", "#main"],
         "paragraphs": ["p"],
-        "exclude": [".comments", ".sidebar", ".related", ".footer", ".header", ".navigation", ".menu", ".ads"]
+        "exclude": [".comments", ".sidebar", ".related", ".footer", ".header", ".navigation", ".menu", ".ads", ".social", ".sharing", ".tags", ".author", ".meta", ".date"]
     }
     
     # Trả về bộ chọn tùy chỉnh hoặc mặc định
@@ -156,7 +198,8 @@ def get_site_specific_selectors(url):
 
 def extract_content(driver, url, title="Unknown title"):
     """
-    Trích xuất nội dung có cấu trúc từ URL bài viết, với xử lý tùy chỉnh cho các trang tin tức phổ biến
+    Trích xuất nội dung dạng văn bản thuần túy từ URL bài viết, với xử lý tùy chỉnh cho các trang tin tức phổ biến.
+    Giữ nguyên nội dung tiêu đề và bài viết không sửa đổi để lưu vào database.
     
     Args:
         driver (WebDriver): Driver Selenium
@@ -176,16 +219,22 @@ def extract_content(driver, url, title="Unknown title"):
         )
         
         # Đảm bảo trang đã tải đầy đủ bằng cách scroll xuống
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight * 0.5);")
-        time.sleep(1)
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight * 0.3);")
+        time.sleep(1.5)
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight * 0.7);")
+        time.sleep(1.5)
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(1)
+        time.sleep(1.5)
         
         # Lấy nội dung trang
         page_content = driver.page_source
         
         # Sử dụng BeautifulSoup để phân tích HTML
         soup = BeautifulSoup(page_content, "html.parser")
+        
+        # Xác định tên miền để áp dụng selector phù hợp
+        domain = urlparse(url).netloc
+        logger.info(f"Đang xử lý trang web: {domain}")
         
         # Lấy các bộ chọn tùy chỉnh theo trang web
         selectors = get_site_specific_selectors(url)
@@ -195,15 +244,19 @@ def extract_content(driver, url, title="Unknown title"):
         
         # Thử các bộ chọn tiêu đề tùy chỉnh
         for selector in selectors["title"]:
-            title_element = soup.select_one(selector)
-            if title_element and title_element.text.strip():
-                extracted_title = title_element.text.strip()
-                logger.info(f"Đã tìm thấy tiêu đề từ bộ chọn '{selector}': {extracted_title[:50]}...")
-                break
+            title_elements = soup.select(selector)
+            if title_elements:
+                for title_element in title_elements:
+                    if title_element and title_element.text.strip():
+                        extracted_title = title_element.text.strip()
+                        logger.info(f"Đã tìm thấy tiêu đề từ bộ chọn '{selector}': {extracted_title[:50]}...")
+                        break
+                if extracted_title:
+                    break
         
         # Nếu không tìm thấy, thử tìm từ các thẻ h1/h2 phổ biến
         if not extracted_title:
-            heading_tags = soup.find_all(['h1', 'h2'], limit=3)
+            heading_tags = soup.find_all(['h1', 'h2'], limit=5)
             for tag in heading_tags:
                 text = tag.text.strip()
                 if text and len(text) > 15:  # Tiêu đề thường dài hơn 15 ký tự
@@ -223,104 +276,133 @@ def extract_content(driver, url, title="Unknown title"):
         if not extracted_title and title and title != "Unknown title":
             extracted_title = title
             logger.info(f"Sử dụng tiêu đề đã có: {extracted_title[:50]}...")
-        
+            
         # ---------- Trích xuất nội dung ----------
         content_element = None
         
         # Thử các bộ chọn nội dung tùy chỉnh
         for selector in selectors["content"]:
-            content_element = soup.select_one(selector)
-            if content_element:
-                logger.info(f"Đã tìm thấy phần tử nội dung từ bộ chọn '{selector}'")
-                break
+            content_elements = soup.select(selector)
+            if content_elements:
+                # Chọn phần tử nội dung lớn nhất (có nhiều text nhất)
+                max_length = 0
+                for element in content_elements:
+                    text_length = len(element.get_text())
+                    if text_length > max_length:
+                        max_length = text_length
+                        content_element = element
+                
+                if content_element:
+                    logger.info(f"Đã tìm thấy phần tử nội dung từ bộ chọn '{selector}' ({max_length} ký tự)")
+                    break
         
-        # Loại bỏ các phần tử không mong muốn từ nội dung
+        # Trích xuất nội dung văn bản thuần túy
         if content_element:
+            # Trước khi trích xuất, loại bỏ các phần tử không mong muốn từ nội dung
             for exclude_selector in selectors["exclude"]:
                 for element in content_element.select(exclude_selector):
                     element.extract()
-        
-        # Trích xuất nội dung từ các đoạn văn
-        content_paragraphs = []
-        
-        if content_element:
-            # Tìm tất cả các đoạn văn trong phần tử nội dung
-            paragraphs = content_element.select(", ".join(selectors["paragraphs"]))
             
-            for p in paragraphs:
-                text = p.text.strip()
-                # Lọc các đoạn văn có nghĩa (loại bỏ các đoạn quá ngắn hoặc là thông tin phụ)
-                if text and len(text) > 10:  # Lấy đoạn văn dài hơn 10 ký tự
-                    content_paragraphs.append(text)
+            # Lấy văn bản thuần túy, giữ nguyên cách đoạn
+            paragraphs = []
+            
+            # Tìm tất cả các đoạn văn trong phần tử nội dung
+            if "," in ", ".join(selectors["paragraphs"]):
+                p_elements = content_element.select(", ".join(selectors["paragraphs"]))
+            else:
+                p_elements = content_element.find_all(selectors["paragraphs"][0])
+                
+            # Nếu không tìm thấy đoạn văn, lấy tất cả văn bản trong phần tử nội dung
+            if not p_elements or len(p_elements) < 3:
+                # Thử tìm tất cả các thẻ text nói chung
+                all_text_elements = [el for el in content_element.find_all(text=True) if el.parent.name not in ['script', 'style']]
+                clean_text = []
+                for el in all_text_elements:
+                    text = el.strip()
+                    if text and len(text) > 10:
+                        clean_text.append(text)
+                
+                if clean_text:
+                    full_content = "\n\n".join(clean_text)
+                else:
+                    full_content = content_element.get_text(separator="\n\n", strip=True)
+                
+                logger.info(f"Đã trích xuất nội dung văn bản ({len(full_content.split())} từ) từ: {url}")
+            else:
+                # Lấy nội dung từ từng đoạn văn
+                for p in p_elements:
+                    text = p.text.strip()
+                    if text:  # Lấy tất cả đoạn văn có nội dung
+                        paragraphs.append(text)
+                
+                full_content = "\n\n".join(paragraphs)
+                logger.info(f"Đã trích xuất nội dung từ {len(paragraphs)} đoạn văn, tổng cộng {len(full_content.split())} từ")
         else:
-            # Nếu không tìm thấy phần tử nội dung, tìm tất cả các thẻ p
+            # Nếu không tìm thấy phần tử nội dung, thử phương pháp chủ động hơn
             logger.warning(f"Không tìm thấy phần tử nội dung cụ thể cho URL: {url}, dùng phương pháp dự phòng")
             
-            # Loại bỏ các phần tử không mong muốn
-            for selector in selectors["exclude"]:
-                for element in soup.select(selector):
-                    element.extract()
+            # Phương pháp 1: Tìm phần tử có nhiều thẻ <p> nhất
+            article_candidates = []
             
-            # Loại bỏ các phần tử script, style, nav, header, footer, ads
-            for element in soup(['script', 'style', 'nav', 'header', 'footer', 'iframe', 'aside']):
-                element.extract()
+            for tag in ['article', 'main', 'div.content', 'div.article', '.detail', '#detail', '#content']:
+                elements = soup.select(tag)
+                for element in elements:
+                    p_count = len(element.find_all('p'))
+                    if p_count >= 3:  # Ít nhất 3 đoạn văn
+                        article_candidates.append((element, p_count))
             
-            # Tìm tất cả các thẻ p
-            paragraphs = soup.find_all('p')
-            for p in paragraphs:
-                text = p.text.strip()
-                if text and len(text) > 20:  # Đoạn văn trong nội dung chính thường dài hơn
-                    content_paragraphs.append(text)
+            if article_candidates:
+                # Sắp xếp theo số lượng thẻ p, lấy phần tử có nhiều thẻ p nhất
+                article_candidates.sort(key=lambda x: x[1], reverse=True)
+                content_element = article_candidates[0][0]
+                logger.info(f"Đã tìm thấy phần tử nội dung bằng phương pháp phân tích cấu trúc ({article_candidates[0][1]} đoạn văn)")
+                
+                # Lấy tất cả các đoạn văn từ phần tử này
+                paragraphs = []
+                for p in content_element.find_all('p'):
+                    text = p.text.strip()
+                    if text and len(text) > 15:  # Chỉ lấy đoạn văn có đủ nội dung
+                        paragraphs.append(text)
+                
+                if paragraphs:
+                    full_content = "\n\n".join(paragraphs)
+                    logger.info(f"Đã trích xuất nội dung dự phòng từ {len(paragraphs)} đoạn văn, tổng cộng {len(full_content.split())} từ")
+                else:
+                    # Không có đoạn văn, lấy tất cả văn bản
+                    full_content = content_element.get_text(separator="\n\n", strip=True)
+                    logger.info(f"Đã trích xuất toàn bộ văn bản từ phần tử nội dung ({len(full_content.split())} từ)")
+            else:
+                # Phương pháp 2: Lấy tất cả các đoạn văn từ trang
+                paragraphs = []
+                for p in soup.find_all('p'):
+                    text = p.text.strip()
+                    if text and len(text) > 20:  # Chỉ lấy đoạn văn có đủ nội dung
+                        paragraphs.append(text)
+                
+                if paragraphs:
+                    full_content = "\n\n".join(paragraphs)
+                    logger.info(f"Đã trích xuất nội dung từ tất cả các đoạn văn trên trang ({len(paragraphs)} đoạn)")
+                else:
+                    # Phương pháp cuối cùng: lấy toàn bộ văn bản từ trang
+                    main_content = soup.find('main') or soup.find('article') or soup.find('body')
+                    full_content = main_content.get_text(separator="\n\n", strip=True)
+                    logger.info(f"Đã trích xuất văn bản tổng thể ({len(full_content.split())} từ)")
         
-        # Kết hợp nội dung thành một chuỗi văn bản
-        full_content = ""
-        
-        # Thêm nội dung của các đoạn văn
-        if content_paragraphs:
-            full_content = "\n\n".join(content_paragraphs)
-        else:
-            # Phương pháp cuối cùng: lấy tất cả văn bản
-            logger.warning(f"Không tìm thấy đoạn văn cho URL: {url}, dùng phương pháp trích xuất văn bản thô")
+        # Loại bỏ các dòng trống và làm sạch nội dung
+        if full_content:
+            # Loại bỏ khoảng trắng dư thừa
+            full_content = re.sub(r'\n{3,}', '\n\n', full_content)
             
-            # Lấy văn bản
-            text = soup.get_text()
-            
-            # Xử lý văn bản
-            lines = (line.strip() for line in text.splitlines())
-            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-            text_chunks = [chunk for chunk in chunks if chunk and len(chunk) > 20]
-            
-            # Lọc các đoạn văn có nghĩa
-            filtered_chunks = []
-            for chunk in text_chunks:
-                # Loại bỏ các đoạn quá ngắn hoặc chỉ có ký tự đặc biệt/số
-                if len(chunk) > 30 and not re.match(r'^[\d\W]+$', chunk):
-                    filtered_chunks.append(chunk)
-            
-            if filtered_chunks:
-                full_content = "\n\n".join(filtered_chunks)
-        
-        # Làm sạch nội dung
-        # Loại bỏ khoảng trắng dư thừa
-        full_content = re.sub(r'\s+', ' ', full_content).strip()
-        # Loại bỏ các ký tự đặc biệt và dấu chấm câu dư thừa
-        full_content = re.sub(r'[.]{2,}', '.', full_content)
-        
-        # Phân đoạn lại văn bản để dễ đọc
-        paragraphs = [p.strip() for p in full_content.split('\n\n')]
-        full_content = '\n\n'.join([p for p in paragraphs if p])
-        
-        # Kiểm tra kết quả
-        word_count = len(full_content.split())
-        if word_count < 50:
-            logger.warning(f"Nội dung trích xuất quá ngắn ({word_count} từ) từ: {url}")
-        else:
-            logger.info(f"Trích xuất thành công nội dung ({word_count} từ) từ: {url}")
+            # Nếu nội dung quá ngắn, thông báo cảnh báo
+            if len(full_content.split()) < 50:
+                logger.warning(f"Nội dung trích xuất quá ngắn ({len(full_content.split())} từ), có thể không chính xác")
         
         return extracted_title, full_content
     
     except Exception as e:
         logger.error(f"Lỗi khi trích xuất nội dung từ {url}: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         return title, ""
 
 def filter_article(url):
@@ -379,14 +461,16 @@ def enrich_article(driver, article):
             logger.info(f"Đã cập nhật tiêu đề: {extracted_title[:50]}...")
         
         # Cập nhật nội dung
-        article["content"] = full_content
+        if full_content:
+            article["content"] = full_content
+            logger.info(f"Đã cập nhật nội dung văn bản cho bài viết ({len(full_content.split())} từ)")
         
         # Cập nhật tóm tắt (summary) nếu không có hoặc là mặc định
         if not article.get("summary") or article.get("summary").startswith("Bài viết liên quan đến"):
-            # Tạo tóm tắt từ 200 ký tự đầu tiên của nội dung
+            # Tạo tóm tắt từ nội dung văn bản
             if full_content:
                 words = full_content.split()
-                if len(words) > 30:  # Nếu có ít nhất 30 từ
+                if len(words) > 30:
                     summary = " ".join(words[:30]) + "..."
                     article["summary"] = summary
                     logger.info(f"Đã tạo tóm tắt tự động: {summary[:50]}...")
@@ -430,6 +514,7 @@ def send_to_backend(articles):
         payload = {"articles": articles}
         headers = {"Content-Type": "application/json"}
         
+        print(f"🚀 Đang gửi {len(articles)} bài viết tới backend...")
         response = requests.post(BACKEND_API_URL, json=payload, headers=headers)
         
         if response.status_code in (200, 201):
@@ -453,10 +538,17 @@ def main():
     Chức năng: Đọc file JSON lưu URL từ google_news_serpapi.py, trích xuất nội dung và tiêu đề, 
     rồi lưu các bài viết đã làm phong phú vào file mới và có thể gửi tới backend.
     """
+    # Check for auto_send argument
+    auto_send = "--auto-send" in sys.argv
+    
     # Get input file from command line or use latest scraped file
-    if len(sys.argv) > 1:
-        input_file = sys.argv[1]
-    else:
+    input_file = None
+    for arg in sys.argv[1:]:
+        if not arg.startswith("--") and arg.endswith(".json"):
+            input_file = arg
+            break
+            
+    if not input_file:
         # Find latest scraped_articles file
         files = [f for f in os.listdir('.') if f.startswith('scraped_articles_') and f.endswith('.json')]
         if not files:
@@ -504,11 +596,9 @@ def main():
         
         print(f"✅ Đã lưu {len(enriched_articles)} bài viết đã làm giàu vào {output_file}")
         
-        # Ask to send to backend
+        # Automatically send to backend if there are articles
         if enriched_articles:
-            send_option = input("Bạn có muốn gửi bài viết tới backend? (y/n): ").lower()
-            if send_option == 'y':
-                send_to_backend(enriched_articles)
+            send_to_backend(enriched_articles)
     
     finally:
         # Clean up

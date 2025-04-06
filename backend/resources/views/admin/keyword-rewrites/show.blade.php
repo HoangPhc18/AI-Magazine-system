@@ -60,7 +60,7 @@
                                 Đang chờ
                             </span>
                         @elseif($keywordRewrite->status == 'processing')
-                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                            <span id="status-badge" class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
                                 Đang xử lý
                             </span>
                         @elseif($keywordRewrite->status == 'completed')
@@ -111,16 +111,19 @@
         </div>
     </div>
 
+    <!-- Notification Area -->
+    <div id="notification-area" class="hidden mb-6"></div>
+
     @if($keywordRewrite->status == 'processing')
     <!-- Processing Status -->
-    <div class="bg-white shadow rounded-lg overflow-hidden mb-6">
+    <div id="processing-status" class="bg-white shadow rounded-lg overflow-hidden mb-6">
         <div class="px-4 py-5 sm:p-6 text-center">
             <svg class="inline-block animate-spin h-10 w-10 text-primary-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
             <h3 class="text-lg font-medium text-gray-900">Hệ thống đang xử lý yêu cầu của bạn</h3>
-            <p class="mt-1 text-sm text-gray-500">Quá trình này có thể mất từ 30 giây đến vài phút tùy thuộc vào độ dài bài viết. Vui lòng tải lại trang sau vài phút.</p>
+            <p class="mt-1 text-sm text-gray-500">Quá trình này có thể mất từ 30 giây đến vài phút tùy thuộc vào độ dài bài viết. Trang sẽ tự động cập nhật khi hoàn thành.</p>
             <button onClick="window.location.reload();" class="mt-4 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-150">
                 <svg class="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -212,6 +215,86 @@
         toggleSourceBtn.addEventListener('click', function() {
             sourceContent.classList.toggle('hidden');
         });
+    });
+</script>
+@endif
+
+@if($keywordRewrite->status == 'processing')
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Kiểm tra trạng thái bài viết mỗi 5 giây
+        const rewriteId = {{ $keywordRewrite->id }};
+        const checkStatusInterval = setInterval(checkStatus, 5000);
+        
+        function checkStatus() {
+            fetch(`/admin/keyword-rewrites/${rewriteId}/check-status`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status !== 'processing') {
+                    // Nếu trạng thái đã thay đổi, hiển thị thông báo và tải lại trang sau 2 giây
+                    clearInterval(checkStatusInterval);
+                    
+                    // Hiển thị thông báo
+                    const notificationArea = document.getElementById('notification-area');
+                    notificationArea.classList.remove('hidden');
+                    
+                    // Thay đổi màu sắc tùy thuộc vào trạng thái
+                    const bgColor = data.status === 'completed' ? 'bg-green-50 border-green-500' : 'bg-red-50 border-red-500';
+                    const textColor = data.status === 'completed' ? 'text-green-800' : 'text-red-800';
+                    const iconColor = data.status === 'completed' ? 'text-green-500' : 'text-red-500';
+                    const iconPath = data.status === 'completed' 
+                        ? '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />'
+                        : '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />';
+                    
+                    // Tạo nội dung thông báo
+                    notificationArea.innerHTML = `
+                        <div class="mb-6 ${bgColor} border-l-4 p-4 rounded shadow-sm">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <svg class="h-5 w-5 ${iconColor}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                        ${iconPath}
+                                    </svg>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm ${textColor}">${data.message}</p>
+                                    <div class="mt-2">
+                                        <button id="view-result-btn" class="inline-flex items-center px-3 py-1.5 border border-transparent rounded-md text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors duration-150">
+                                            Xem kết quả
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Hiển thị kết quả khi nhấn nút
+                    document.getElementById('view-result-btn').addEventListener('click', function() {
+                        window.location.reload();
+                    });
+                    
+                    // Ẩn phần hiển thị trạng thái đang xử lý
+                    document.getElementById('processing-status').classList.add('hidden');
+                    
+                    // Cập nhật badge trạng thái
+                    const statusBadge = document.getElementById('status-badge');
+                    if (statusBadge) {
+                        statusBadge.className = data.status === 'completed' 
+                            ? 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800'
+                            : 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800';
+                        statusBadge.textContent = data.status === 'completed' ? 'Hoàn thành' : 'Thất bại';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error checking status:', error);
+            });
+        }
     });
 </script>
 @endif

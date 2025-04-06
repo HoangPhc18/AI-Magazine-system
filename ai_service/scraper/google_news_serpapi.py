@@ -28,6 +28,10 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
 import trafilatura
+from dotenv import load_dotenv
+
+# Tải biến môi trường từ file .env
+load_dotenv()
 
 # Cấu hình logging
 logging.basicConfig(
@@ -654,50 +658,81 @@ def main():
     Hàm chính để tìm kiếm và lưu các bài viết (chỉ URL, chưa có nội dung)
     """
     try:
-    # Lấy danh sách danh mục từ backend
-    categories = get_categories()
+        # Tạo thư mục output nếu chưa tồn tại
+        output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Lấy danh sách danh mục từ backend
+        categories = get_categories()
         logger.info(f"Đã lấy {len(categories)} danh mục: {', '.join(categories)}")
     
-    # Tìm kiếm bài viết cho mỗi danh mục
-    all_articles = []
+        # Tìm kiếm bài viết cho mỗi danh mục
+        all_articles = []
     
-    for category in categories:
+        for category in categories:
             logger.info(f"\n=== Đang xử lý danh mục: {category} ===")
-        articles = fetch_articles_by_category(category)
+            articles = fetch_articles_by_category(category)
             
             if articles:
-        all_articles.extend(articles)
+                all_articles.extend(articles)
                 logger.info(f"Đã tìm thấy {len(articles)} bài viết cho danh mục '{category}'")
             else:
                 logger.warning(f"Không tìm thấy bài viết nào cho danh mục '{category}'")
     
-    # Lưu bài viết vào file JSON
-    output_file = f"scraped_articles_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        # Lưu bài viết vào file JSON trong thư mục output
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        output_file = os.path.join(output_dir, f"scraped_articles_{timestamp}.json")
     
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(all_articles, f, ensure_ascii=False, indent=4)
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(all_articles, f, ensure_ascii=False, indent=4)
     
         logger.info(f"Tổng cộng {len(all_articles)} bài viết đã được lưu vào {output_file}")
-        logger.info(f"Chạy scrape_articles_selenium.py để trích xuất nội dung đầy đủ từ các URL.")
         
-        # Hỏi người dùng có muốn tiếp tục chạy scrape_articles_selenium.py không
-        continue_to_scrape = input("Bạn có muốn tiếp tục trích xuất nội dung với scrape_articles_selenium.py? (y/n): ").lower()
-        if continue_to_scrape == 'y':
+        # Kiểm tra môi trường để quyết định có cần hỏi người dùng hay không
+        auto_mode = os.environ.get('AUTO_SEND') == 'true' or '--auto-send' in sys.argv
+        
+        if auto_mode:
+            # Tự động chuyển sang trích xuất nội dung và gửi đến backend
+            logger.info("Chế độ tự động: tiếp tục trích xuất nội dung và gửi đến backend")
             try:
                 import subprocess
-                command = f"python scrape_articles_selenium.py {output_file}"
+                command = f"python scrape_articles_selenium.py {output_file} --auto-send"
                 logger.info(f"Đang chạy lệnh: {command}")
                 subprocess.run(command, shell=True)
             except Exception as e:
                 logger.error(f"Lỗi khi chạy script trích xuất nội dung: {str(e)}")
-                print(f"❌ Lỗi khi chạy script trích xuất nội dung. Bạn có thể chạy thủ công lệnh: python scrape_articles_selenium.py {output_file}")
+                logger.error(traceback.format_exc())
+                print(f"❌ Lỗi khi chạy script trích xuất nội dung. Bạn có thể chạy thủ công lệnh: python scrape_articles_selenium.py {output_file} --auto-send")
         else:
-            print(f"✅ Đã hoàn thành tìm kiếm URL bài viết. Chạy lệnh sau để trích xuất nội dung: python scrape_articles_selenium.py {output_file}")
+            # Hỏi người dùng khi chạy thủ công
+            logger.info(f"Chạy scrape_articles_selenium.py để trích xuất nội dung đầy đủ từ các URL.")
+            continue_to_scrape = input("Bạn có muốn tiếp tục trích xuất nội dung với scrape_articles_selenium.py? (y/n): ").lower()
+            
+            if continue_to_scrape == 'y':
+                try:
+                    import subprocess
+                    # Hỏi người dùng có muốn tự động gửi đến backend không
+                    auto_send = input("Bạn có muốn tự động gửi dữ liệu đến backend? (y/n): ").lower()
+                    
+                    if auto_send == 'y':
+                        command = f"python scrape_articles_selenium.py {output_file} --auto-send"
+                    else:
+                        command = f"python scrape_articles_selenium.py {output_file}"
+                        
+                    logger.info(f"Đang chạy lệnh: {command}")
+                    subprocess.run(command, shell=True)
+                except Exception as e:
+                    logger.error(f"Lỗi khi chạy script trích xuất nội dung: {str(e)}")
+                    logger.error(traceback.format_exc())
+                    print(f"❌ Lỗi khi chạy script trích xuất nội dung. Bạn có thể chạy thủ công lệnh: python scrape_articles_selenium.py {output_file}")
+            else:
+                print(f"✅ Đã hoàn thành tìm kiếm URL bài viết. Chạy lệnh sau để trích xuất nội dung: python scrape_articles_selenium.py {output_file}")
     
     except Exception as e:
         logger.error(f"Lỗi trong quá trình chạy chương trình: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
+
 
 def setup_selenium_driver():
     """
@@ -859,142 +894,60 @@ def search_with_requests(keyword):
     Returns:
         str: URL của bài viết đầu tiên, hoặc None nếu không tìm thấy
     """
-    try:
-        # Chuẩn bị headers với User-Agent ngẫu nhiên
-        headers = {
-            'User-Agent': random.choice(USER_AGENTS),
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
+    # Danh sách các trang tin tức để tìm kiếm trực tiếp
+    news_sites = [
+        {
+            'name': 'VnExpress',
+            'search_url': f'https://timkiem.vnexpress.net/?q={quote_plus(keyword)}',
+            'selectors': ['.title-news a', '.item-news a', '.title_news a']
+        },
+        {
+            'name': 'Tuoi Tre',
+            'search_url': f'https://tuoitre.vn/tim-kiem.htm?keywords={quote_plus(keyword)}',
+            'selectors': ['.name-news a', '.title-news a']
+        },
+        {
+            'name': 'Thanh Nien',
+            'search_url': f'https://thanhnien.vn/tim-kiem/?q={quote_plus(keyword)}',
+            'selectors': ['.story__title a', '.feature-box__title a']
         }
-        
-        # Tìm kiếm trên Google News
-        search_query = f"{keyword} when:1d"
-        search_url = f"https://news.google.com/search?q={quote_plus(search_query)}&hl=vi&gl=VN&ceid=VN:vi"
-        
-        logger.info(f"Searching with HTTP request: {search_url}")
-        response = requests.get(search_url, headers=headers, timeout=15)
-        
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Tìm các bài viết
-            articles = soup.select('article')
-            
-            if articles:
-                logger.info(f"Found {len(articles)} articles via HTTP request")
-                
-                # Gỡ lỗi: Hiển thị tiêu đề của các bài viết
-                for idx, article in enumerate(articles[:5]):
-                    title_elem = article.select_one('h3, h4')
-                    title = title_elem.text.strip() if title_elem else "No title"
-                    logger.info(f"Article {idx+1}: {title}")
-                
-                # Thử trích xuất URL trực tiếp từ Google Search
-                logger.info("Trying direct Google Search as it's more reliable")
-                google_search_url = f"https://www.google.com/search?q={quote_plus(keyword)}&tbm=nws"
-                logger.info(f"Searching with Google Search: {google_search_url}")
-                
-                try:
-                    search_headers = {
-                        'User-Agent': random.choice(USER_AGENTS),
-                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                        'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
-                    }
-                    
-                    search_response = requests.get(google_search_url, headers=search_headers, timeout=15)
-                    
-                    if search_response.status_code == 200:
-                        search_soup = BeautifulSoup(search_response.text, 'html.parser')
-                        
-                        # Log HTML để gỡ lỗi
-                        with open('google_search_response.html', 'w', encoding='utf-8') as f:
-                            f.write(search_response.text)
-                        logger.info("Saved Google Search response to google_search_response.html")
-                        
-                        # Tìm các kết quả từ Google Search - thử nhiều selector khác nhau
-                        for selector in ['div.g a', 'a[href^="https://"]', '.WlydOe', '.DhN8Cf a']:
-                            search_results = search_soup.select(selector)
-                            logger.info(f"Found {len(search_results)} results with selector '{selector}'")
-                            
-                            for result in search_results:
-                                href = result.get('href')
-                                if href and href.startswith('http') and 'google.com' not in href:
-                                    logger.info(f"Found article URL from Google Search: {href}")
-                                    return href
-                    
-                    logger.warning("No results found from Google Search")
-                except Exception as e:
-                    logger.error(f"Error with Google Search: {str(e)}")
-                
-                # Thử truy cập trực tiếp một trang tin tức Việt Nam có bài về từ khóa này
-                news_sites = [
-                    f"https://vnexpress.net/tim-kiem?q={quote_plus(keyword)}",
-                    f"https://tuoitre.vn/tim-kiem.htm?keywords={quote_plus(keyword)}",
-                    f"https://thanhnien.vn/tim-kiem/?q={quote_plus(keyword)}",
-                    f"https://dantri.com.vn/tim-kiem?q={quote_plus(keyword)}"
-                ]
-                
-                for site_url in news_sites:
-                    try:
-                        logger.info(f"Trying direct news site search: {site_url}")
-                        site_response = requests.get(site_url, headers=headers, timeout=15)
-                        
-                        if site_response.status_code == 200:
-                            site_soup = BeautifulSoup(site_response.text, 'html.parser')
-                            
-                            # Tìm kiếm các liên kết bài viết - thử nhiều selector khác nhau cho từng trang
-                            for article_selector in ['article a', '.title-news a', '.story', '.article-title a', '.title a']:
-                                article_links = site_soup.select(article_selector)
-                                
-                                for link in article_links[:3]:  # Chỉ xem 3 kết quả đầu tiên
-                                    href = link.get('href')
-                                    if href:
-                                        # Chuyển đổi URL tương đối thành tuyệt đối nếu cần
-                                        if not href.startswith('http'):
-                                            base_url = urlparse(site_url)
-                                            href = f"{base_url.scheme}://{base_url.netloc}{href if href.startswith('/') else '/' + href}"
-                                        
-                                        logger.info(f"Found article from direct news site: {href}")
-                                        return href
-                    except Exception as e:
-                        logger.error(f"Error with direct news site {site_url}: {str(e)}")
-            
-            logger.warning("No suitable articles found via HTTP request")
-        else:
-            logger.error(f"HTTP request failed with status code: {response.status_code}")
-        
-        # Nếu tất cả các phương pháp đều thất bại, thử tìm kiếm với Bing
-        try:
-            bing_url = f"https://www.bing.com/news/search?q={quote_plus(keyword)}&qft=sortbydate%3d"
-            logger.info(f"Trying Bing News as last resort: {bing_url}")
-            
-            bing_headers = {
-                'User-Agent': random.choice(USER_AGENTS),
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
-            }
-            
-            bing_response = requests.get(bing_url, headers=bing_headers, timeout=15)
-            
-            if bing_response.status_code == 200:
-                bing_soup = BeautifulSoup(bing_response.text, 'html.parser')
-                
-                # Tìm kết quả tin tức từ Bing
-                bing_results = bing_soup.select('.news-card a')
-                
-                for result in bing_results:
-                    href = result.get('href')
-                    if href and href.startswith('http') and 'bing.com' not in href and 'msn.com' not in href:
-                        logger.info(f"Found article from Bing News: {href}")
-                        return href
-        except Exception as e:
-            logger.error(f"Error with Bing search: {str(e)}")
-        
-        return None
+    ]
     
-    except Exception as e:
-        logger.error(f"Error in HTTP request method: {str(e)}")
-        return None
+    headers = {
+        'User-Agent': random.choice(USER_AGENTS),
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
+    }
+    
+    for site in news_sites:
+        try:
+            logger.info(f"Searching on {site['name']}: {site['search_url']}")
+            response = requests.get(site['search_url'], headers=headers, timeout=15)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                
+                # Thử các selector
+                for selector in site['selectors']:
+                    links = soup.select(selector)
+                    logger.info(f"Found {len(links)} links with selector '{selector}' on {site['name']}")
+                    
+                    if links:
+                        for link in links[:3]:  # Chỉ lấy 3 kết quả đầu tiên
+                            href = link.get('href')
+                            if href and ('http' in href or href.startswith('/')):
+                                # Chuyển đổi URL tương đối thành tuyệt đối nếu cần
+                                if not href.startswith('http'):
+                                    base_url = urlparse(site['search_url'])
+                                    href = f"{base_url.scheme}://{base_url.netloc}{href if href.startswith('/') else '/' + href}"
+                                
+                                logger.info(f"Found article on {site['name']}: {href}")
+                                return href
+        except Exception as e:
+            logger.error(f"Error searching on {site['name']}: {str(e)}")
+    
+    logger.warning("No articles found in direct news search")
+    return None
 
 def direct_news_search(keyword):
     """

@@ -468,4 +468,32 @@ class KeywordRewriteController extends Controller
                         route('admin.keyword-rewrites.show', $keywordRewrite) : null
         ]);
     }
+
+    /**
+     * Kiểm tra trạng thái của keyword rewrite thông qua AJAX
+     */
+    public function checkStatus(KeywordRewrite $keywordRewrite)
+    {
+        // Trả về thông tin trạng thái
+        $message = '';
+        
+        // Nếu có thông báo từ session, ưu tiên lấy từ đó
+        if (session()->has('keyword_rewrite_message_' . $keywordRewrite->id)) {
+            $message = session('keyword_rewrite_message_' . $keywordRewrite->id);
+        } else {
+            // Tạo thông báo mặc định dựa trên trạng thái
+            if ($keywordRewrite->status == 'completed') {
+                $message = 'Bài viết đã được tạo thành công từ từ khóa "' . $keywordRewrite->keyword . '"';
+            } elseif ($keywordRewrite->status == 'failed') {
+                $message = 'Xử lý từ khóa "' . $keywordRewrite->keyword . '" thất bại: ' . $keywordRewrite->error_message;
+            } else {
+                $message = 'Đang xử lý từ khóa "' . $keywordRewrite->keyword . '"';
+            }
+        }
+        
+        return response()->json([
+            'status' => $keywordRewrite->status,
+            'message' => $message,
+        ]);
+    }
 } 

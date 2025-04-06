@@ -56,7 +56,7 @@ class ApprovedArticleController extends Controller
         foreach ($articles as $article) {
             if ($article->original_article_id) {
                 $rewrittenArticle = \App\Models\RewrittenArticle::find($article->original_article_id);
-                if ($rewrittenArticle && $rewrittenArticle->status === 'approved') {
+                if ($rewrittenArticle) {
                     try {
                         // Permanently delete the rewritten article
                         $rewrittenArticle->forceDelete();
