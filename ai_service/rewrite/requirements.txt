@@ -9,3 +9,5 @@ pydantic>=2.0.0
 typing-extensions>=4.5.0
 langsmith>=0.0.65
 mysql-connector-python>=8.0.32 
+
+
