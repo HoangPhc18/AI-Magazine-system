@@ -80,10 +80,10 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <a href="{{ route('admin.categories.edit', $category) }}" class="text-indigo-600 hover:text-indigo-900 mr-3">Sửa</a>
-                                        <form action="{{ route('admin.categories.destroy', $category) }}" method="POST" class="inline">
+                                        <form action="{{ route('admin.categories.destroy', $category) }}" method="POST" class="inline" onsubmit="return confirm('Bạn có chắc chắn muốn xóa danh mục này?');">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="text-red-600 hover:text-red-900" onclick="return confirm('Bạn có chắc chắn muốn xóa danh mục này?')">
+                                            <button type="submit" class="text-red-600 hover:text-red-900">
                                                 Xóa
                                             </button>
                                         </form>

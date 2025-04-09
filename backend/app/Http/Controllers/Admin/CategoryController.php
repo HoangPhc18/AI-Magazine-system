@@ -43,7 +43,7 @@ class CategoryController extends Controller
         Category::create($validated);
 
         return redirect()->route('admin.categories.index')
-            ->with('success', 'Category created successfully.');
+            ->with('success', 'Danh mục đã được tạo thành công.');
     }
 
     /**
@@ -77,7 +77,7 @@ class CategoryController extends Controller
         $category->update($validated);
 
         return redirect()->route('admin.categories.index')
-            ->with('success', 'Category updated successfully.');
+            ->with('success', 'Danh mục đã được cập nhật thành công.');
     }
 
     /**
@@ -90,12 +90,13 @@ class CategoryController extends Controller
 
         if ($articlesCount > 0) {
             return redirect()->route('admin.categories.index')
-                ->with('error', "Cannot delete this category. It has {$articlesCount} articles associated with it.");
+                ->with('error', "Không thể xóa danh mục này. Có {$articlesCount} bài viết đang thuộc danh mục này.");
         }
 
-        $category->delete();
+        // Force delete the category
+        $category->forceDelete();
 
         return redirect()->route('admin.categories.index')
-            ->with('success', 'Category deleted successfully.');
+            ->with('success', 'Danh mục đã được xóa thành công.');
     }
 }

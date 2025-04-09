@@ -71,30 +71,22 @@ class RewrittenArticleController extends Controller
             'title' => 'required|string|max:255',
             'content' => 'required|string',
             'category_id' => 'required|exists:categories,id',
-            'original_article_id' => 'nullable|exists:approved_articles,id',
-            'meta_title' => 'nullable|string|max:255',
-            'meta_description' => 'nullable|string|max:255',
-            'featured_image' => 'nullable|image|max:2048',
+            'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
-        // Generate slug from title
         $validated['slug'] = Str::slug($validated['title']);
-        
-        // Set user ID
         $validated['user_id'] = Auth::id();
-        
-        // Set default status
         $validated['status'] = 'pending';
 
         if ($request->hasFile('featured_image')) {
-            $imagePath = $request->file('featured_image')->store('articles', 'public');
-            $validated['featured_image'] = $imagePath;
+            $path = $request->file('featured_image')->store('public/featured_images');
+            $validated['featured_image'] = str_replace('public/', '', $path);
         }
 
-        $rewrittenArticle = RewrittenArticle::create($validated);
+        RewrittenArticle::create($validated);
 
         return redirect()->route('admin.rewritten-articles.index')
-            ->with('success', 'AI rewritten article created successfully.');
+            ->with('success', 'Bài viết đã được tạo thành công và đang chờ duyệt.');
     }
 
     /**
@@ -123,35 +115,28 @@ class RewrittenArticleController extends Controller
             'title' => 'required|string|max:255',
             'content' => 'required|string',
             'category_id' => 'required|exists:categories,id',
-            'status' => 'required|in:pending,approved,rejected',
-            'meta_title' => 'nullable|string|max:255',
-            'meta_description' => 'nullable|string|max:255',
-            'featured_image' => 'nullable|image|max:2048',
+            'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
-        if ($request->hasFile('featured_image')) {
-            $imagePath = $request->file('featured_image')->store('articles', 'public');
-            $validated['featured_image'] = $imagePath;
-        }
-
-        // Generate slug from title
         $validated['slug'] = Str::slug($validated['title']);
+
+        if ($request->hasFile('featured_image')) {
+            $path = $request->file('featured_image')->store('public/featured_images');
+            $validated['featured_image'] = str_replace('public/', '', $path);
+        }
 
         $rewrittenArticle->update($validated);
 
-        // If article is approved, move it to approved articles
-        if ($validated['status'] === 'approved') {
-            $this->moveToApprovedArticles($rewrittenArticle);
-        }
-
         return redirect()->route('admin.rewritten-articles.index')
-            ->with('success', 'Article updated successfully.');
+            ->with('success', 'Bài viết đã được cập nhật thành công.');
     }
 
     public function approve(RewrittenArticle $rewrittenArticle)
     {
-        $categories = Category::all();
-        return view('admin.approved-articles.create', compact('rewrittenArticle', 'categories'));
+        $rewrittenArticle->update(['status' => 'approved']);
+
+        return redirect()->route('admin.rewritten-articles.index')
+            ->with('success', 'Bài viết đã được phê duyệt thành công.');
     }
 
     /**
@@ -229,9 +214,9 @@ class RewrittenArticleController extends Controller
     public function reject(RewrittenArticle $rewrittenArticle)
     {
         $rewrittenArticle->update(['status' => 'rejected']);
-        
+
         return redirect()->route('admin.rewritten-articles.index')
-            ->with('success', 'Article has been rejected.');
+            ->with('success', 'Bài viết đã bị từ chối.');
     }
 
     /**
@@ -240,9 +225,9 @@ class RewrittenArticleController extends Controller
     public function destroy(RewrittenArticle $rewrittenArticle)
     {
         $rewrittenArticle->delete();
-        
+
         return redirect()->route('admin.rewritten-articles.index')
-            ->with('success', 'Article deleted successfully.');
+            ->with('success', 'Bài viết đã được xóa thành công.');
     }
 
     /**
@@ -367,80 +352,53 @@ class RewrittenArticleController extends Controller
      */
     public function rewriteArticle(Request $request)
     {
-        $validated = $request->validate([
+        $request->validate([
             'original_article_id' => 'required|exists:approved_articles,id',
             'category_id' => 'required|exists:categories,id',
+            'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'content' => 'required|string',
         ]);
-        
-        $originalArticle = ApprovedArticle::findOrFail($validated['original_article_id']);
-        
+
         try {
-            $aiSettings = DB::table('ai_settings')->first();
-        } catch (\Exception $e) {
-            Log::error('Error querying ai_settings table: ' . $e->getMessage());
-            return redirect()->back()
-                ->with('error', 'Cài đặt AI chưa được thiết lập. Vui lòng liên hệ quản trị viên.');
-        }
-        
-        if (!$aiSettings) {
-            return redirect()->back()->with('error', 'AI settings are not configured.');
-        }
-        
-        // Initialize AI service
-        $aiService = new AIService();
-        
-        try {
-            // Generate AI content
-            $result = $aiService->rewriteArticle($originalArticle->content);
+            DB::beginTransaction();
+
+            $originalArticle = ApprovedArticle::findOrFail($request->original_article_id);
             
-            if (!$result['success']) {
-                Log::error('AI rewriting failed', [
-                    'article_id' => $originalArticle->id,
-                    'error' => $result['error']
-                ]);
-                return redirect()->back()
-                    ->with('error', 'Failed to generate AI content: ' . $result['error']);
-            }
-            
-            // Create the rewritten article
             $rewrittenArticle = new RewrittenArticle();
-            $rewrittenArticle->title = $originalArticle->title . ' (AI Rewritten)';
-            
-            // Tạo slug duy nhất với nhiều yếu tố
-            $baseSlug = Str::slug($originalArticle->title);
-            $uniqueString = substr(md5(uniqid(mt_rand(), true)), 0, 8);
-            $microtime = str_replace('.', '', microtime(true));
-            $uniqueSlug = "{$baseSlug}-ai-rewritten-{$uniqueString}-{$microtime}";
-            
-            $rewrittenArticle->slug = $uniqueSlug;
-            $rewrittenArticle->content = $result['content'];
+            $rewrittenArticle->title = $originalArticle->title;
+            $rewrittenArticle->slug = Str::slug($originalArticle->title . '-' . time());
+            $rewrittenArticle->content = $request->content;
             $rewrittenArticle->meta_title = $originalArticle->meta_title;
             $rewrittenArticle->meta_description = $originalArticle->meta_description;
-            $rewrittenArticle->featured_image = $originalArticle->featured_image;
-            $rewrittenArticle->category_id = $validated['category_id'];
             $rewrittenArticle->user_id = Auth::id();
+            $rewrittenArticle->category_id = $request->category_id;
             $rewrittenArticle->original_article_id = $originalArticle->id;
-            $rewrittenArticle->ai_generated = true;
-            $rewrittenArticle->status = $aiSettings->auto_approval ? 'approved' : 'pending';
-            $rewrittenArticle->save();
-            
-            // If auto-approval is enabled, move to approved articles
-            if ($aiSettings->auto_approval) {
-                $this->moveToApprovedArticles($rewrittenArticle);
-                return redirect()->route('admin.rewritten-articles.index')
-                    ->with('success', 'Article has been rewritten by AI and automatically approved and published.');
+            $rewrittenArticle->status = 'pending';
+            $rewrittenArticle->ai_generated = false;
+
+            // Handle featured image upload
+            if ($request->hasFile('featured_image')) {
+                $path = $request->file('featured_image')->store('public/featured_images');
+                $rewrittenArticle->featured_image = str_replace('public/', '', $path);
+            } else {
+                // Copy featured image from original article if exists
+                if ($originalArticle->featured_image) {
+                    $rewrittenArticle->featured_image = $originalArticle->featured_image;
+                }
             }
-            
-            return redirect()->route('admin.rewritten-articles.edit', $rewrittenArticle)
-                ->with('success', 'Article has been rewritten by AI. Please review and make any necessary edits before approving.');
-            
+
+            $rewrittenArticle->save();
+
+            DB::commit();
+
+            return redirect()->route('admin.rewritten-articles.index')
+                ->with('success', 'Bài viết đã được tạo thành công và đang chờ duyệt.');
         } catch (\Exception $e) {
-            Log::error('AI rewriting error: ' . $e->getMessage(), [
-                'article_id' => $originalArticle->id
-            ]);
-            
+            DB::rollBack();
+            Log::error('Error creating rewritten article: ' . $e->getMessage());
             return redirect()->back()
-                ->with('error', 'An error occurred during AI rewriting: ' . $e->getMessage());
+                ->with('error', 'Có lỗi xảy ra khi tạo bài viết. Vui lòng thử lại.')
+                ->withInput();
         }
     }
 

@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-Flask API for keyword-based article rewriting.
-Handles requests from the Laravel backend.
-"""
 
 import os
 import sys

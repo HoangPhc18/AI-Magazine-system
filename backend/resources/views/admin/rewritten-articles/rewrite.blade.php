@@ -49,13 +49,37 @@
                             <select id="category_id" name="category_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500" required>
                                 <option value="" disabled selected>-- Chọn danh mục --</option>
                                 @foreach($categories as $category)
-                                    <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                    <option value="{{ $category->id }}" {{ $selectedArticle && $selectedArticle->category_id == $category->id ? 'selected' : '' }}>
+                                        {{ $category->name }}
+                                    </option>
                                 @endforeach
                             </select>
                             @error('category_id')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
                         </div>
+                    </div>
+
+                    <div class="sm:col-span-6">
+                        <label for="featured_image" class="block text-sm font-medium text-gray-700">
+                            Ảnh đại diện
+                        </label>
+                        <div class="mt-1">
+                            <input type="file" id="featured_image" name="featured_image" accept="image/*" class="block w-full text-sm text-gray-500
+                                file:mr-4 file:py-2 file:px-4
+                                file:rounded-md file:border-0
+                                file:text-sm file:font-semibold
+                                file:bg-blue-50 file:text-blue-700
+                                hover:file:bg-blue-100">
+                            @error('featured_image')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                        @if($selectedArticle && $selectedArticle->featured_image)
+                            <div class="mt-2">
+                                <img src="{{ asset('storage/' . $selectedArticle->featured_image) }}" alt="Current featured image" class="h-20 w-20 object-cover rounded">
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>
