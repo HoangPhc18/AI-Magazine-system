@@ -159,8 +159,8 @@ def search_with_selenium(keyword):
             EC.element_to_be_clickable((By.CSS_SELECTOR, "input[type='text']"))
         )
         
-        # Nhập từ khóa với "when:1d" để giới hạn trong 1 ngày
-        search_query = f"{keyword} when:1d"
+        # Thêm -site:laodong.vn để loại trừ trang này khỏi kết quả
+        search_query = f"{keyword} -site:laodong.vn -site:baomoi.com when:1d"
         logger.info(f"Entering search query: '{search_query}'")
         
         search_box.clear()
@@ -198,37 +198,37 @@ def search_with_selenium(keyword):
                     link = article.select_one('a[href^="./articles/"]')
                     
                     if link:
-                        relative_url = link['href']
+                        # Chuyển đổi URL tương đối thành tuyệt đối
+                        article_url = "https://news.google.com/" + link['href'].lstrip('./')
                         
-                        # Truy cập vào liên kết để lấy URL thực
-                        if relative_url.startswith('./'):
-                            absolute_news_url = f"https://news.google.com{relative_url[1:]}"
-                            logger.info(f"Navigating to article link: {absolute_news_url}")
+                        try:
+                            # Truy cập URL để lấy URL thực tế
+                            driver.get(article_url)
                             
-                            # Mở liên kết trong cửa sổ mới
-                            driver.execute_script(f"window.open('{absolute_news_url}', '_blank');")
+                            # Chờ chuyển hướng hoàn thành
+                            time.sleep(2)
                             
-                            # Chuyển sang cửa sổ mới
-                            driver.switch_to.window(driver.window_handles[1])
+                            # Lấy URL hiện tại (URL thực tế của bài viết)
+                            actual_url = driver.current_url
                             
-                            # Chờ chuyển hướng
-                            time.sleep(5)
-                            
-                            # Lấy URL cuối cùng sau khi chuyển hướng
-                            final_url = driver.current_url
-                            
-                            # Kiểm tra URL có phải là từ Google News không
-                            if 'news.google.com' not in final_url:
-                                logger.info(f"Successfully obtained article URL: {final_url}")
-                                return final_url
+                            # Kiểm tra xem URL có thuộc trang bị blacklist không
+                            if not is_blacklisted_domain(actual_url):
+                                logger.info(f"Found article URL: {actual_url}")
+                                return actual_url
+                            else:
+                                logger.warning(f"Skipping blacklisted URL: {actual_url}")
+                                continue
+                                
+                        except Exception as e:
+                            logger.error(f"Error getting actual URL: {str(e)}")
+                            continue
             
-            logger.warning("Could not extract actual URL from any article")
-            
+            logger.warning("No valid article links found in search results")
         else:
-            logger.warning(f"No articles found for keyword: {keyword}")
+            logger.warning("No articles found in search results")
         
         return None
-        
+            
     except TimeoutException:
         logger.error("Timeout waiting for page elements")
         return None
@@ -250,10 +250,40 @@ def search_with_selenium(keyword):
             except Exception as e:
                 logger.error(f"Error closing WebDriver: {str(e)}")
 
+def is_blacklisted_domain(url):
+    """
+    Kiểm tra xem URL có thuộc các trang web bị blacklist không.
+    
+    Args:
+        url (str): URL để kiểm tra
+        
+    Returns:
+        bool: True nếu URL thuộc trang web bị blacklist, False nếu không
+    """
+    if not url:
+        return False
+        
+    # Danh sách các domain bị blacklist do không thể trích xuất nội dung
+    blacklisted_domains = [
+        "laodong.vn",
+        "baomoi.com",
+        "facebook.com",
+        "youtube.com",
+        "tiktok.com"
+    ]
+    
+    domain = urlparse(url).netloc.lower()
+    
+    for blacklisted in blacklisted_domains:
+        if blacklisted in domain:
+            logger.warning(f"URL {url} is from blacklisted domain: {blacklisted}")
+            return True
+            
+    return False
+
 def search_with_requests(keyword):
     """
-    Tìm kiếm trên Google News bằng requests HTTP thông thường.
-    Được sử dụng như một phương án dự phòng nếu Selenium thất bại.
+    Tìm kiếm trên Google News bằng HTTP requests và trả về URL bài viết đầu tiên.
     
     Args:
         keyword (str): Từ khóa tìm kiếm
@@ -261,303 +291,252 @@ def search_with_requests(keyword):
     Returns:
         str: URL của bài viết đầu tiên, hoặc None nếu không tìm thấy
     """
+    # Kết cấu URL tìm kiếm Google News
+    search_url = f"https://news.google.com/search?q={quote_plus(keyword)}&hl=vi&gl=VN&ceid=VN:vi"
+    
+    headers = {
+        "User-Agent": random.choice(USER_AGENTS),
+        "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+    }
+    
     try:
-        # Chuẩn bị headers với User-Agent ngẫu nhiên
-        headers = {
-            'User-Agent': random.choice(USER_AGENTS),
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
-        }
-        
-        # Tìm kiếm trên Google News
-        search_query = f"{keyword} when:1d"
-        search_url = f"https://news.google.com/search?q={quote_plus(search_query)}&hl=vi&gl=VN&ceid=VN:vi"
-        
-        logger.info(f"Searching with HTTP request: {search_url}")
-        response = requests.get(search_url, headers=headers, timeout=15)
+        logger.info(f"Sending request to Google News: {search_url}")
+        response = requests.get(search_url, headers=headers, timeout=10)
         
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Tìm các bài viết
-            articles = soup.select('article')
+            # Tìm bài viết đầu tiên
+            article_links = soup.select('a[href^="./articles/"]')
             
-            if articles:
-                logger.info(f"Found {len(articles)} articles via HTTP request")
+            found_urls = []
+            for link in article_links:
+                # Chuyển đổi URL tương đối thành tuyệt đối
+                article_path = link['href'].replace('./', 'https://news.google.com/')
                 
-                # Gỡ lỗi: Hiển thị tiêu đề của các bài viết
-                for idx, article in enumerate(articles[:5]):
-                    title_elem = article.select_one('h3, h4')
-                    title = title_elem.text.strip() if title_elem else "No title"
-                    logger.info(f"Article {idx+1}: {title}")
-                
-                # Thử trích xuất URL trực tiếp từ Google Search
-                logger.info("Trying direct Google Search as it's more reliable")
-                google_search_url = f"https://www.google.com/search?q={quote_plus(keyword)}&tbm=nws"
-                logger.info(f"Searching with Google Search: {google_search_url}")
-                
+                # Trích xuất URL thực từ URL Google News
                 try:
-                    search_headers = {
-                        'User-Agent': random.choice(USER_AGENTS),
-                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                        'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
-                    }
+                    article_response = requests.head(article_path, headers=headers, timeout=5, allow_redirects=True)
+                    actual_url = article_response.url
                     
-                    search_response = requests.get(google_search_url, headers=search_headers, timeout=15)
-                    
-                    if search_response.status_code == 200:
-                        search_soup = BeautifulSoup(search_response.text, 'html.parser')
+                    # Kiểm tra xem URL có bị blacklist không
+                    if not is_blacklisted_domain(actual_url):
+                        found_urls.append(actual_url)
+                        logger.info(f"Found article URL: {actual_url}")
                         
-                        # Log HTML để gỡ lỗi
-                        with open('google_search_response.html', 'w', encoding='utf-8') as f:
-                            f.write(search_response.text)
-                        logger.info("Saved Google Search response to google_search_response.html")
+                    # Trả về URL đầu tiên không bị blacklist
+                    if found_urls:
+                        return found_urls[0]
                         
-                        # Tìm các kết quả từ Google Search - thử nhiều selector khác nhau
-                        for selector in ['div.g a', 'a[href^="https://"]', '.WlydOe', '.DhN8Cf a']:
-                            search_results = search_soup.select(selector)
-                            logger.info(f"Found {len(search_results)} results with selector '{selector}'")
-                            
-                            for result in search_results:
-                                href = result.get('href')
-                                if href and href.startswith('http') and 'google.com' not in href:
-                                    logger.info(f"Found article URL from Google Search: {href}")
-                                    return href
-                    
-                    logger.warning("No results found from Google Search")
                 except Exception as e:
-                    logger.error(f"Error with Google Search: {str(e)}")
-                
-                # Thử truy cập trực tiếp một trang tin tức Việt Nam có bài về từ khóa này
-                news_sites = [
-                    f"https://vnexpress.net/tim-kiem?q={quote_plus(keyword)}",
-                    f"https://tuoitre.vn/tim-kiem.htm?keywords={quote_plus(keyword)}",
-                    f"https://thanhnien.vn/tim-kiem/?q={quote_plus(keyword)}",
-                    f"https://dantri.com.vn/tim-kiem?q={quote_plus(keyword)}"
-                ]
-                
-                for site_url in news_sites:
-                    try:
-                        logger.info(f"Trying direct news site search: {site_url}")
-                        site_response = requests.get(site_url, headers=headers, timeout=15)
-                        
-                        if site_response.status_code == 200:
-                            site_soup = BeautifulSoup(site_response.text, 'html.parser')
-                            
-                            # Tìm kiếm các liên kết bài viết - thử nhiều selector khác nhau cho từng trang
-                            for article_selector in ['article a', '.title-news a', '.story', '.article-title a', '.title a']:
-                                article_links = site_soup.select(article_selector)
-                                
-                                for link in article_links[:3]:  # Chỉ xem 3 kết quả đầu tiên
-                                    href = link.get('href')
-                                    if href:
-                                        # Chuyển đổi URL tương đối thành tuyệt đối nếu cần
-                                        if not href.startswith('http'):
-                                            base_url = urlparse(site_url)
-                                            href = f"{base_url.scheme}://{base_url.netloc}{href if href.startswith('/') else '/' + href}"
-                                        
-                                        logger.info(f"Found article from direct news site: {href}")
-                                        return href
-                    except Exception as e:
-                        logger.error(f"Error with direct news site {site_url}: {str(e)}")
+                    logger.error(f"Error resolving article URL: {str(e)}")
             
-            logger.warning("No suitable articles found via HTTP request")
+            if not found_urls:
+                logger.warning("No valid article URLs found in Google News")
         else:
-            logger.error(f"HTTP request failed with status code: {response.status_code}")
-        
-        # Nếu tất cả các phương pháp đều thất bại, thử tìm kiếm với Bing
-        try:
-            bing_url = f"https://www.bing.com/news/search?q={quote_plus(keyword)}&qft=sortbydate%3d"
-            logger.info(f"Trying Bing News as last resort: {bing_url}")
-            
-            bing_headers = {
-                'User-Agent': random.choice(USER_AGENTS),
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
-            }
-            
-            bing_response = requests.get(bing_url, headers=bing_headers, timeout=15)
-            
-            if bing_response.status_code == 200:
-                bing_soup = BeautifulSoup(bing_response.text, 'html.parser')
-                
-                # Tìm kết quả tin tức từ Bing
-                bing_results = bing_soup.select('.news-card a')
-                
-                for result in bing_results:
-                    href = result.get('href')
-                    if href and href.startswith('http') and 'bing.com' not in href and 'msn.com' not in href:
-                        logger.info(f"Found article from Bing News: {href}")
-                        return href
-        except Exception as e:
-            logger.error(f"Error with Bing search: {str(e)}")
+            logger.error(f"Failed to fetch Google News: {response.status_code}")
         
         return None
-    
+        
     except Exception as e:
-        logger.error(f"Error in HTTP request method: {str(e)}")
+        logger.error(f"Error in Google News search: {str(e)}")
         return None
 
 def direct_news_search(keyword):
     """
-    Tìm kiếm trực tiếp trên các trang tin tức Việt Nam phổ biến.
-    Phương pháp này được sử dụng khi Google News hoặc Google Search không hoạt động.
+    Tìm kiếm trực tiếp trên Google News thông qua Google Search.
     
     Args:
         keyword (str): Từ khóa tìm kiếm
         
     Returns:
-        str: URL bài viết nếu tìm thấy, None nếu không
+        list: Danh sách URLs của các bài viết tin tức
     """
-    logger.info(f"Performing direct news search for: {keyword}")
-    
-    # Danh sách các trang tin tức Việt Nam phổ biến
-    news_sites = [
-        {
-            'name': 'VnExpress',
-            'search_url': f"https://vnexpress.net/tim-kiem?q={quote_plus(keyword)}",
-            'selectors': ['.title-news a', '.item-news h3 a', '.title_news a']
-        },
-        {
-            'name': 'Tuổi Trẻ',
-            'search_url': f"https://tuoitre.vn/tim-kiem.htm?keywords={quote_plus(keyword)}",
-            'selectors': ['.news-item', '.title-news a', 'h3.title-news a']
-        },
-        {
-            'name': 'Thanh Niên',
-            'search_url': f"https://thanhnien.vn/tim-kiem/?q={quote_plus(keyword)}",
-            'selectors': ['.story', '.story__title a', '.highlights__item-title a']
-        },
-        {
-            'name': 'Dân Trí',
-            'search_url': f"https://dantri.com.vn/tim-kiem?q={quote_plus(keyword)}",
-            'selectors': ['.article-title a', '.article-item a', '.news-item__title a']
-        },
-        {
-            'name': 'Zing News',
-            'search_url': f"https://zingnews.vn/tim-kiem.html?q={quote_plus(keyword)}",
-            'selectors': ['.article-title a', '.article-item a', '.news-item__title a']
-        },
-        {
-            'name': 'Bóng Đá 24h',
-            'search_url': f"https://bongda24h.vn/tim-kiem/{quote_plus(keyword)}/1.html",
-            'selectors': ['.news-title a', '.title a', 'h3 a']
-        },
-        {
-            'name': 'Người Đưa Tin',
-            'search_url': f"https://www.nguoiduatin.vn/tim-kiem?q={quote_plus(keyword)}",
-            'selectors': ['article h3 a', '.article-title a']
-        }
-    ]
-    
+    user_agent = random.choice(USER_AGENTS)
     headers = {
-        'User-Agent': random.choice(USER_AGENTS),
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7',
+        "User-Agent": user_agent,
+        "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
     }
     
-    for site in news_sites:
-        try:
-            logger.info(f"Searching on {site['name']}: {site['search_url']}")
-            response = requests.get(site['search_url'], headers=headers, timeout=15)
-            
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.text, 'html.parser')
-                
-                # Lưu HTML để gỡ lỗi nếu cần
-                with open(f"{site['name'].lower()}_search.html", 'w', encoding='utf-8') as f:
-                    f.write(response.text)
-                
-                # Thử các selector
-                for selector in site['selectors']:
-                    links = soup.select(selector)
-                    logger.info(f"Found {len(links)} links with selector '{selector}' on {site['name']}")
-                    
-                    if links:
-                        for link in links[:3]:  # Chỉ lấy 3 kết quả đầu tiên
-                            href = link.get('href')
-                            if href and ('http' in href or href.startswith('/')):
-                                # Chuyển đổi URL tương đối thành tuyệt đối nếu cần
-                                if not href.startswith('http'):
-                                    base_url = urlparse(site['search_url'])
-                                    href = f"{base_url.scheme}://{base_url.netloc}{href if href.startswith('/') else '/' + href}"
-                                
-                                logger.info(f"Found article on {site['name']}: {href}")
-                                return href
-        except Exception as e:
-            logger.error(f"Error searching on {site['name']}: {str(e)}")
+    # Tạo URL tìm kiếm với tham số tbm=nws cho News
+    search_url = f"https://www.google.com/search?q={quote_plus(keyword)}&tbm=nws"
+    logger.info(f"Searching with Google Search: {search_url}")
     
-    logger.warning("No articles found in direct news search")
-    return None
+    results = []
+    
+    try:
+        response = requests.get(search_url, headers=headers, timeout=10)
+        response.raise_for_status()
+        
+        # Lưu phản hồi vào file để debug nếu cần
+        with open("google_search_response.html", "w", encoding="utf-8") as f:
+            f.write(response.text)
+        logger.info("Saved Google Search response to google_search_response.html")
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Thử một số trình chọn CSS khác nhau để tìm kết quả
+        selectors_to_try = [
+            'div.g a',  # Định dạng cũ
+            'a[href^="https://"]',  # Tất cả liên kết bắt đầu bằng https://
+            '.WlydOe',  # Lớp CSS có thể được sử dụng cho kết quả tìm kiếm
+            '.fP1Qef'   # Lớp CSS khác có thể được sử dụng cho kết quả tìm kiếm
+        ]
+        
+        for selector in selectors_to_try:
+            article_links = soup.select(selector)
+            logger.info(f"Found {len(article_links)} results with selector '{selector}'")
+            
+            # Lọc liên kết
+            for link in article_links:
+                href = link.get('href')
+                if href and href.startswith('http') and 'google.com' not in href:
+                    # Loại bỏ tham số theo dõi nếu có
+                    clean_url = href.split('&sa=')[0].split('?sa=')[0]
+                    
+                    # Kiểm tra URL có bị blacklist không
+                    if not is_blacklisted_domain(clean_url) and clean_url not in results:
+                        results.append(clean_url)
+                        logger.info(f"Found valid article URL: {clean_url}")
+            
+            # Nếu đã tìm thấy ít nhất một kết quả, dừng lại
+            if results:
+                logger.info(f"Found {len(results)} valid article URLs from Google Search")
+                return results
+        
+        # Thử tìm kiếm thêm với từ khóa loại trừ các trang bị blacklist
+        if not results:
+            exclude_terms = ' '.join(f'-site:{domain}' for domain in ['laodong.vn', 'baomoi.com'])
+            refined_search_url = f"https://www.google.com/search?q={quote_plus(keyword)} {exclude_terms}&tbm=nws"
+            logger.info(f"Trying refined search with exclusions: {refined_search_url}")
+            
+            try:
+                refined_response = requests.get(refined_search_url, headers=headers, timeout=10)
+                refined_soup = BeautifulSoup(refined_response.text, 'html.parser')
+                
+                for selector in selectors_to_try:
+                    article_links = refined_soup.select(selector)
+                    for link in article_links:
+                        href = link.get('href')
+                        if href and href.startswith('http') and 'google.com' not in href:
+                            clean_url = href.split('&sa=')[0].split('?sa=')[0]
+                            
+                            if not is_blacklisted_domain(clean_url) and clean_url not in results:
+                                results.append(clean_url)
+                                logger.info(f"Found valid article URL from refined search: {clean_url}")
+                
+                if results:
+                    return results
+            except Exception as e:
+                logger.error(f"Error in refined search: {str(e)}")
+        
+        logger.warning("No valid article URLs found in Google Search results")
+        return []
+        
+    except Exception as e:
+        logger.error(f"Error in direct_news_search: {str(e)}")
+        return []
 
-def search_google_news(keyword):
+def search_google_news(keyword, skip=0):
     """
-    Tìm kiếm từ khóa trên Google News và trả về URL bài viết đầu tiên.
-    Thử cả từ khóa gốc và từ khóa không dấu.
+    Tìm kiếm trên Google News và trả về URL bài viết.
     
     Args:
         keyword (str): Từ khóa tìm kiếm
+        skip (int): Số lượng kết quả đầu tiên cần bỏ qua (mặc định: 0)
         
     Returns:
-        str: URL của bài viết đầu tiên, hoặc None nếu không tìm thấy
+        str: URL của bài viết, hoặc None nếu không tìm thấy
     """
-    # Thử cả từ khóa gốc và từ khóa không dấu
-    original_keyword = keyword
-    keyword_no_accent = remove_vietnamese_accents(keyword)
+    logger.info(f"Searching for keyword: '{keyword}' and non-accented version: '{remove_vietnamese_accents(keyword)}' (skip: {skip})")
     
-    # Log thông tin từ khóa
-    logger.info(f"Searching for keyword: '{original_keyword}' and non-accented version: '{keyword_no_accent}'")
+    # Danh sách urls đã tìm thấy
+    found_urls = []
     
-    # Danh sách từ khóa để thử
-    keywords_to_try = [original_keyword]
+    # Tìm kiếm với từ khóa gốc
+    logger.info(f"Trying to search with keyword: '{keyword}'")
     
-    # Nếu từ khóa không dấu khác với từ khóa gốc, thêm vào danh sách
-    if keyword_no_accent != original_keyword:
-        keywords_to_try.append(keyword_no_accent)
+    # Thử phương pháp 1: Sử dụng HTTP requests (nhanh hơn)
+    try:
+        logger.info(f"Using HTTP request method for: '{keyword}'")
+        url = search_with_requests(keyword)
+        if url and "laodong.vn" not in url:  # Loại bỏ URL từ laodong.vn
+            found_urls.append(url)
+        elif url and "laodong.vn" in url:
+            logger.warning(f"Skipping laodong.vn URL: {url}")
+    except Exception as e:
+        logger.error(f"Error with HTTP request method: {str(e)}")
     
-    # Lưu lỗi cho từng từ khóa
-    errors = {}
+    # Nếu có ít nhất (skip + 1) URL, trả về URL thứ skip
+    if len(found_urls) > skip:
+        return found_urls[skip]
     
-    # Thử từng từ khóa
-    for current_keyword in keywords_to_try:
-        logger.info(f"Trying to search with keyword: '{current_keyword}'")
-        
+    # Thử phương pháp 2: Tìm kiếm trực tiếp trên Google Search
+    try:
+        logger.info("Trying direct Google Search as it's more reliable")
+        urls = direct_news_search(keyword)
+        for url in urls:
+            if "laodong.vn" not in url and url not in found_urls:  # Loại bỏ URL từ laodong.vn
+                found_urls.append(url)
+            elif "laodong.vn" in url:
+                logger.warning(f"Skipping laodong.vn URL: {url}")
+                
+        # Nếu đủ số lượng URL cần bỏ qua, trả về URL tiếp theo
+        if len(found_urls) > skip:
+            return found_urls[skip]
+    except Exception as e:
+        logger.error(f"Error with direct Google Search: {str(e)}")
+    
+    # Nếu không tìm thấy với từ khóa gốc và cần bỏ qua kết quả, thử với từ khóa không dấu
+    if skip > 0 or not found_urls:
+        no_accent_keyword = remove_vietnamese_accents(keyword)
+        if no_accent_keyword != keyword:
+            logger.info(f"Trying with non-accented keyword: '{no_accent_keyword}'")
+            
+            try:
+                # Tìm kiếm với HTTP requests
+                url = search_with_requests(no_accent_keyword)
+                if url and "laodong.vn" not in url and url not in found_urls:  # Loại bỏ URL từ laodong.vn
+                    found_urls.append(url)
+                elif url and "laodong.vn" in url:
+                    logger.warning(f"Skipping laodong.vn URL: {url}")
+            except Exception as e:
+                logger.error(f"Error with HTTP request for non-accented keyword: {str(e)}")
+            
+            # Thử với Google Search
+            try:
+                urls = direct_news_search(no_accent_keyword)
+                for url in urls:
+                    if "laodong.vn" not in url and url not in found_urls:  # Loại bỏ URL từ laodong.vn
+                        found_urls.append(url)
+                    elif "laodong.vn" in url:
+                        logger.warning(f"Skipping laodong.vn URL: {url}")
+            except Exception as e:
+                logger.error(f"Error with direct Google Search for non-accented keyword: {str(e)}")
+    
+    # Trả về URL với số thứ tự skip nếu có
+    if len(found_urls) > skip:
+        return found_urls[skip]
+    
+    # Cuối cùng, thử với Selenium nếu các phương pháp khác thất bại và chỉ nếu chưa bỏ qua
+    if skip == 0:
         try:
-            # Vô hiệu hóa Selenium vì lỗi WebDriver trên Windows
-            # logger.info(f"Attempting to search with Selenium for: '{current_keyword}'")
-            # url = search_with_selenium(current_keyword)
-            # 
-            # if url:
-            #     logger.info(f"Successfully found URL with Selenium: {url}")
-            #     return url
-            
-            # Chỉ sử dụng phương pháp requests HTTP
-            logger.info(f"Using HTTP request method for: '{current_keyword}'")
-            url = search_with_requests(current_keyword)
-            
-            if url:
-                logger.info(f"Successfully found URL with HTTP request: {url}")
+            logger.info("Fallback to Selenium method as last resort")
+            url = search_with_selenium(keyword)
+            if url and "laodong.vn" not in url:  # Loại bỏ URL từ laodong.vn
                 return url
-            
-            # Nếu không tìm thấy, ghi lại lỗi
-            error_msg = f"No articles found for keyword '{current_keyword}' using HTTP request method"
-            logger.error(error_msg)
-            errors[current_keyword] = error_msg
-            
+            elif url and "laodong.vn" in url:
+                logger.warning(f"Skipping laodong.vn URL from Selenium: {url}")
+                # Thử tìm một URL khác bằng Selenium
+                logger.info("Trying to find another URL with Selenium")
+                url = search_with_selenium(keyword + " -site:laodong.vn")
+                if url:
+                    return url
         except Exception as e:
-            error_msg = f"Exception searching for '{current_keyword}': {str(e)}"
-            logger.error(error_msg)
-            errors[current_keyword] = error_msg
+            logger.error(f"Error with Selenium method: {str(e)}")
     
-    # Nếu tất cả các phương pháp thông thường thất bại, thử tìm kiếm trực tiếp
-    logger.info("All standard methods failed, trying direct news search")
-    url = direct_news_search(original_keyword)
-    if url:
-        logger.info(f"Found article through direct news search: {url}")
-        return url
-    
-    # Tất cả các phương pháp đều thất bại
-    logger.error(f"All keyword searches failed. Errors: {errors}")
+    # Không tìm thấy URL phù hợp
+    logger.error(f"Failed to find article URL after trying all methods (skip: {skip})")
     return None
 
 if __name__ == '__main__':

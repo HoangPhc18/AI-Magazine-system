@@ -64,6 +64,10 @@ def process_keyword_task(keyword, rewrite_id, callback_url):
     """
     logger.info(f"Starting keyword rewrite task for: {keyword} (ID: {rewrite_id})")
     
+    # Sửa callback URL - bỏ admin
+    callback_url = callback_url.replace('/api/admin/keyword-rewrites/callback', '/api/keyword-rewrites/callback')
+    logger.info(f"Modified callback URL: {callback_url}")
+    
     try:
         # Step 1: Search Google News for the keyword
         logger.info(f"Searching Google News for: {keyword}")
@@ -72,24 +76,58 @@ def process_keyword_task(keyword, rewrite_id, callback_url):
         if not article_url:
             logger.error(f"No article found for keyword: {keyword}")
             send_callback(callback_url, rewrite_id, "failed", 
-                         error_message="No article found for the given keyword")
+                         error_message="Không tìm thấy bài viết nào cho từ khóa đã cho. Hệ thống đã lọc ra các trang không thể trích xuất nội dung như laodong.vn và baomoi.com.")
             return
             
         logger.info(f"Found article URL: {article_url}")
         
-        # Step 2: Extract content from the URL
-        logger.info(f"Extracting content from URL: {article_url}")
-        article_data = extract_article_content(article_url)
+        # Thử tìm bài viết tối đa 3 lần
+        max_retries = 3
+        article_data = None
         
-        if not article_data["title"] or not article_data["content"]:
-            logger.error(f"Failed to extract content from URL: {article_url}")
+        for attempt in range(1, max_retries + 1):
+            # Step 2: Extract content from the URL
+            logger.info(f"Extracting content from URL (attempt {attempt}/{max_retries}): {article_url}")
+            article_data = extract_article_content(article_url)
+            
+            if article_data["title"] and article_data["content"] and len(article_data["content"]) > 200:
+                logger.info(f"Successfully extracted content - Title: {article_data['title']}, Content length: {len(article_data['content'])}")
+                break
+                
+            # Log chi tiết hơn về vấn đề trích xuất
+            if not article_data["title"]:
+                logger.warning(f"Failed to extract title from {article_url}")
+            elif not article_data["content"]:
+                logger.warning(f"Failed to extract content from {article_url}")
+            elif len(article_data["content"]) <= 200:
+                logger.warning(f"Extracted content too short ({len(article_data['content'])} chars) from {article_url}")
+            
+            if attempt < max_retries:
+                logger.warning(f"Failed to extract content on attempt {attempt}, trying another URL")
+                # Tìm URL khác
+                article_url = search_google_news(keyword, skip=attempt)
+                if not article_url:
+                    logger.error(f"No more articles found for keyword: {keyword}")
+                    send_callback(callback_url, rewrite_id, "failed", 
+                                 error_message=f"Không tìm thấy bài viết thay thế sau {attempt} lần thử. Hệ thống đã lọc ra các trang không thể trích xuất nội dung như laodong.vn và baomoi.com.")
+                    return
+        
+        # Kiểm tra lại sau khi thử tối đa số lần
+        if not article_data["title"] or not article_data["content"] or len(article_data["content"]) < 200:
+            logger.error(f"Failed to extract content from URL after {max_retries} attempts")
+            error_detail = "Không thể trích xuất "
+            if not article_data["title"]:
+                error_detail += "tiêu đề"
+            if not article_data["content"]:
+                error_detail += " và nội dung" if not article_data["title"] else "nội dung"
+            elif len(article_data["content"]) < 200:
+                error_detail += "đủ nội dung (nội dung quá ngắn)"
+            
             send_callback(callback_url, rewrite_id, "failed", 
                          source_url=article_url,
-                         error_message="Failed to extract content from article URL")
+                         error_message=f"{error_detail} từ URL bài viết sau {max_retries} lần thử. Vui lòng thử từ khóa khác hoặc cung cấp URL bài viết cụ thể.")
             return
             
-        logger.info(f"Successfully extracted content - Title: {article_data['title']}, Content length: {len(article_data['content'])}")
-        
         # Step 3: Rewrite the content using Ollama
         logger.info(f"Rewriting content using Ollama (model: {OLLAMA_MODEL})")
         rewritten_content = rewrite_content(article_data["title"], article_data["content"])
@@ -144,8 +182,11 @@ def send_callback(callback_url, rewrite_id, status, source_url=None, source_titl
             "error_message": error_message
         }
         
-        logger.info(f"Sending callback to: {callback_url}")
-        response = requests.post(callback_url, json=data, timeout=30)
+        # Sửa cứng callback URL để sử dụng đúng cổng PHP mặc định (8000)
+        fixed_callback_url = "http://localhost:8000/api/keyword-rewrites/callback"
+        logger.info(f"Sending callback to fixed URL: {fixed_callback_url} (original was: {callback_url})")
+        
+        response = requests.post(fixed_callback_url, json=data, timeout=30)
         
         if response.status_code == 200:
             logger.info(f"Callback sent successfully for ID: {rewrite_id}")

@@ -51,11 +51,15 @@ class KeywordRewriteController extends Controller
         try {
             $aiServiceUrl = env('AI_SERVICE_URL', 'http://localhost:5000');
             $endpoint = $aiServiceUrl . '/api/keyword_rewrite/process';
+            $backendUrl = env('BACKEND_URL', 'http://localhost');
+            
+            // Đảm bảo BACKEND_URL không có dấu / ở cuối
+            $backendUrl = rtrim($backendUrl, '/');
             
             $response = Http::post($endpoint, [
                 'keyword' => $request->keyword,
                 'rewrite_id' => $keywordRewrite->id,
-                'callback_url' => env('BACKEND_URL', 'http://localhost:8000') . '/api/admin/keyword-rewrites/callback',
+                'callback_url' => $backendUrl . '/api/keyword-rewrites/callback',
             ]);
 
             if ($response->successful()) {

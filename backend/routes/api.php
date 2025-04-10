@@ -95,6 +95,8 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
 
 // Public callback for keyword rewrite
 Route::post('/admin/keyword-rewrites/callback', [KeywordRewriteController::class, 'callback']);
+// Thêm route thay thế không có admin prefix cho callback
+Route::post('/keyword-rewrites/callback', [KeywordRewriteController::class, 'callback']);
 
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
