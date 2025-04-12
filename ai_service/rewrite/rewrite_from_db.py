@@ -24,9 +24,10 @@ load_dotenv()
 def parse_args():
     parser = argparse.ArgumentParser(description='Rewrite articles from database.')
     parser.add_argument('--auto', action='store_true', help='Run in automatic mode without prompts')
-    parser.add_argument('--limit', type=int, default=2, help='Limit number of articles to process (default: 2)')
+    parser.add_argument('--limit', type=int, default=3, help='Limit number of articles to process (default: 3)')
     parser.add_argument('--delete', action='store_true', help='Delete original articles after rewriting')
     parser.add_argument('--log', type=str, default='rewriter.log', help='Log file (default: rewriter.log)')
+    parser.add_argument('--ids', type=str, help='Comma-separated list of article IDs to rewrite (e.g. "1,2,3")')
     return parser.parse_args()
 
 # Setup logging
@@ -64,28 +65,54 @@ def connect_to_database():
         print(f"Error connecting to database: {e}")
         return None
 
-def get_unprocessed_articles(connection, limit=5):
-    """Get articles that have not been rewritten yet"""
+def get_unprocessed_articles(connection, limit=3, article_ids=None):
+    """Get articles that have not been rewritten yet
+    
+    Args:
+        connection: Database connection
+        limit: Maximum number of articles to retrieve (default: 3)
+        article_ids: List of specific article IDs to retrieve
+    
+    Returns:
+        List of articles to be rewritten
+    """
     if not connection:
         return []
         
     try:
         cursor = connection.cursor(dictionary=True)
         
-        # Query to get articles that haven't been rewritten yet
-        query = """
-        SELECT id, title, content, source_name, source_url, category
-        FROM articles
-        WHERE content IS NOT NULL 
-        AND LENGTH(content) > 100
-        AND is_ai_rewritten = 0
-        ORDER BY created_at DESC
-        LIMIT %s
-        """
-        
-        cursor.execute(query, (limit,))
+        if article_ids:
+            # Query to get specific articles by ID
+            placeholders = ', '.join(['%s'] * len(article_ids))
+            query = f"""
+            SELECT id, title, content, source_name, source_url, category
+            FROM articles
+            WHERE id IN ({placeholders})
+            AND content IS NOT NULL 
+            AND LENGTH(content) > 100
+            LIMIT %s
+            """
+            
+            # Add limit as the last parameter
+            params = article_ids + [limit]
+            cursor.execute(query, params)
+        else:
+            # Query to get articles that haven't been rewritten yet
+            query = """
+            SELECT id, title, content, source_name, source_url, category
+            FROM articles
+            WHERE content IS NOT NULL 
+            AND LENGTH(content) > 100
+            AND is_ai_rewritten = 0
+            ORDER BY created_at DESC
+            LIMIT %s
+            """
+            
+            cursor.execute(query, (limit,))
+            
         articles = cursor.fetchall()
-        print(f"Retrieved {len(articles)} unprocessed articles")
+        print(f"Retrieved {len(articles)} articles for rewriting")
         
         return articles
     except Exception as e:
@@ -350,16 +377,23 @@ def main():
     print(f"Auto-delete mode: {'Enabled' if auto_delete else 'Disabled'}")
     logger.info(f"Auto-delete mode: {'Enabled' if auto_delete else 'Disabled'}")
     
-    # Set limit of articles per run
-    limit = args.limit
+    # Set limit of articles per run (maximum 3)
+    limit = min(args.limit, 3)
     print(f"Processing limit: {limit} articles")
     logger.info(f"Processing limit: {limit} articles")
     
-    # Get unprocessed articles
-    articles = get_unprocessed_articles(connection, limit=limit)
+    # Process specific article IDs if provided
+    article_ids = None
+    if args.ids:
+        article_ids = args.ids.split(',')
+        print(f"Rewriting specific article IDs: {args.ids}")
+        logger.info(f"Rewriting specific article IDs: {args.ids}")
+    
+    # Get articles to rewrite
+    articles = get_unprocessed_articles(connection, limit=limit, article_ids=article_ids)
     
     if not articles:
-        msg = "No unprocessed articles found"
+        msg = "No articles found for rewriting"
         logger.info(msg)
         print(msg)
         connection.close()
@@ -368,7 +402,7 @@ def main():
     # Process each article
     successful = 0
     for idx, article in enumerate(articles, 1):
-        article_info = f"--- Article {idx}/{len(articles)} ---"
+        article_info = f"--- Article {idx}/{len(articles)} (ID: {article['id']}) ---"
         print(f"\n{article_info}")
         logger.info(article_info)
         

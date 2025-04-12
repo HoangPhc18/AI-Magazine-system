@@ -220,23 +220,35 @@ Script `rewrite_from_db.py` cho phép tự động lấy các bài viết từ d
    
    Các tham số:
    - `--auto`: Chạy ở chế độ tự động không cần tương tác người dùng
-   - `--limit N`: Giới hạn số bài viết xử lý (mặc định: 2)
+   - `--limit N`: Giới hạn số bài viết xử lý (mặc định: 3, tối đa: 3)
    - `--delete`: Tự động xóa bài viết gốc sau khi viết lại
    - `--log FILE`: Chỉ định file log (mặc định: rewriter.log)
+   - `--ids IDs`: Viết lại các bài viết theo ID cụ thể (ví dụ: "1,2,3")
 
-4. **Thiết lập Cron Job (Linux/macOS):**
+4. **Ví dụ sử dụng:**
+   ```bash
+   # Viết lại tối đa 3 bài viết chưa được xử lý mới nhất
+   python rewrite_from_db.py --auto
+   
+   # Viết lại các bài viết cụ thể theo ID
+   python rewrite_from_db.py --ids "123,456,789"
+   
+   # Viết lại tối đa 2 bài viết và xóa bài gốc
+   python rewrite_from_db.py --limit 2 --delete
+   ```
+
+5. **Thiết lập Cron Job (Linux/macOS):**
    ```
    # Chạy mỗi 30 phút
-   */30 * * * * cd /đường/dẫn/đến/ai_service/rewrite && python rewrite_from_db.py --auto --limit 3 --delete
+   */30 * * * * cd /đường/dẫn/đến/ai_service/rewrite && python rewrite_from_db.py --auto --delete
    ```
 
-5. **Thiết lập Task Scheduler (Windows):**
+6. **Thiết lập Task Scheduler (Windows):**
    - Tạo file batch (ví dụ: `run_rewriter.bat`):
      ```batch
      cd C:\đường\dẫn\đến\ai_service\rewrite
-     python rewrite_from_db.py --auto --limit 3 --delete
+     python rewrite_from_db.py --auto --delete
      ```
-   - Thêm task scheduler để chạy file batch này theo lịch
 
 ### Lưu ý:
 
