@@ -79,4 +79,20 @@ class ApprovedArticle extends Model
     {
         return $query->where('ai_generated', true);
     }
+
+    /**
+     * Trả về URL đầy đủ của ảnh đại diện
+     */
+    public function getFeaturedImageUrlAttribute()
+    {
+        if (!$this->featured_image) {
+            return null;
+        }
+        
+        if (filter_var($this->featured_image, FILTER_VALIDATE_URL)) {
+            return $this->featured_image;
+        }
+        
+        return asset('storage/' . $this->featured_image);
+    }
 } 

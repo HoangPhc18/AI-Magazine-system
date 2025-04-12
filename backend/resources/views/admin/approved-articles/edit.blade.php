@@ -111,7 +111,7 @@
                                 @if($approvedArticle->featured_image)
                                     <div class="mb-4">
                                         <p class="mb-2 text-sm text-gray-500">Ảnh hiện tại:</p>
-                                        <img src="{{ Storage::url($approvedArticle->featured_image) }}" alt="{{ $approvedArticle->title }}" class="max-w-xs h-auto rounded-lg shadow">
+                                        <img src="{{ $approvedArticle->featured_image_url }}" alt="{{ $approvedArticle->title }}" class="max-w-xs h-auto rounded-lg shadow">
                                     </div>
                                 @endif
                                 

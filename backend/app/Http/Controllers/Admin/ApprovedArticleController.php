@@ -92,34 +92,66 @@ class ApprovedArticleController extends Controller
             'ai_generated' => 'nullable|boolean',
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500',
-            'featured_image' => 'nullable|image|max:2048',
+            'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'current_featured_image' => 'nullable|string',
             'status' => 'required|in:published,unpublished',
         ]);
 
-        // Generate slug from title
-        $validated['slug'] = Str::slug($validated['title']);
-        
-        // Set user ID
-        $validated['user_id'] = Auth::id();
-        
-        // Handle featured image 
-        if ($request->hasFile('featured_image')) {
-            $imagePath = $request->file('featured_image')->store('articles', 'public');
-            $validated['featured_image'] = $imagePath;
-        } elseif ($request->has('current_featured_image')) {
-            $validated['featured_image'] = $request->input('current_featured_image');
+        try {
+            // Bắt đầu transaction
+            DB::beginTransaction();
+
+            // Generate slug from title
+            $validated['slug'] = Str::slug($validated['title']);
+            
+            // Set user ID
+            $validated['user_id'] = Auth::id();
+            
+            // Handle featured image 
+            if ($request->hasFile('featured_image')) {
+                // Lấy file ảnh từ request
+                $image = $request->file('featured_image');
+                
+                // Tạo tên file duy nhất
+                $filename = Str::random(20) . '.' . $image->getClientOriginalExtension();
+                
+                // Lưu ảnh vào thư mục public/articles
+                $imagePath = $image->storeAs('articles', $filename, 'public');
+                
+                $validated['featured_image'] = $imagePath;
+                
+                Log::info('Đã upload ảnh mới cho bài viết', [
+                    'image_path' => $imagePath
+                ]);
+            } elseif ($request->has('current_featured_image')) {
+                $validated['featured_image'] = $request->input('current_featured_image');
+            }
+
+            // Set published_at if status is published
+            if ($validated['status'] === 'published') {
+                $validated['published_at'] = now();
+            }
+
+            $approvedArticle = ApprovedArticle::create($validated);
+            
+            // Commit transaction
+            DB::commit();
+
+            return redirect()->route('admin.approved-articles.show', $approvedArticle)
+                ->with('success', 'Bài viết đã được tạo và xuất bản thành công.');
+        } catch (\Exception $e) {
+            // Rollback transaction nếu có lỗi
+            DB::rollBack();
+            
+            Log::error('Lỗi khi tạo bài viết mới: ' . $e->getMessage(), [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()->back()
+                ->with('error', 'Có lỗi xảy ra khi tạo bài viết: ' . $e->getMessage())
+                ->withInput();
         }
-
-        // Set published_at if status is published
-        if ($validated['status'] === 'published') {
-            $validated['published_at'] = now();
-        }
-
-        $approvedArticle = ApprovedArticle::create($validated);
-
-        return redirect()->route('admin.approved-articles.show', $approvedArticle)
-            ->with('success', 'Article created and published successfully.');
     }
 
     /**
@@ -142,34 +174,78 @@ class ApprovedArticleController extends Controller
             'category_id' => 'required|exists:categories,id',
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:255',
-            'featured_image' => 'nullable|image|max:2048',
+            'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'status' => 'required|in:published,unpublished',
         ]);
 
-        // Generate slug from title
-        $validated['slug'] = Str::slug($validated['title']);
-
-        if ($request->hasFile('featured_image')) {
-            // Delete old image if exists
-            if ($approvedArticle->featured_image) {
-                Storage::disk('public')->delete($approvedArticle->featured_image);
-            }
+        try {
+            // Bắt đầu transaction để đảm bảo tính nhất quán dữ liệu
+            DB::beginTransaction();
             
-            $imagePath = $request->file('featured_image')->store('articles', 'public');
-            $validated['featured_image'] = $imagePath;
+            // Generate slug from title
+            $validated['slug'] = Str::slug($validated['title']);
+
+            // Xử lý ảnh đại diện
+            if ($request->hasFile('featured_image')) {
+                // Lấy file ảnh từ request
+                $image = $request->file('featured_image');
+                
+                // Tạo tên file duy nhất
+                $filename = Str::random(20) . '.' . $image->getClientOriginalExtension();
+                
+                // Lưu ảnh vào thư mục public/articles
+                $imagePath = $image->storeAs('articles', $filename, 'public');
+                
+                // Nếu đã có ảnh cũ, xóa ảnh cũ
+                if ($approvedArticle->featured_image) {
+                    // Xóa file cũ nếu nó tồn tại trong storage
+                    if (Storage::disk('public')->exists($approvedArticle->featured_image)) {
+                        Storage::disk('public')->delete($approvedArticle->featured_image);
+                    }
+                }
+                
+                // Cập nhật đường dẫn ảnh mới
+                $validated['featured_image'] = $imagePath;
+                
+                Log::info('Đã cập nhật ảnh mới cho bài viết', [
+                    'article_id' => $approvedArticle->id,
+                    'old_image' => $approvedArticle->featured_image,
+                    'new_image' => $imagePath
+                ]);
+            } else {
+                // Nếu không có ảnh mới, giữ nguyên ảnh cũ
+                $validated['featured_image'] = $approvedArticle->featured_image;
+            }
+
+            // Update published_at if status changed
+            if ($validated['status'] === 'published' && $approvedArticle->status !== 'published') {
+                $validated['published_at'] = now();
+            } elseif ($validated['status'] === 'unpublished' && $approvedArticle->status === 'published') {
+                $validated['published_at'] = null;
+            }
+
+            // Cập nhật bài viết
+            $approvedArticle->update($validated);
+            
+            // Commit transaction
+            DB::commit();
+
+            return redirect()->route('admin.approved-articles.index')
+                ->with('success', 'Bài viết đã được cập nhật thành công.');
+        } catch (\Exception $e) {
+            // Rollback transaction nếu có lỗi
+            DB::rollBack();
+            
+            Log::error('Lỗi khi cập nhật bài viết: ' . $e->getMessage(), [
+                'article_id' => $approvedArticle->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()->back()
+                ->with('error', 'Có lỗi xảy ra khi cập nhật bài viết: ' . $e->getMessage())
+                ->withInput();
         }
-
-        // Update published_at if status changed
-        if ($validated['status'] === 'published' && $approvedArticle->status !== 'published') {
-            $validated['published_at'] = now();
-        } elseif ($validated['status'] === 'unpublished' && $approvedArticle->status === 'published') {
-            $validated['published_at'] = null;
-        }
-
-        $approvedArticle->update($validated);
-
-        return redirect()->route('admin.approved-articles.index')
-            ->with('success', 'Article updated successfully.');
     }
 
     /**

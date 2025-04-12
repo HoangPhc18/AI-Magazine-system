@@ -67,7 +67,7 @@
 
                 @if($approvedArticle->featured_image)
                     <div class="mb-6">
-                        <img src="{{ Storage::url($approvedArticle->featured_image) }}" alt="{{ $approvedArticle->title }}" class="max-w-full h-auto rounded-lg shadow">
+                        <img src="{{ $approvedArticle->featured_image_url }}" alt="{{ $approvedArticle->title }}" class="max-w-full h-auto rounded-lg shadow">
                     </div>
                 @endif
 

@@ -8,6 +8,7 @@ use App\Models\ApprovedArticle;
 use App\Models\Category;
 use App\Models\AISetting;
 use App\Services\AIService;
+use App\Http\Requests\ApproveArticleRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
@@ -79,8 +80,16 @@ class RewrittenArticleController extends Controller
         $validated['status'] = 'pending';
 
         if ($request->hasFile('featured_image')) {
-            $path = $request->file('featured_image')->store('public/featured_images');
-            $validated['featured_image'] = str_replace('public/', '', $path);
+            // Lấy file ảnh từ request
+            $image = $request->file('featured_image');
+            
+            // Tạo tên file duy nhất
+            $filename = Str::random(20) . '.' . $image->getClientOriginalExtension();
+            
+            // Lưu ảnh vào thư mục public/articles
+            $imagePath = $image->storeAs('articles', $filename, 'public');
+            
+            $validated['featured_image'] = $imagePath;
         }
 
         RewrittenArticle::create($validated);
@@ -121,8 +130,16 @@ class RewrittenArticleController extends Controller
         $validated['slug'] = Str::slug($validated['title']);
 
         if ($request->hasFile('featured_image')) {
-            $path = $request->file('featured_image')->store('public/featured_images');
-            $validated['featured_image'] = str_replace('public/', '', $path);
+            // Lấy file ảnh từ request
+            $image = $request->file('featured_image');
+            
+            // Tạo tên file duy nhất
+            $filename = Str::random(20) . '.' . $image->getClientOriginalExtension();
+            
+            // Lưu ảnh vào thư mục public/articles
+            $imagePath = $image->storeAs('articles', $filename, 'public');
+            
+            $rewrittenArticle->featured_image = $imagePath;
         }
 
         $rewrittenArticle->update($validated);
@@ -133,10 +150,22 @@ class RewrittenArticleController extends Controller
 
     public function approve(RewrittenArticle $rewrittenArticle)
     {
-        $rewrittenArticle->update(['status' => 'approved']);
-
-        return redirect()->route('admin.rewritten-articles.index')
-            ->with('success', 'Bài viết đã được phê duyệt thành công.');
+        try {
+            // Chuyển bài viết sang ApprovedArticle
+            $approvedArticle = $this->moveToApprovedArticles($rewrittenArticle);
+            
+            return redirect()->route('admin.approved-articles.show', $approvedArticle)
+                ->with('success', 'Bài viết đã được phê duyệt và chuyển đến bài viết đã xuất bản thành công.');
+        } catch (\Exception $e) {
+            Log::error('Lỗi khi duyệt bài viết', [
+                'rewritten_article_id' => $rewrittenArticle->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()->route('admin.rewritten-articles.show', $rewrittenArticle)
+                ->with('error', 'Đã xảy ra lỗi khi duyệt bài viết: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -233,26 +262,30 @@ class RewrittenArticleController extends Controller
     /**
      * Process approving a rewritten article
      */
-    private function moveToApprovedArticles(RewrittenArticle $rewrittenArticle)
+    private function moveToApprovedArticles(RewrittenArticle $rewrittenArticle, array $validated = null)
     {
         try {
             DB::beginTransaction();
             
             // Tạo bài viết đã duyệt
             $approvedArticle = new ApprovedArticle();
-            $approvedArticle->title = $rewrittenArticle->title;
-            $approvedArticle->slug = $rewrittenArticle->slug;
-            $approvedArticle->content = $rewrittenArticle->content;
-            $approvedArticle->meta_title = $rewrittenArticle->meta_title;
-            $approvedArticle->meta_description = $rewrittenArticle->meta_description;
-            $approvedArticle->featured_image = $rewrittenArticle->featured_image;
+            $approvedArticle->title = $validated['title'] ?? $rewrittenArticle->title;
+            $approvedArticle->slug = $validated['slug'] ?? $rewrittenArticle->slug;
+            $approvedArticle->content = $validated['content'] ?? $rewrittenArticle->content;
+            $approvedArticle->meta_title = $validated['meta_title'] ?? $rewrittenArticle->meta_title;
+            $approvedArticle->meta_description = $validated['meta_description'] ?? $rewrittenArticle->meta_description;
+            $approvedArticle->featured_image = $validated['featured_image'] ?? $rewrittenArticle->featured_image;
             $approvedArticle->user_id = Auth::id();
-            $approvedArticle->category_id = $rewrittenArticle->category_id;
+            $approvedArticle->category_id = $validated['category_id'] ?? $rewrittenArticle->category_id;
             $approvedArticle->original_article_id = $rewrittenArticle->original_article_id;
             $approvedArticle->status = 'published';
             $approvedArticle->ai_generated = $rewrittenArticle->ai_generated;
             $approvedArticle->published_at = now();
             $approvedArticle->save();
+            
+            // Đánh dấu bài viết đã được duyệt
+            $rewrittenArticle->status = 'approved';
+            $rewrittenArticle->save();
             
             // Xóa bài viết đã duyệt từ RewrittenArticle để không hiển thị nữa
             $rewrittenArticle->forceDelete();
@@ -264,13 +297,13 @@ class RewrittenArticleController extends Controller
                 'approved_id' => $approvedArticle->id
             ]);
             
-            return true;
+            return $approvedArticle;
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Lỗi khi chuyển bài viết sang ApprovedArticle: ' . $e->getMessage(), [
                 'rewritten_id' => $rewrittenArticle->id
             ]);
-            return false;
+            throw $e;
         }
     }
 
@@ -378,8 +411,16 @@ class RewrittenArticleController extends Controller
 
             // Handle featured image upload
             if ($request->hasFile('featured_image')) {
-                $path = $request->file('featured_image')->store('public/featured_images');
-                $rewrittenArticle->featured_image = str_replace('public/', '', $path);
+                // Lấy file ảnh từ request
+                $image = $request->file('featured_image');
+                
+                // Tạo tên file duy nhất
+                $filename = Str::random(20) . '.' . $image->getClientOriginalExtension();
+                
+                // Lưu ảnh vào thư mục public/articles
+                $imagePath = $image->storeAs('articles', $filename, 'public');
+                
+                $rewrittenArticle->featured_image = $imagePath;
             } else {
                 // Copy featured image from original article if exists
                 if ($originalArticle->featured_image) {

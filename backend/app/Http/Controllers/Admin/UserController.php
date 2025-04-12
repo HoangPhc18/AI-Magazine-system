@@ -73,7 +73,7 @@ class UserController extends Controller
             return back()->with('error', 'You cannot delete your own account.');
         }
 
-        $user->delete();
+        $user->forceDelete();
 
         return redirect()->route('admin.users.index')
             ->with('success', 'User deleted successfully.');

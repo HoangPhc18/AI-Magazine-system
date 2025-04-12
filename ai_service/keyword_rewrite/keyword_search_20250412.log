@@ -1,0 +1,54 @@
+2025-04-12 19:56:45,199 - INFO - Starting Keyword Rewrite API on 0.0.0.0:5000 (Debug: False)
+2025-04-12 19:56:45,199 - INFO - Using Ollama model: gemma2:latest
+2025-04-12 19:56:45,199 - INFO - Using Ollama host: http://localhost:11434
+2025-04-12 19:56:45,238 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.1.132:5000
+2025-04-12 19:56:45,238 - INFO - [33mPress CTRL+C to quit[0m
+2025-04-12 19:56:53,270 - INFO - 127.0.0.1 - - [12/Apr/2025 19:56:53] "GET /health HTTP/1.1" 200 -
+2025-04-12 19:56:53,520 - INFO - Starting keyword rewrite task for: thời tiết hôm nay (ID: 1)
+2025-04-12 19:56:53,520 - INFO - 127.0.0.1 - - [12/Apr/2025 19:56:53] "POST /api/keyword_rewrite/process HTTP/1.1" 200 -
+2025-04-12 19:56:53,521 - INFO - Modified callback URL: http://localhost:8000/api/keyword-rewrites/callback
+2025-04-12 19:56:53,521 - INFO - Searching Google News for: thời tiết hôm nay
+2025-04-12 19:56:53,524 - INFO - Searching for keyword: 'thời tiết hôm nay' and non-accented version: 'thoi tiet hom nay' (skip: 0)
+2025-04-12 19:56:53,525 - INFO - Trying to search with keyword: 'thời tiết hôm nay'
+2025-04-12 19:56:53,525 - INFO - Using HTTP request method for: 'thời tiết hôm nay'
+2025-04-12 19:56:53,525 - INFO - Sending request to Google News: https://news.google.com/search?q=th%E1%BB%9Di+ti%E1%BA%BFt+h%C3%B4m+nay&hl=vi&gl=VN&ceid=VN:vi
+2025-04-12 19:56:54,615 - WARNING - No valid article URLs found in Google News
+2025-04-12 19:56:54,622 - INFO - Trying direct Google Search as it's more reliable
+2025-04-12 19:56:54,622 - INFO - Searching with Google Search: https://www.google.com/search?q=th%E1%BB%9Di+ti%E1%BA%BFt+h%C3%B4m+nay&tbm=nws
+2025-04-12 19:56:55,302 - INFO - Saved Google Search response to google_search_response.html
+2025-04-12 19:56:55,337 - INFO - Found 0 results with selector 'div.g a'
+2025-04-12 19:56:55,337 - INFO - Found 16 results with selector 'a[href^="https://"]'
+2025-04-12 19:56:55,337 - WARNING - URL https://laodong.vn/moi-truong/du-bao-khu-vuc-sap-mua-rat-to-do-khong-khi-lanh-manh-1490275.ldo is from blacklisted domain: laodong.vn
+2025-04-12 19:56:55,337 - INFO - Found valid article URL: https://tuoitre.vn/thoi-tiet-hom-nay-12-4-mien-nam-ngay-nang-chieu-mua-mien-bac-mua-to-20250411175916703.htm
+2025-04-12 19:56:55,337 - INFO - Found valid article URL: https://vov.vn/xa-hoi/du-bao-thoi-tiet/thoi-tiet-hom-nay-124-bac-bo-don-gio-mua-dong-bac-troi-chuyen-lanh-post1191405.vov
+2025-04-12 19:56:55,337 - INFO - Found valid article URL: https://www.24h.com.vn/tin-tuc-trong-ngay/khong-khi-lanh-gay-mua-khap-mien-bac-co-noi-mua-rat-to-c46a1656162.html
+2025-04-12 19:56:55,337 - INFO - Found valid article URL: https://www.qdnd.vn/xa-hoi/tin-tuc/thoi-tiet-hom-nay-12-4-bac-bo-va-trung-bo-co-mua-mua-rao-va-dong-823566
+2025-04-12 19:56:55,337 - INFO - Found valid article URL: https://danviet.vn/thoi-tiet-hom-nay-12-4-2025-nhieu-noi-co-mua-rao-va-giong-cuc-bo-co-noi-mua-rat-to-d1323829.html
+2025-04-12 19:56:55,337 - INFO - Found valid article URL: https://nongnghiep.vn/tin-thoi-tiet-hom-nay-11-4-2025-moi-nhat-trong-ca-nuoc-d747585.html
+2025-04-12 19:56:55,337 - INFO - Found valid article URL: https://bnews.vn/du-bao-thoi-tiet-hom-nay-12-4-nhiet-do-thap-nhat-bac-bo-pho-bien-o-muc-16-19-do-c/369733.html
+2025-04-12 19:56:55,337 - WARNING - URL https://laodong.vn/ban-tin/du-bao-thoi-tiet-3-ngay-toi-tu-124-den-144-o-ca-ba-mien-1489941.ldo is from blacklisted domain: laodong.vn
+2025-04-12 19:56:55,337 - INFO - Found valid article URL: https://nld.com.vn/thoi-tiet-tp-hcm-hom-nay-10-4-ngay-nang-co-mua-trai-mua-19625041007351599.htm
+2025-04-12 19:56:55,337 - INFO - Found 8 valid article URLs from Google Search
+2025-04-12 19:56:55,337 - INFO - Found article URL: https://tuoitre.vn/thoi-tiet-hom-nay-12-4-mien-nam-ngay-nang-chieu-mua-mien-bac-mua-to-20250411175916703.htm
+2025-04-12 19:56:55,337 - INFO - Extracting content from URL (attempt 1/3): https://tuoitre.vn/thoi-tiet-hom-nay-12-4-mien-nam-ngay-nang-chieu-mua-mien-bac-mua-to-20250411175916703.htm
+2025-04-12 19:56:55,337 - INFO - Extracting content from: https://tuoitre.vn/thoi-tiet-hom-nay-12-4-mien-nam-ngay-nang-chieu-mua-mien-bac-mua-to-20250411175916703.htm
+2025-04-12 19:56:55,337 - INFO - Detected domain: tuoitre.vn
+2025-04-12 19:56:55,542 - INFO - Saved HTML content to debug_tuoitre_vn.html for debugging
+2025-04-12 19:56:55,542 - INFO - Using custom selectors for domain: tuoitre.vn
+2025-04-12 19:56:55,608 - INFO - Using trafilatura for content extraction
+2025-04-12 19:56:55,742 - WARNING - Language detector not installed, skipping detection
+2025-04-12 19:56:55,754 - INFO - Successfully extracted content using trafilatura (Title length: 70, Content length: 1625)
+2025-04-12 19:56:55,755 - INFO - Successfully extracted content - Title: Thời tiết hôm nay 12-4: Miền Nam ngày nắng, chiều mưa, miền Bắc mưa to, Content length: 1625
+2025-04-12 19:56:55,756 - INFO - Rewriting content using Ollama (model: gemma2:latest)
+2025-04-12 19:56:55,756 - INFO - Rewriting content with title: Thời tiết hôm nay 12-4: Miền Nam ngày nắng, chiều mưa, miền Bắc mưa to
+2025-04-12 19:56:55,756 - INFO - Using model: gemma2:latest, temperature: 0.7
+2025-04-12 19:56:55,756 - INFO - Checking Ollama availability at: http://localhost:11434/api/tags
+2025-04-12 19:56:57,830 - INFO - Sending generation request to: http://localhost:11434/api/generate
+2025-04-12 19:59:15,711 - INFO - Successfully rewrote content using gemma2:latest in 137.86 seconds (Length: 1500)
+2025-04-12 19:59:15,727 - INFO - Successfully rewrote content. Rewritten length: 1500
+2025-04-12 19:59:15,736 - INFO - Sending callback to fixed URL: http://localhost:8000/api/keyword-rewrites/callback (original was: http://localhost:8000/api/keyword-rewrites/callback)
+2025-04-12 19:59:18,276 - INFO - Callback sent successfully for ID: 1
+2025-04-12 19:59:18,282 - INFO - Keyword rewrite task completed for: thời tiết hôm nay (ID: 1)

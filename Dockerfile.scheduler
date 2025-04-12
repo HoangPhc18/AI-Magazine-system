@@ -1,0 +1,31 @@
+FROM alpine:3.14
+
+# Cài đặt cron và curl
+RUN apk add --no-cache curl dcron tzdata
+
+# Thiết lập múi giờ
+RUN cp /usr/share/zoneinfo/Asia/Ho_Chi_Minh /etc/localtime && \
+    echo "Asia/Ho_Chi_Minh" > /etc/timezone
+
+# Tạo file crontab
+RUN mkdir -p /etc/cron.d
+
+# Thiết lập crontab cho các dịch vụ
+# Scraper: chạy lúc 0h00, 6h00, 12h00, 18h00 (0 0,6,12,18 * * *)
+# Rewrite: chạy lúc 0h30, 6h30, 12h30, 18h30 (30 0,6,12,18 * * *)
+RUN echo "# Schedule for Scraper and Rewrite Services" > /etc/cron.d/magazine-services && \
+    echo "0 0,6,12,18 * * * curl -X POST http://scraper:8080/run" >> /etc/cron.d/magazine-services && \
+    echo "30 0,6,12,18 * * * curl -X POST http://rewrite:8080/run" >> /etc/cron.d/magazine-services && \
+    chmod 0644 /etc/cron.d/magazine-services
+
+# Tạo script để đảm bảo crontab đã được cài đặt và chạy
+RUN echo "#!/bin/sh" > /entrypoint.sh && \
+    echo "crontab /etc/cron.d/magazine-services" >> /entrypoint.sh && \
+    echo "echo 'Crontab schedule loaded:'" >> /entrypoint.sh && \
+    echo "crontab -l" >> /entrypoint.sh && \
+    echo "echo 'Starting crond...'" >> /entrypoint.sh && \
+    echo "crond -f -d 8" >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
+
+# Sử dụng entrypoint script
+ENTRYPOINT ["/entrypoint.sh"] 
