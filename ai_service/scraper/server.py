@@ -112,6 +112,21 @@ class ScraperProcess:
         self.success = None
         self.error = None
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port, debug=False) 
+def setup_logging():
+    """Thiết lập cấu hình logging cho ứng dụng"""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler(f"scraper_api_{datetime.now().strftime('%Y%m%d')}.log", encoding='utf-8'),
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+
+if __name__ == "__main__":
+    # Thiết lập logging
+    setup_logging()
+    
+    # Chạy ứng dụng Flask
+    port = int(os.environ.get("PORT", 5001))
+    app.run(host="0.0.0.0", port=port, debug=False) 

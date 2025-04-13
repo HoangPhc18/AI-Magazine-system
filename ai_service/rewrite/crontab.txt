@@ -1,0 +1,4 @@
+# Cron jobs for rewrite service
+# m h dom mon dow command
+0 2,4,6,8,10,14,16,20,22 * * * cd /app && python rewrite_from_db.py --limit 5 >> /app/logs/cron_rewrite_$(date +\%Y\%m\%d).log 2>&1
+# Empty line at the end is required 

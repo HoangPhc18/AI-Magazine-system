@@ -112,6 +112,153 @@ class RewriteProcess:
         self.success = None
         self.error = None
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port, debug=False) 
+def setup_logging():
+    """Thiết lập cấu hình logging cho ứng dụng"""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler(f"rewrite_api_{datetime.now().strftime('%Y%m%d')}.log", encoding='utf-8'),
+            logging.StreamHandler(sys.stdout)
+        ]
+    )
+
+@app.route('/rewrite-by-id/<int:article_id>', methods=['GET'])
+def rewrite_by_id(article_id):
+    """Rewrite a specific article by ID"""
+    try:
+        # Kiểm tra article_id
+        if not article_id or not isinstance(article_id, int):
+            return jsonify({
+                'status': 'error',
+                'message': 'Invalid article ID. Must be a valid integer.'
+            }), 400
+            
+        # Gọi script rewrite_from_db.py với article_id
+        result = subprocess.run(
+            ['python', 'rewrite_from_db.py', '--article-id', str(article_id)],
+            capture_output=True,
+            text=True
+        )
+        
+        # Kiểm tra kết quả
+        if result.returncode == 0:
+            return jsonify({
+                'status': 'success',
+                'message': f'Article ID {article_id} has been processed',
+                'output': result.stdout
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': f'Failed to rewrite article ID {article_id}',
+                'error': result.stderr
+            }), 500
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Error processing article ID {article_id}',
+            'error': str(e)
+        }), 500
+
+@app.route('/unprocessed-articles', methods=['GET'])
+def get_unprocessed_articles():
+    """Get list of unprocessed articles"""
+    try:
+        # Kết nối database trực tiếp để lấy danh sách bài viết chưa xử lý
+        from rewrite_from_db import DB_CONFIG, connect_to_database
+        
+        connection = connect_to_database()
+        if not connection:
+            return jsonify({
+                'status': 'error',
+                'message': 'Failed to connect to database'
+            }), 500
+            
+        try:
+            cursor = connection.cursor(dictionary=True)
+            
+            # Truy vấn lấy các bài viết chưa được viết lại
+            query = """
+            SELECT id, title, source_name, DATE_FORMAT(created_at, '%Y-%m-%d') as date
+            FROM articles
+            WHERE content IS NOT NULL 
+            AND LENGTH(content) > 100
+            AND is_ai_rewritten = 0
+            ORDER BY id ASC
+            LIMIT 50
+            """
+            
+            cursor.execute(query)
+            articles = cursor.fetchall()
+            
+            # Đóng kết nối
+            cursor.close()
+            connection.close()
+            
+            return jsonify({
+                'status': 'success',
+                'count': len(articles),
+                'articles': articles
+            })
+            
+        except Exception as e:
+            return jsonify({
+                'status': 'error',
+                'message': f'Database error: {str(e)}'
+            }), 500
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Unexpected error: {str(e)}'
+        }), 500
+
+@app.route('/rewrite-batch/<int:count>', methods=['GET'])
+def rewrite_batch(count):
+    """Rewrite a batch of articles in order of ID"""
+    try:
+        # Kiểm tra count
+        if not count or count <= 0:
+            return jsonify({
+                'status': 'error',
+                'message': 'Invalid count. Must be a positive integer.'
+            }), 400
+            
+        # Giới hạn số lượng bài viết tối đa được xử lý một lần
+        if count > 10:
+            count = 10
+            
+        # Gọi script rewrite_from_db.py với số lượng bài viết cần xử lý
+        result = subprocess.run(
+            ['python', 'rewrite_from_db.py', '--limit', str(count)],
+            capture_output=True,
+            text=True
+        )
+        
+        # Kiểm tra kết quả
+        if result.returncode == 0:
+            return jsonify({
+                'status': 'success',
+                'message': f'Processed {count} articles',
+                'output': result.stdout
+            })
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': f'Failed to process articles',
+                'error': result.stderr
+            }), 500
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Error processing batch rewrite',
+            'error': str(e)
+        }), 500
+
+if __name__ == "__main__":
+    # Thiết lập logging
+    setup_logging()
+    
+    # Chạy ứng dụng Flask
+    port = int(os.environ.get("PORT", 5002))
+    app.run(host="0.0.0.0", port=port, debug=False) 

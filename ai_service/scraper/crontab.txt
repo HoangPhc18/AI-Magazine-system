@@ -1,0 +1,4 @@
+# Cron jobs for scraper service
+# m h dom mon dow command
+0 0,6,12,18 * * * cd /app && python main.py --all >> /app/logs/cron_scraper_$(date +\%Y\%m\%d).log 2>&1
+# Empty line at the end is required 

@@ -24,7 +24,7 @@ class KeywordRewriteController extends Controller
      */
     private function ensureAIServiceRunning()
     {
-        $aiServiceUrl = env('AI_SERVICE_URL', 'http://localhost:5000');
+        $aiServiceUrl = env('AI_SERVICE_URL', 'http://localhost:5003');
         $healthEndpoint = $aiServiceUrl . '/health';
         
         try {
@@ -166,7 +166,7 @@ class KeywordRewriteController extends Controller
 
         // Send the keyword to the AI service for processing
         try {
-            $aiServiceUrl = env('AI_SERVICE_URL', 'http://localhost:5000');
+            $aiServiceUrl = env('AI_SERVICE_URL', 'http://localhost:5003');
             $endpoint = $aiServiceUrl . '/api/keyword_rewrite/process';
             
             Log::info("Attempting to connect to AI service at: " . $endpoint);
@@ -271,7 +271,7 @@ class KeywordRewriteController extends Controller
         }
         
         try {
-            $aiServiceUrl = env('AI_SERVICE_URL', 'http://localhost:5000');
+            $aiServiceUrl = env('AI_SERVICE_URL', 'http://localhost:5003');
             $endpoint = $aiServiceUrl . '/api/keyword_rewrite/process';
             
             Log::info("Retry: Attempting to connect to AI service at: " . $endpoint);
@@ -408,7 +408,7 @@ class KeywordRewriteController extends Controller
 
         // Gửi yêu cầu xử lý từ khóa đến AI service
         try {
-            $aiServiceUrl = env('AI_SERVICE_URL', 'http://localhost:5000');
+            $aiServiceUrl = env('AI_SERVICE_URL', 'http://localhost:5003');
             $endpoint = $aiServiceUrl . '/api/keyword_rewrite/process';
             
             $callbackUrl = env('BACKEND_URL', 'http://localhost:8000') . '/api/admin/keyword-rewrites/callback';

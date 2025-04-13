@@ -22,12 +22,13 @@ load_dotenv()
 
 # Process command line arguments
 def parse_args():
-    parser = argparse.ArgumentParser(description='Rewrite articles from database.')
-    parser.add_argument('--auto', action='store_true', help='Run in automatic mode without prompts')
+    """Parse command line arguments"""
+    parser = argparse.ArgumentParser(description='Rewrite articles from database using AI')
     parser.add_argument('--limit', type=int, default=3, help='Limit number of articles to process (default: 3)')
-    parser.add_argument('--delete', action='store_true', help='Delete original articles after rewriting')
-    parser.add_argument('--log', type=str, default='rewriter.log', help='Log file (default: rewriter.log)')
-    parser.add_argument('--ids', type=str, help='Comma-separated list of article IDs to rewrite (e.g. "1,2,3")')
+    parser.add_argument('--article-id', type=int, help='Specific article ID to rewrite')
+    parser.add_argument('--article-ids', type=str, help='Comma-separated list of article IDs to rewrite (e.g., "1,2,3")')
+    parser.add_argument('--auto-delete', action='store_true', help='Delete original articles after rewriting')
+    parser.add_argument('--log-file', type=str, default='rewriter.log', help='Log file path')
     return parser.parse_args()
 
 # Setup logging
@@ -43,7 +44,7 @@ def setup_logging(log_file):
 
 # Database configuration
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "localhost"),
+    "host": os.getenv("DB_HOST", "host.docker.internal"),
     "user": os.getenv("DB_USER", "root"),
     "password": os.getenv("DB_PASSWORD", ""),
     "database": os.getenv("DB_NAME", "aimagazinedb"),
@@ -51,7 +52,7 @@ DB_CONFIG = {
 }
 
 # Ollama API configuration
-OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma2")
 
 def connect_to_database():
@@ -66,7 +67,7 @@ def connect_to_database():
         return None
 
 def get_unprocessed_articles(connection, limit=3, article_ids=None):
-    """Get articles that have not been rewritten yet
+    """Get articles that have not been rewritten yet or specific articles by ID
     
     Args:
         connection: Database connection
@@ -82,11 +83,21 @@ def get_unprocessed_articles(connection, limit=3, article_ids=None):
     try:
         cursor = connection.cursor(dictionary=True)
         
-        if article_ids:
-            # Query to get specific articles by ID
+        if article_ids and len(article_ids) > 0:
+            # Convert all article_ids to integers to ensure they're valid
+            try:
+                article_ids = [int(aid) for aid in article_ids]
+            except ValueError:
+                print(f"Error: Invalid article ID(s) provided. Must be integers.")
+                return []
+                
+            # Create placeholders for the IN clause
             placeholders = ', '.join(['%s'] * len(article_ids))
+            
+            # Query to get specific articles by ID regardless of is_ai_rewritten status
             query = f"""
-            SELECT id, title, content, source_name, source_url, category
+            SELECT id, title, content, source_name, source_url, category,
+                   DATE_FORMAT(created_at, '%Y-%m-%d') as date
             FROM articles
             WHERE id IN ({placeholders})
             AND content IS NOT NULL 
@@ -97,24 +108,33 @@ def get_unprocessed_articles(connection, limit=3, article_ids=None):
             # Add limit as the last parameter
             params = article_ids + [limit]
             cursor.execute(query, params)
+            
+            articles = cursor.fetchall()
+            print(f"Retrieved {len(articles)} articles by ID")
+            
+            if len(articles) < len(article_ids):
+                missing_ids = set(article_ids) - set(a['id'] for a in articles)
+                print(f"Warning: Could not find articles with IDs: {missing_ids}")
+                
+            return articles
         else:
             # Query to get articles that haven't been rewritten yet
             query = """
-            SELECT id, title, content, source_name, source_url, category
+            SELECT id, title, content, source_name, source_url, category,
+                   DATE_FORMAT(created_at, '%Y-%m-%d') as date
             FROM articles
             WHERE content IS NOT NULL 
             AND LENGTH(content) > 100
             AND is_ai_rewritten = 0
-            ORDER BY created_at DESC
+            ORDER BY id ASC
             LIMIT %s
             """
             
             cursor.execute(query, (limit,))
             
-        articles = cursor.fetchall()
-        print(f"Retrieved {len(articles)} articles for rewriting")
-        
-        return articles
+            articles = cursor.fetchall()
+            print(f"Retrieved {len(articles)} unprocessed articles")
+            return articles
     except Exception as e:
         print(f"Error retrieving articles: {e}")
         return []
@@ -204,8 +224,21 @@ def save_rewritten_article(connection, article_id, original_content, rewritten_c
         metadata_json = json.dumps(metadata)
         meta_description = f"AI rewritten version of the article: {original_title}"
         
-        # Convert category to category_id (use 1 as default if not found)
+        # Get the original category (as string) and set default category_id = 1
+        category_name = original_article[3] or "Uncategorized"
         category_id = 1  # Default category ID
+        
+        # Try to find the category_id from categories table if it exists
+        try:
+            category_query = """
+            SELECT id FROM categories WHERE name = %s OR slug = %s LIMIT 1
+            """
+            cursor.execute(category_query, (category_name, category_name))
+            category_result = cursor.fetchone()
+            if category_result:
+                category_id = category_result[0]
+        except Exception as e:
+            print(f"Could not find category ID for '{category_name}', using default: {e}")
         
         # Insert query for rewritten article
         query = """
@@ -359,87 +392,82 @@ def main():
     args = parse_args()
     
     # Setup logging
-    logger = setup_logging(args.log)
+    logger = setup_logging(args.log_file)
     logger.info("=== ARTICLE REWRITING FROM DATABASE ===")
-    
-    print("=== ARTICLE REWRITING FROM DATABASE ===")
     
     # Connect to database
     connection = connect_to_database()
     if not connection:
-        error_msg = "Failed to connect to database"
-        logger.error(error_msg)
-        print(error_msg)
+        print("Failed to connect to database")
+        logger.error("Failed to connect to database")
         return
     
     # Automatically set to delete original articles if specified
-    auto_delete = True if args.auto or args.delete else False
+    auto_delete = True if args.auto_delete else False
     print(f"Auto-delete mode: {'Enabled' if auto_delete else 'Disabled'}")
     logger.info(f"Auto-delete mode: {'Enabled' if auto_delete else 'Disabled'}")
     
-    # Set limit of articles per run (maximum 3)
-    limit = min(args.limit, 3)
+    # Set processing limit
+    limit = args.limit
     print(f"Processing limit: {limit} articles")
     logger.info(f"Processing limit: {limit} articles")
     
-    # Process specific article IDs if provided
+    # Prepare article IDs
     article_ids = None
-    if args.ids:
-        article_ids = args.ids.split(',')
-        print(f"Rewriting specific article IDs: {args.ids}")
-        logger.info(f"Rewriting specific article IDs: {args.ids}")
+    
+    # Priority: --article-id (single) > --article-ids (multiple)
+    if args.article_id is not None:
+        article_ids = [str(args.article_id)]
+        print(f"Rewriting specific article ID: {args.article_id}")
+        logger.info(f"Rewriting specific article ID: {args.article_id}")
+    elif args.article_ids:
+        article_ids = args.article_ids.split(',')
+        print(f"Rewriting specific article IDs: {args.article_ids}")
+        logger.info(f"Rewriting specific article IDs: {args.article_ids}")
     
     # Get articles to rewrite
-    articles = get_unprocessed_articles(connection, limit=limit, article_ids=article_ids)
+    articles = get_unprocessed_articles(connection, limit, article_ids)
     
-    if not articles:
-        msg = "No articles found for rewriting"
-        logger.info(msg)
-        print(msg)
-        connection.close()
-        return
+    # Process articles
+    total_processed = 0
+    total_success = 0
     
-    # Process each article
-    successful = 0
-    for idx, article in enumerate(articles, 1):
-        article_info = f"--- Article {idx}/{len(articles)} (ID: {article['id']}) ---"
-        print(f"\n{article_info}")
-        logger.info(article_info)
+    for idx, article in enumerate(articles):
+        # Print progress
+        if len(articles) > 1:
+            print(f"\n--- Article {idx+1}/{len(articles)} (ID: {article['id']}) ---\n")
+            logger.info(f"Processing article {idx+1}/{len(articles)} (ID: {article['id']})")
         
-        # Process the article
-        save_success = process_article(connection, article)
+        # Process article
+        success = process_article(connection, article)
         
-        # If auto-delete is enabled and not handled in process_article
-        # (keeping this as a backup in case process_article implementation changes)
-        if auto_delete and save_success:
-            delete_msg = "Auto-delete enabled, ensuring original article is deleted..."
-            print(delete_msg)
-            logger.info(delete_msg)
-            delete_original_article(connection, article['id'])
-        
-        if save_success:
-            successful += 1
+        total_processed += 1
+        if success:
+            total_success += 1
+            
+            # Delete original article if auto_delete is enabled
+            if auto_delete:
+                print(f"Deleting original article from database...")
+                logger.info(f"Deleting original article ID {article['id']} due to auto_delete mode")
+                if delete_original_article(connection, article['id']):
+                    print(f"Deleted original article (ID: {article['id']}) from database")
+                    logger.info(f"Deleted original article (ID: {article['id']}) from database")
+                else:
+                    print(f"Failed to delete original article (ID: {article['id']})")
+                    logger.error(f"Failed to delete original article (ID: {article['id']})")
     
-    # Summary
-    summary = "\n=== SUMMARY ==="
-    print(summary)
-    logger.info(summary)
+    # Print summary
+    print("\n=== SUMMARY ===")
+    print(f"Processed {total_processed} articles")
+    print(f"Successfully rewritten and saved: {total_success}")
     
-    processed_msg = f"Processed {len(articles)} articles"
-    print(processed_msg)
-    logger.info(processed_msg)
-    
-    success_msg = f"Successfully rewritten and saved: {successful}"
-    print(success_msg)
-    logger.info(success_msg)
+    logger.info(f"Summary: Processed {total_processed} articles, Successfully rewritten: {total_success}")
     
     # Close database connection
-    connection.close()
-    close_msg = "Database connection closed"
-    print(close_msg)
-    logger.info(close_msg)
-    
-    return successful
+    if connection.is_connected():
+        connection.close()
+        print("Database connection closed")
+        logger.info("Database connection closed")
 
 if __name__ == "__main__":
     main() 

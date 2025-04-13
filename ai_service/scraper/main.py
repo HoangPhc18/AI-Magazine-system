@@ -85,10 +85,10 @@ DEFAULT_BATCH_SIZE = 5
 RETENTION_DAYS = 2
 
 # 🔹 Laravel Backend API URLs
-BACKEND_API_URL = "http://localhost:8000/api/articles"
-ARTICLES_BATCH_API_URL = "http://localhost:8000/api/articles/batch"
-ARTICLES_IMPORT_API_URL = "http://localhost:8000/api/articles/import"
-CATEGORIES_API_URL = "http://localhost:8000/api/categories"
+BACKEND_API_URL = "http://host.docker.internal:8000/api/articles"
+ARTICLES_BATCH_API_URL = "http://host.docker.internal:8000/api/articles/batch"
+ARTICLES_IMPORT_API_URL = "http://host.docker.internal:8000/api/articles/import"
+CATEGORIES_API_URL = "http://host.docker.internal:8000/api/categories"
 
 # Các biến toàn cục
 # Cache lưu các URL đã xử lý để tránh trùng lặp

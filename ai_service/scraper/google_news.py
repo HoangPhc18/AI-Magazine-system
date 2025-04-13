@@ -33,9 +33,14 @@ from scrape_articles_selenium import extract_article_content
 # 🔹 Số bài viết tối đa cho mỗi danh mục
 MAX_ARTICLES_PER_CATEGORY = 3
 
-# 🔹 Laravel Backend API URLs
-BACKEND_API_URL = "http://localhost:8000/api/articles/import"
-CATEGORIES_API_URL = "http://localhost:8000/api/categories"
+# Set environment variables for Flask
+os.environ["PORT"] = "5001"
+os.environ["HOST"] = "0.0.0.0"
+os.environ["DEBUG"] = "False"
+
+# API URLs
+BACKEND_API_URL = "http://host.docker.internal:8000/api/articles/import"
+CATEGORIES_API_URL = "http://host.docker.internal:8000/api/categories"
 
 # Thư mục đầu ra JSON
 OUTPUT_DIR = "output"

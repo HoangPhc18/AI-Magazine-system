@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  scraper:
+    build: ./scraper
+    container_name: ai-scraper
+    restart: unless-stopped
+    volumes:
+      - ./scraper/logs:/app/logs
+    environment:
+      - DB_HOST=host.docker.internal
+      - DB_USER=root
+      - DB_PASSWORD=
+      - DB_NAME=aimagazinedb
+      - DB_PORT=3306
+    ports:
+      - "5001:5001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  rewrite:
+    build: ./rewrite
+    container_name: ai-rewrite
+    restart: unless-stopped
+    volumes:
+      - ./rewrite/logs:/app/logs
+    environment:
+      - DB_HOST=host.docker.internal
+      - DB_USER=root
+      - DB_PASSWORD=
+      - DB_NAME=aimagazinedb
+      - DB_PORT=3306
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - OLLAMA_MODEL=gemma2
+    ports:
+      - "5002:5002"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  keyword_rewrite:
+    build:
+      context: ./keyword_rewrite
+      dockerfile: Dockerfile
+    container_name: ai-keyword-rewrite
+    ports:
+      - "5003:5003"
+    volumes:
+      - ./keyword_rewrite:/app
+    environment:
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - DATABASE_URL=mysql://root:@host.docker.internal:3306/magazine
+      - BACKEND_URL=http://host.docker.internal:8000
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+networks:
+  default:
+    name: ai-service-network
+    driver: bridge 

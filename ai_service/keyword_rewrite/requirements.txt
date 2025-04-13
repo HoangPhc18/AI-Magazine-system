@@ -1,8 +1,17 @@
+# Web Server
 flask==2.3.3
 flask_cors==4.0.0
-requests==2.27.1
-python-dotenv==0.21.1
+
+# Scraping và Requests
+requests>=2.28.0,<3.0.0
 beautifulsoup4==4.12.2
 trafilatura==1.6.1
 selenium==4.10.0
-webdriver-manager==3.8.5 
+webdriver-manager==3.8.5
+charset-normalizer>=3.1.0
+urllib3<2.0.0
+bs4
+lxml[html_clean]
+
+# Utilities
+python-dotenv==0.21.1 

@@ -17,11 +17,11 @@ from datetime import datetime
 # Set environment variables directly
 # load_dotenv()  # Comment out problematic line
 os.environ["OLLAMA_MODEL"] = "gemma2:latest"
-os.environ["OLLAMA_HOST"] = "http://localhost:11434"
+os.environ["OLLAMA_HOST"] = "http://host.docker.internal:11434"
 
 # Get Ollama model from environment or use default
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:latest")
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434")
 
 # Danh sách các mô hình dự phòng
 FALLBACK_MODELS = ["llama3:latest", "llama2:latest", "mistral:latest"]
