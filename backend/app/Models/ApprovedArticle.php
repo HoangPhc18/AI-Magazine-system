@@ -89,10 +89,42 @@ class ApprovedArticle extends Model
             return null;
         }
         
+        // If it's already a full URL, return it
         if (filter_var($this->featured_image, FILTER_VALIDATE_URL)) {
             return $this->featured_image;
         }
         
-        return asset('storage/' . $this->featured_image);
+        // Remove any leading slash for consistency
+        $path = ltrim($this->featured_image, '/');
+        
+        // First check if the path starts with storage/
+        if (strpos($path, 'storage/') === 0) {
+            $publicPath = $path;
+            
+            // Check if file exists in public path
+            if (file_exists(public_path($publicPath))) {
+                return asset($publicPath);
+            }
+            
+            // If not, try using the path without 'storage/'
+            $storagePath = substr($path, 8); // Remove 'storage/'
+        } else {
+            // If path doesn't start with storage/, use as is for storage
+            $storagePath = $path;
+            $publicPath = 'storage/' . $path;
+            
+            // Check if file exists in public path
+            if (file_exists(public_path($publicPath))) {
+                return asset($publicPath);
+            }
+        }
+        
+        // Double check if file exists in storage
+        if (\Storage::disk('public')->exists($storagePath)) {
+            return asset('storage/' . $storagePath);
+        }
+        
+        // Default fallback (might not work, but it's our best guess)
+        return asset('storage/' . $path);
     }
 } 

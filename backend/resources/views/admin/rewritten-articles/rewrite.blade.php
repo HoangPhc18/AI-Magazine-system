@@ -16,7 +16,7 @@
             </div>
         @endif
 
-        <form action="{{ route('admin.rewritten-articles.rewrite-process') }}" method="POST" class="space-y-8">
+        <form action="{{ route('admin.rewritten-articles.rewrite-process') }}" method="POST" class="space-y-8" enctype="multipart/form-data">
             @csrf
             <div class="border-b border-gray-200 pb-6">
                 <h3 class="text-lg font-medium text-gray-900 mb-4">Cài đặt viết lại</h3>
@@ -77,7 +77,7 @@
                         </div>
                         @if($selectedArticle && $selectedArticle->featured_image)
                             <div class="mt-2">
-                                <img src="{{ asset('storage/' . $selectedArticle->featured_image) }}" alt="Current featured image" class="h-20 w-20 object-cover rounded">
+                                <img src="{{ $selectedArticle->featured_image_url }}" alt="Current featured image" class="h-20 w-20 object-cover rounded">
                             </div>
                         @endif
                     </div>

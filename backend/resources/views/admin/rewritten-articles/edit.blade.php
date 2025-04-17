@@ -75,7 +75,7 @@
                 <label for="featured_image" class="block text-sm font-medium text-gray-700">Hình ảnh đại diện</label>
                 @if($rewrittenArticle->featured_image)
                     <div class="mt-2 mb-4">
-                        <img src="{{ Storage::url($rewrittenArticle->featured_image) }}" alt="Current featured image" class="h-32 w-auto">
+                        <img src="{{ $rewrittenArticle->featured_image_url }}" alt="Current featured image" class="h-32 w-auto">
                     </div>
                 @endif
                 <input type="file" name="featured_image" id="featured_image" accept="image/*"

@@ -23,7 +23,7 @@
         <div class="bg-white shadow-md rounded-lg overflow-hidden">
             @if($rewrittenArticle->featured_image)
                 <div class="relative h-64">
-                    <img src="{{ Storage::url($rewrittenArticle->featured_image) }}" 
+                    <img src="{{ $rewrittenArticle->featured_image_url }}" 
                          alt="{{ $rewrittenArticle->title }}" 
                          class="w-full h-full object-cover">
                 </div>

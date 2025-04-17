@@ -3,7 +3,7 @@ version: '3.8'
 services:
   scraper:
     build: ./scraper
-    container_name: ai-scraper
+    container_name: thp_214476_scraper
     restart: unless-stopped
     volumes:
       - ./scraper/logs:/app/logs
@@ -25,7 +25,7 @@ services:
 
   rewrite:
     build: ./rewrite
-    container_name: ai-rewrite
+    container_name: thp_214476_rewrite
     restart: unless-stopped
     volumes:
       - ./rewrite/logs:/app/logs
@@ -50,6 +50,7 @@ services:
   keyword_rewrite:
     build:
       context: ./keyword_rewrite
+      container_name: thp_214476_keyword_rewrite
       dockerfile: Dockerfile
     container_name: ai-keyword-rewrite
     ports:

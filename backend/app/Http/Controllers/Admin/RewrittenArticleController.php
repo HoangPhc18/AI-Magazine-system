@@ -14,6 +14,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class RewrittenArticleController extends Controller
 {
@@ -89,7 +90,13 @@ class RewrittenArticleController extends Controller
             // Lưu ảnh vào thư mục public/articles
             $imagePath = $image->storeAs('articles', $filename, 'public');
             
+            // Ensure we store only the path without 'public/' prefix
             $validated['featured_image'] = $imagePath;
+            
+            Log::info('Uploaded featured image', [
+                'filename' => $filename,
+                'path' => $imagePath
+            ]);
         }
 
         RewrittenArticle::create($validated);
@@ -139,7 +146,13 @@ class RewrittenArticleController extends Controller
             // Lưu ảnh vào thư mục public/articles
             $imagePath = $image->storeAs('articles', $filename, 'public');
             
-            $rewrittenArticle->featured_image = $imagePath;
+            // Ensure we store only the path without 'public/' prefix
+            $validated['featured_image'] = $imagePath;
+            
+            Log::info('Uploaded featured image', [
+                'filename' => $filename,
+                'path' => $imagePath
+            ]);
         }
 
         $rewrittenArticle->update($validated);
@@ -253,10 +266,53 @@ class RewrittenArticleController extends Controller
      */
     public function destroy(RewrittenArticle $rewrittenArticle)
     {
-        $rewrittenArticle->delete();
+        try {
+            // Lưu thông tin bài viết trước khi xóa để log
+            $articleInfo = [
+                'id' => $rewrittenArticle->id,
+                'title' => $rewrittenArticle->title,
+                'status' => $rewrittenArticle->status,
+                'featured_image' => $rewrittenArticle->featured_image
+            ];
+            
+            // Delete the featured image if exists
+            if ($rewrittenArticle->featured_image) {
+                $imagePath = $rewrittenArticle->featured_image;
+                if (Storage::disk('public')->exists($imagePath)) {
+                    try {
+                        Storage::disk('public')->delete($imagePath);
+                        Log::info('Đã xóa ảnh đại diện của bài viết chưa duyệt', [
+                            'article_id' => $rewrittenArticle->id,
+                            'image_path' => $imagePath
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('Lỗi khi xóa file ảnh đại diện của bài viết chưa duyệt: ' . $e->getMessage(), [
+                            'article_id' => $rewrittenArticle->id,
+                            'image_path' => $imagePath
+                        ]);
+                    }
+                } else {
+                    Log::warning('Không tìm thấy file ảnh đại diện của bài viết chưa duyệt để xóa', [
+                        'article_id' => $rewrittenArticle->id,
+                        'image_path' => $imagePath
+                    ]);
+                }
+            }
+            
+            $rewrittenArticle->delete();
+            
+            Log::info('Đã xóa bài viết chưa duyệt', $articleInfo);
 
-        return redirect()->route('admin.rewritten-articles.index')
-            ->with('success', 'Bài viết đã được xóa thành công.');
+            return redirect()->route('admin.rewritten-articles.index')
+                ->with('success', 'Bài viết đã được xóa thành công.');
+        } catch (\Exception $e) {
+            Log::error('Lỗi khi xóa bài viết chưa duyệt: ' . $e->getMessage(), [
+                'article_id' => $rewrittenArticle->id
+            ]);
+            
+            return redirect()->route('admin.rewritten-articles.index')
+                ->with('error', 'Lỗi khi xóa bài viết: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -274,7 +330,22 @@ class RewrittenArticleController extends Controller
             $approvedArticle->content = $validated['content'] ?? $rewrittenArticle->content;
             $approvedArticle->meta_title = $validated['meta_title'] ?? $rewrittenArticle->meta_title;
             $approvedArticle->meta_description = $validated['meta_description'] ?? $rewrittenArticle->meta_description;
-            $approvedArticle->featured_image = $validated['featured_image'] ?? $rewrittenArticle->featured_image;
+            
+            // Handle featured image properly
+            if (isset($validated['featured_image'])) {
+                // Use the new image from validation if provided
+                $approvedArticle->featured_image = $validated['featured_image'];
+            } elseif ($rewrittenArticle->featured_image) {
+                // If rewritten article has an image, copy it
+                $approvedArticle->featured_image = $rewrittenArticle->featured_image;
+                
+                // Log the transfer of image
+                Log::info('Chuyển ảnh từ bài viết được viết lại sang bài viết đã duyệt', [
+                    'rewritten_id' => $rewrittenArticle->id,
+                    'featured_image' => $rewrittenArticle->featured_image
+                ]);
+            }
+            
             $approvedArticle->user_id = Auth::id();
             $approvedArticle->category_id = $validated['category_id'] ?? $rewrittenArticle->category_id;
             $approvedArticle->original_article_id = $rewrittenArticle->original_article_id;
@@ -421,11 +492,19 @@ class RewrittenArticleController extends Controller
                 $imagePath = $image->storeAs('articles', $filename, 'public');
                 
                 $rewrittenArticle->featured_image = $imagePath;
-            } else {
-                // Copy featured image from original article if exists
-                if ($originalArticle->featured_image) {
-                    $rewrittenArticle->featured_image = $originalArticle->featured_image;
-                }
+                
+                Log::info('Đã upload ảnh mới cho bài viết được viết lại', [
+                    'original_article_id' => $originalArticle->id,
+                    'image_path' => $imagePath
+                ]);
+            } elseif ($originalArticle->featured_image) {
+                // Copy featured image from original article if exists and no new image uploaded
+                $rewrittenArticle->featured_image = $originalArticle->featured_image;
+                
+                Log::info('Sử dụng ảnh từ bài viết gốc cho bài viết được viết lại', [
+                    'original_article_id' => $originalArticle->id,
+                    'image_path' => $originalArticle->featured_image
+                ]);
             }
 
             $rewrittenArticle->save();
@@ -492,6 +571,7 @@ class RewrittenArticleController extends Controller
     {
         $validated = $request->validate([
             'category_id' => 'required|exists:categories,id',
+            'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
         
         try {
@@ -510,6 +590,26 @@ class RewrittenArticleController extends Controller
         $aiService = new AIService();
         
         try {
+            // Handle featured image upload if provided
+            if ($request->hasFile('featured_image')) {
+                // Lấy file ảnh từ request
+                $image = $request->file('featured_image');
+                
+                // Tạo tên file duy nhất
+                $filename = Str::random(20) . '.' . $image->getClientOriginalExtension();
+                
+                // Lưu ảnh vào thư mục public/articles
+                $imagePath = $image->storeAs('articles', $filename, 'public');
+                
+                // Save the new image path
+                $rewrittenArticle->featured_image = $imagePath;
+                
+                Log::info('Đã upload ảnh mới cho bài viết AI', [
+                    'article_id' => $rewrittenArticle->id,
+                    'image_path' => $imagePath
+                ]);
+            }
+            
             // Generate AI content from the existing rewritten article
             $result = $aiService->rewriteArticle($rewrittenArticle->content);
             
@@ -533,6 +633,12 @@ class RewrittenArticleController extends Controller
                 $originalArticle = ApprovedArticle::find($rewrittenArticle->original_article_id);
                 if ($originalArticle) {
                     $originalArticle->content = $result['content'];
+                    
+                    // Also update the featured image if a new one was uploaded
+                    if ($request->hasFile('featured_image')) {
+                        $originalArticle->featured_image = $rewrittenArticle->featured_image;
+                    }
+                    
                     $originalArticle->save();
                     
                     return redirect()->route('admin.rewritten-articles.show', $rewrittenArticle)

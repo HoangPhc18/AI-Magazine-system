@@ -73,3 +73,6 @@ Route::middleware(['auth', AdminMiddleware::class])->prefix('admin')->name('admi
     Route::patch('approved-articles/{approvedArticle}/publish', [ApprovedArticleController::class, 'publish'])->name('approved-articles.publish');
     Route::patch('approved-articles/{approvedArticle}/unpublish', [ApprovedArticleController::class, 'unpublish'])->name('approved-articles.unpublish');
 });
+
+// Test route for image debugging
+Route::get('/debug-images', [App\Http\Controllers\Admin\HomeController::class, 'debugImagePaths']);

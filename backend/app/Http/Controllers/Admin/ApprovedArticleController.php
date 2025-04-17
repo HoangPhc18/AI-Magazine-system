@@ -118,10 +118,12 @@ class ApprovedArticleController extends Controller
                 // Lưu ảnh vào thư mục public/articles
                 $imagePath = $image->storeAs('articles', $filename, 'public');
                 
+                // Ensure we store only the path without 'public/' prefix
                 $validated['featured_image'] = $imagePath;
                 
                 Log::info('Đã upload ảnh mới cho bài viết', [
-                    'image_path' => $imagePath
+                    'image_path' => $imagePath,
+                    'filename' => $filename
                 ]);
             } elseif ($request->has('current_featured_image')) {
                 $validated['featured_image'] = $request->input('current_featured_image');
@@ -204,13 +206,14 @@ class ApprovedArticleController extends Controller
                     }
                 }
                 
-                // Cập nhật đường dẫn ảnh mới
+                // Ensure we store only the path without 'public/' prefix
                 $validated['featured_image'] = $imagePath;
                 
                 Log::info('Đã cập nhật ảnh mới cho bài viết', [
                     'article_id' => $approvedArticle->id,
                     'old_image' => $approvedArticle->featured_image,
-                    'new_image' => $imagePath
+                    'new_image' => $imagePath,
+                    'filename' => $filename
                 ]);
             } else {
                 // Nếu không có ảnh mới, giữ nguyên ảnh cũ
@@ -295,12 +298,32 @@ class ApprovedArticleController extends Controller
                 'id' => $approvedArticle->id,
                 'title' => $approvedArticle->title,
                 'status' => $approvedArticle->status,
-                'published_at' => $approvedArticle->published_at
+                'published_at' => $approvedArticle->published_at,
+                'featured_image' => $approvedArticle->featured_image
             ];
             
             // Delete the featured image if exists
             if ($approvedArticle->featured_image) {
-                Storage::disk('public')->delete($approvedArticle->featured_image);
+                $imagePath = $approvedArticle->featured_image;
+                if (Storage::disk('public')->exists($imagePath)) {
+                    try {
+                        Storage::disk('public')->delete($imagePath);
+                        Log::info('Đã xóa ảnh đại diện của bài viết', [
+                            'article_id' => $approvedArticle->id,
+                            'image_path' => $imagePath
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('Lỗi khi xóa file ảnh đại diện: ' . $e->getMessage(), [
+                            'article_id' => $approvedArticle->id,
+                            'image_path' => $imagePath
+                        ]);
+                    }
+                } else {
+                    Log::warning('Không tìm thấy file ảnh đại diện để xóa', [
+                        'article_id' => $approvedArticle->id,
+                        'image_path' => $imagePath
+                    ]);
+                }
             }
             
             // Xóa triệt để
