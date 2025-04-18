@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\UserController as PublicUserController;
 use App\Http\Controllers\Api\AISettingsController as PublicAISettingsController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Api\FacebookPostController;
 
 // Public routes
 Route::post('/auth/register', [AuthController::class, 'register']);
@@ -114,4 +115,16 @@ Route::prefix('articles')->group(function () {
     Route::get('/unprocessed', [ArticleController::class, 'getUnprocessedArticles']);
     Route::post('/{id}/ai-content', [ArticleController::class, 'updateAiContent']);
     Route::post('/import', [ArticleController::class, 'importFromScraper']);
+});
+
+// Facebook Post Routes
+Route::prefix('facebook-posts')->group(function () {
+    Route::get('/', [FacebookPostController::class, 'index']);
+    Route::post('/scrape', [FacebookPostController::class, 'scrape']);
+    Route::post('/scrape-api', [FacebookPostController::class, 'scrapeFromApi'])->name('api.facebook-posts.scrape-api');
+    Route::get('/jobs', [FacebookPostController::class, 'getAllJobs']);
+    Route::get('/jobs/{jobId}', [FacebookPostController::class, 'getJobStatus']);
+    Route::get('/{id}', [FacebookPostController::class, 'show']);
+    Route::patch('/{id}/status', [FacebookPostController::class, 'updateStatus']);
+    Route::delete('/{id}', [FacebookPostController::class, 'destroy']);
 }); 

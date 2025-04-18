@@ -83,6 +83,14 @@
                             Tạo bài từ từ khóa
                         </a>
 
+                        <a href="{{ route('admin.facebook-posts.index') }}" 
+                            class="{{ request()->routeIs('admin.facebook-posts.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200">
+                            <svg class="mr-3 h-5 w-5 text-white {{ request()->routeIs('admin.facebook-posts.*') ? 'opacity-100' : 'opacity-75 group-hover:opacity-100' }} transition-opacity" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
+                            </svg>
+                            Bài viết Facebook
+                        </a>
+
                         <a href="{{ route('admin.categories.index') }}" 
                             class="{{ request()->routeIs('admin.categories.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200">
                             <svg class="mr-3 h-5 w-5 text-white {{ request()->routeIs('admin.categories.*') ? 'opacity-100' : 'opacity-75 group-hover:opacity-100' }} transition-opacity" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -197,6 +205,8 @@
                     </div>
                     
                     <a href="{{ route('admin.keyword-rewrites.index') }}" class="block px-3 py-2 rounded-md text-base font-medium {{ request()->routeIs('admin.keyword-rewrites.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} transition-all duration-150">Tạo bài từ từ khóa</a>
+                    
+                    <a href="{{ route('admin.facebook-posts.index') }}" class="block px-3 py-2 rounded-md text-base font-medium {{ request()->routeIs('admin.facebook-posts.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} transition-all duration-150">Bài viết Facebook</a>
                     
                     <a href="{{ route('admin.categories.index') }}" class="block px-3 py-2 rounded-md text-base font-medium {{ request()->routeIs('admin.categories.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} transition-all duration-150">Danh mục</a>
                     

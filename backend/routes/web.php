@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\RewrittenArticleController;
 use App\Http\Controllers\Admin\AiSettingController;
 use App\Http\Controllers\Admin\ApprovedArticleController;
 use App\Http\Controllers\Admin\KeywordRewriteController;
+use App\Http\Controllers\Admin\FacebookPostController;
 use App\Http\Middleware\AdminMiddleware;
 use Illuminate\Support\Facades\Route;
 
@@ -72,6 +73,11 @@ Route::middleware(['auth', AdminMiddleware::class])->prefix('admin')->name('admi
     Route::resource('approved-articles', ApprovedArticleController::class)->except(['create']);
     Route::patch('approved-articles/{approvedArticle}/publish', [ApprovedArticleController::class, 'publish'])->name('approved-articles.publish');
     Route::patch('approved-articles/{approvedArticle}/unpublish', [ApprovedArticleController::class, 'unpublish'])->name('approved-articles.unpublish');
+
+    // Facebook Posts routes
+    Route::resource('facebook-posts', FacebookPostController::class)->except(['edit', 'update']);
+    Route::patch('facebook-posts/{facebookPost}/mark-processed', [FacebookPostController::class, 'markAsProcessed'])->name('facebook-posts.mark-processed');
+    Route::patch('facebook-posts/{facebookPost}/mark-unprocessed', [FacebookPostController::class, 'markAsUnprocessed'])->name('facebook-posts.mark-unprocessed');
 });
 
 // Test route for image debugging

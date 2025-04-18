@@ -121,9 +121,12 @@
 
         <div class="lg:pl-64 min-h-screen">
             <main class="min-h-screen pb-20">
-                <!-- Thông báo lỗi và thành công đã được xử lý trong từng view cụ thể -->
+                @yield('content')
             </main>
         </div>
     </div>
+    
+    <!-- Scripts stacked from views -->
+    @stack('scripts')
 </body>
 </html> 
