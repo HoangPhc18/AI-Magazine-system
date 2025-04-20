@@ -486,9 +486,11 @@ def extract_article_content(url, attempt_num=1):
 
 if __name__ == "__main__":
     # Các thiết lập từ biến môi trường
-    port = int(os.environ.get("PORT", 5003))
-    host = os.environ.get("HOST", "0.0.0.0")
-    debug = os.environ.get("DEBUG", "False").lower() == "true"
+    port = int(os.getenv("PORT", 5003))
+    host = os.getenv("HOST", "0.0.0.0")
+    debug = os.getenv("DEBUG", "False").lower() == "true"
+    
+    logger.info(f"Starting Keyword Rewrite API on {host}:{port} (debug: {debug})")
     
     # Chạy ứng dụng Flask
     app.run(host=host, port=port, debug=debug) 

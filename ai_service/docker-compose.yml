@@ -50,7 +50,6 @@ services:
   keyword_rewrite:
     build:
       context: ./keyword_rewrite
-      container_name: thp_214476_keyword_rewrite
       dockerfile: Dockerfile
     container_name: ai-keyword-rewrite
     ports:
@@ -61,9 +60,72 @@ services:
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - DATABASE_URL=mysql://root:@host.docker.internal:3306/magazine
       - BACKEND_URL=http://host.docker.internal:8000
+      - PORT=5003
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  facebook_scraper:
+    build: 
+      context: ./facebook_scraper
+    container_name: thp_214476_facebook_scraper
+    restart: unless-stopped
+    volumes:
+      - ./facebook_scraper/logs:/app/logs
+      - ./facebook_scraper/cookies:/app/cookies
+      - ./facebook_scraper/chrome_profile:/app/chrome_profile
+    environment:
+      - DB_HOST=host.docker.internal
+      - DB_USER=root
+      - DB_PASSWORD=
+      - DB_NAME=aimagazinedb
+      - DB_PORT=3306
+      - FACEBOOK_USERNAME=thaihoangphuc.21tin01tt.dtdm@gmail.com
+      - FACEBOOK_PASSWORD=Phuckg123
+      - PORT=5004
+      - USE_CHROME_PROFILE=true
+      - CHROME_PROFILE_PATH=/app/chrome_profile
+      - HEADLESS=false
+    ports:
+      - "5004:5004"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  facebook_rewrite:
+    build:
+      context: ./facebook_rewrite
+    container_name: thp_214476_facebook_rewrite
+    restart: unless-stopped
+    volumes:
+      - ./facebook_rewrite/logs:/app/logs
+    environment:
+      - DB_HOST=host.docker.internal
+      - DB_USER=root
+      - DB_PASSWORD=
+      - DB_NAME=aimagazinedb
+      - DB_PORT=3306
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - OLLAMA_MODEL=gemma2:latest
+      - PORT=5005
+    ports:
+      - "5005:5005"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 networks:
   default:

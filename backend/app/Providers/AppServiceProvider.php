@@ -20,6 +20,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Set max execution time from .env
+        $maxExecutionTime = env('MAX_EXECUTION_TIME', 60);
+        ini_set('max_execution_time', $maxExecutionTime);
+        
         // Add validation rule for URL or localhost
         Validator::extend('url_or_local_host', function ($attribute, $value, $parameters, $validator) {
             if (empty($value)) {

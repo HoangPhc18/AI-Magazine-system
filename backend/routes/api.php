@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\Admin\RewrittenArticleController;
 use App\Http\Controllers\Api\Admin\ApprovedArticleController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\KeywordRewriteController;
+use App\Http\Controllers\Api\Admin\FacebookRewriteController;
 use App\Http\Controllers\Api\ArticleController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
@@ -66,6 +67,12 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::post('/articles/rewritten/{rewrittenArticle}/approve', [RewrittenArticleController::class, 'approve']);
     Route::post('/articles/rewritten/{rewrittenArticle}/reject', [RewrittenArticleController::class, 'reject']);
     Route::delete('/articles/rewritten/{rewrittenArticle}', [RewrittenArticleController::class, 'destroy']);
+
+    // Facebook Rewrite Management
+    Route::get('/facebook/random-post', [FacebookRewriteController::class, 'getRandomPost']);
+    Route::post('/facebook/rewrite', [FacebookRewriteController::class, 'rewritePost']);
+    Route::post('/facebook/create-article', [FacebookRewriteController::class, 'createRewrittenArticle']);
+    Route::post('/facebook/process-batch', [FacebookRewriteController::class, 'processBatch']);
 
     // Approved Articles Management
     Route::get('/articles/approved', [ApprovedArticleController::class, 'index']);

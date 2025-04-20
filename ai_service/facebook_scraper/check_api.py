@@ -5,7 +5,7 @@ import sys
 def check_api_status():
     """Kiểm tra xem API có hoạt động hay không"""
     try:
-        response = requests.get("http://localhost:5000/health")
+        response = requests.get("http://localhost:5004/health")
         if response.status_code == 200:
             data = response.json()
             print("✅ API đang hoạt động!")
@@ -23,7 +23,7 @@ def check_api_status():
 def list_all_jobs():
     """Liệt kê tất cả các jobs"""
     try:
-        response = requests.get("http://localhost:5000/api/jobs")
+        response = requests.get("http://localhost:5004/api/jobs")
         if response.status_code == 200:
             data = response.json()
             

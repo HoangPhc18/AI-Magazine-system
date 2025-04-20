@@ -78,6 +78,10 @@ Route::middleware(['auth', AdminMiddleware::class])->prefix('admin')->name('admi
     Route::resource('facebook-posts', FacebookPostController::class)->except(['edit', 'update']);
     Route::patch('facebook-posts/{facebookPost}/mark-processed', [FacebookPostController::class, 'markAsProcessed'])->name('facebook-posts.mark-processed');
     Route::patch('facebook-posts/{facebookPost}/mark-unprocessed', [FacebookPostController::class, 'markAsUnprocessed'])->name('facebook-posts.mark-unprocessed');
+    Route::post('facebook-posts/{facebookPost}/rewrite', [FacebookPostController::class, 'rewrite'])->name('facebook-posts.rewrite');
+    Route::post('facebook-posts/process-batch', [FacebookPostController::class, 'processBatch'])->name('facebook-posts.process-batch');
+    Route::get('facebook-posts/{facebookPost}/rewrite-form', [FacebookPostController::class, 'showRewriteForm'])->name('facebook-posts.rewrite-form');
+    Route::post('facebook-posts/{facebookPost}/save-rewritten', [FacebookPostController::class, 'saveRewrittenArticle'])->name('facebook-posts.save-rewritten');
 });
 
 // Test route for image debugging

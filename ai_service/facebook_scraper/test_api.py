@@ -3,12 +3,13 @@ import json
 import time
 
 def test_api():
-    url = "http://localhost:5000/api/scrape"
+    url = "http://localhost:5004/api/scrape"
     data = {
         "url": "https://www.facebook.com/groups/example",
         "use_profile": True,
         "chrome_profile": "Default",
-        "limit": 2
+        "limit": 2,
+        "headless": False  # Thêm tham số headless=False để dễ debug
     }
     
     try:
@@ -24,7 +25,7 @@ def test_api():
                 print(f"Lấy trạng thái của job {job_id}...")
                 time.sleep(2)  # Đợi một chút để job bắt đầu
                 
-                status_url = f"http://localhost:5000/api/jobs/{job_id}"
+                status_url = f"http://localhost:5004/api/jobs/{job_id}"
                 status_response = requests.get(status_url)
                 
                 if status_response.status_code == 200:

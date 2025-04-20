@@ -35,7 +35,7 @@ jobs = {
     'completed': {}  # Các job đã hoàn thành
 }
 
-def scrape_task(job_id, url, use_profile, chrome_profile, limit):
+def scrape_task(job_id, url, use_profile, chrome_profile, limit, headless):
     """Hàm chạy task scraping trong một thread riêng"""
     try:
         logger.info(f"Job {job_id} - Bat dau scraping tu URL: {url}")
@@ -50,7 +50,7 @@ def scrape_task(job_id, url, use_profile, chrome_profile, limit):
                 chrome_profile=chrome_profile,
                 limit=limit,
                 save_to_db=True,
-                headless=True
+                headless=headless
             )
             
             # Cập nhật thông tin job
@@ -103,6 +103,7 @@ def scrape():
         use_profile = data.get('use_profile', True)
         chrome_profile = data.get('chrome_profile', 'Default')
         limit = int(data.get('limit', 10))
+        headless = data.get('headless', True)
         
         if not url:
             return jsonify({'error': 'URL is required'}), 400
@@ -117,6 +118,7 @@ def scrape():
             'use_profile': use_profile,
             'chrome_profile': chrome_profile,
             'limit': limit,
+            'headless': headless,
             'status': 'pending',
             'started_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
@@ -124,7 +126,7 @@ def scrape():
         # Bắt đầu thread scraping
         thread = threading.Thread(
             target=scrape_task,
-            args=(job_id, url, use_profile, chrome_profile, limit)
+            args=(job_id, url, use_profile, chrome_profile, limit, headless)
         )
         thread.daemon = True
         thread.start()
@@ -177,15 +179,18 @@ def health_check():
         logger.error(f"Loi khi kiem tra health: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-def run_server(host='0.0.0.0', port=5000):
+def run_server(host='0.0.0.0', port=None):
     """Chạy Flask server"""
+    # Sử dụng biến môi trường PORT nếu có, mặc định là 5004
+    if port is None:
+        port = int(os.getenv('PORT', 5004))
     logger.info(f"Bat dau Facebook Scraper API service tren {host}:{port}")
     app.run(host=host, port=port, debug=False)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Facebook Scraper Service')
     parser.add_argument('--host', type=str, default='0.0.0.0', help='Host to bind to')
-    parser.add_argument('--port', type=int, default=5000, help='Port to bind to')
+    parser.add_argument('--port', type=int, default=None, help='Port to bind to (defaults to PORT env or 5004)')
     args = parser.parse_args()
     
     run_server(host=args.host, port=args.port) 

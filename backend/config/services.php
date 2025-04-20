@@ -46,4 +46,8 @@ return [
         'api_url' => env('FACEBOOK_SCRAPER_API_URL', 'http://127.0.0.1:5000'),
     ],
 
+    'facebook_rewrite' => [
+        'url' => env('FACEBOOK_REWRITE_URL', 'http://127.0.0.1:5001'),
+    ],
+
 ];
