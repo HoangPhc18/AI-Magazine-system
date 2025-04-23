@@ -401,7 +401,7 @@ class RewrittenArticleController extends Controller
             
             // Get AI settings
             try {
-                $aiSettings = DB::table('ai_settings')->first();
+                $aiSettings = DB::table('a_i_settings')->first();
                 Log::info('AI settings loaded', ['settings' => $aiSettings ? true : false]);
             } catch (\Exception $e) {
                 Log::error('Error querying ai_settings table: ' . $e->getMessage());
@@ -530,7 +530,7 @@ class RewrittenArticleController extends Controller
         $categories = Category::orderBy('name')->get();
         
         try {
-            $aiSettings = DB::table('ai_settings')->first();
+            $aiSettings = DB::table('a_i_settings')->first();
         } catch (\Exception $e) {
             Log::error('Error querying ai_settings table: ' . $e->getMessage());
             return redirect()->route('admin.rewritten-articles.index')
@@ -575,7 +575,7 @@ class RewrittenArticleController extends Controller
         ]);
         
         try {
-            $aiSettings = DB::table('ai_settings')->first();
+            $aiSettings = DB::table('a_i_settings')->first();
         } catch (\Exception $e) {
             Log::error('Error querying ai_settings table: ' . $e->getMessage());
             return redirect()->back()

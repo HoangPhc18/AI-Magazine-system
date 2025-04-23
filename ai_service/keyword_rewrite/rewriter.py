@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Module for rewriting article content using Ollama models.
+Module for rewriting article content using Google Gemini API.
 """
 
 import os
@@ -12,19 +12,15 @@ import time
 import json
 import requests
 from datetime import datetime
-# from dotenv import load_dotenv  # Comment out problematic line
+import google.generativeai as genai
 
 # Set environment variables directly
-# load_dotenv()  # Comment out problematic line
-os.environ["OLLAMA_MODEL"] = "gemma2:latest"
-os.environ["OLLAMA_HOST"] = "http://host.docker.internal:11434"
+os.environ["GEMINI_MODEL"] = "gemini-1.5-flash-latest"
+os.environ["GEMINI_API_KEY"] = "AIzaSyDNYibANNjOZOG5dDPb6YlZ72bXkr7mvL4"
 
-# Get Ollama model from environment or use default
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3:latest")
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://host.docker.internal:11434")
-
-# Danh sách các mô hình dự phòng
-FALLBACK_MODELS = ["llama3:latest", "llama2:latest", "mistral:latest"]
+# Get Gemini settings from environment
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash-latest")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyDNYibANNjOZOG5dDPb6YlZ72bXkr7mvL4")
 
 # Configure logging
 logging.basicConfig(
@@ -37,14 +33,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger()
 
+# Initialize Gemini API
+genai.configure(api_key=GEMINI_API_KEY)
+
 def rewrite_content(title, content, model=None, temperature=0.7, max_tokens=2048):
     """
-    Rewrite article content using Ollama.
+    Rewrite article content using Google Gemini API.
     
     Args:
         title (str): Article title
         content (str): Original article content
-        model (str): Ollama model to use (if None, uses OLLAMA_MODEL from env)
+        model (str): Gemini model to use (if None, uses GEMINI_MODEL from env)
         temperature (float): Temperature parameter for generation
         max_tokens (int): Maximum tokens to generate
         
@@ -52,7 +51,7 @@ def rewrite_content(title, content, model=None, temperature=0.7, max_tokens=2048
         str: Rewritten content
     """
     # Use model from parameter or from environment
-    model_to_use = model if model else OLLAMA_MODEL
+    model_to_use = model if model else GEMINI_MODEL
     
     logger.info(f"Rewriting content with title: {title}")
     logger.info(f"Using model: {model_to_use}, temperature: {temperature}")
@@ -70,56 +69,38 @@ nhưng vẫn giữ nguyên ý nghĩa tổng thể của bài viết. Hãy đảm
 mạch lạc, rõ ràng và dễ hiểu."""
     
     try:
-        # Check if Ollama is available
-        ollama_url = f"{OLLAMA_HOST}/api/tags"
-        logger.info(f"Checking Ollama availability at: {ollama_url}")
-        
-        try:
-            response = requests.get(ollama_url)
-            
-            if response.status_code != 200:
-                logger.error(f"Ollama service is not available at {OLLAMA_HOST}")
-                return f"Error: Ollama service unavailable at {OLLAMA_HOST} (Status code: {response.status_code})"
-                
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error connecting to Ollama at {OLLAMA_HOST}: {str(e)}")
-            return f"Error: Unable to connect to Ollama service at {OLLAMA_HOST} - {str(e)}"
-        
-        # Call Ollama API
+        # Configure the generation model
         start_time = time.time()
-        generate_url = f"{OLLAMA_HOST}/api/generate"
         
-        logger.info(f"Sending generation request to: {generate_url}")
-        response = requests.post(
-            generate_url,
-            json={
-                "model": model_to_use,
-                "prompt": prompt,
+        logger.info(f"Initializing Gemini model: {model_to_use}")
+        generation_model = genai.GenerativeModel(model_to_use)
+        
+        # Generate content
+        logger.info(f"Generating content with temperature: {temperature}")
+        response = generation_model.generate_content(
+            prompt,
+            generation_config={
                 "temperature": temperature,
-                "max_tokens": max_tokens,
-                "stream": False
+                "max_output_tokens": max_tokens,
             }
         )
         
         duration = time.time() - start_time
         
-        if response.status_code == 200:
-            result = response.json()
-            rewritten_content = result.get("response", "")
+        if response and hasattr(response, 'text'):
+            rewritten_content = response.text
             
             if not rewritten_content:
-                logger.error("Empty response from Ollama")
-                return "Error: Empty response from Ollama"
+                logger.error("Empty response from Gemini API")
+                return "Error: Empty response from Gemini API"
                 
             logger.info(f"Successfully rewrote content using {model_to_use} in {duration:.2f} seconds (Length: {len(rewritten_content)})")
             
-            # Clean up the rewritten content
-            # Remove any markdown formatting or special tokens
-            rewritten_content = rewritten_content.replace("```", "").replace("###", "")
-            
             return rewritten_content
         else:
-            error_message = f"Ollama API error: {response.status_code} - {response.text}"
+            error_message = "Invalid response from Gemini API"
+            if hasattr(response, 'prompt_feedback'):
+                error_message += f": {response.prompt_feedback}"
             logger.error(error_message)
             return f"Error: {error_message}"
             
@@ -138,7 +119,7 @@ if __name__ == '__main__':
                 content = f.read()
                 
             result = rewrite_content(title, content)
-            print(f"Rewritten content using {OLLAMA_MODEL} ({len(result)} chars):")
+            print(f"Rewritten content using {GEMINI_MODEL} ({len(result)} chars):")
             print("----------")
             print(result)
             print("----------")

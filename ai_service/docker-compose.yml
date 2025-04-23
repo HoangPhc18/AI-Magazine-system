@@ -59,7 +59,7 @@ services:
     environment:
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - DATABASE_URL=mysql://root:@host.docker.internal:3306/magazine
-      - BACKEND_URL=http://host.docker.internal:8000
+      - BACKEND_URL=http://host.docker.internal
       - PORT=5003
     restart: unless-stopped
     extra_hosts:
@@ -104,23 +104,30 @@ services:
   facebook_rewrite:
     build:
       context: ./facebook_rewrite
+    image: facebook_rewrite
     container_name: thp_214476_facebook_rewrite
+    ports:
+      - "5005:5005"
     restart: unless-stopped
-    volumes:
-      - ./facebook_rewrite/logs:/app/logs
     environment:
       - DB_HOST=host.docker.internal
       - DB_USER=root
       - DB_PASSWORD=
-      - DB_NAME=aimagazinedb
-      - DB_PORT=3306
+      - DB_NAME=AiMagazineDB
       - OLLAMA_HOST=http://host.docker.internal:11434
       - OLLAMA_MODEL=gemma2:latest
-      - PORT=5005
-    ports:
-      - "5005:5005"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - API_TIMEOUT=600
+      - MAX_RETRIES=3
+      - INITIAL_BACKOFF=5
+      - MAX_TEXT_SIZE=8000
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     logging:
       driver: "json-file"
       options:

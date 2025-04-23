@@ -1,32 +1,30 @@
 # Facebook Post Rewriting Service
 
-This service uses Ollama's Gemma 2 model to transform Facebook posts into well-structured, engaging articles.
+This service uses Google Gemini API to transform Facebook posts into well-structured, engaging articles.
 
 ## Prerequisites
 
 1. Python 3.8+
 2. MySQL database with existing schema
-3. Ollama with Gemma 2 model installed
+3. Google Gemini API key (provided in .env file)
 
 ## Setup
 
-1. Install Ollama from https://ollama.ai/
-2. Pull the Gemma 2 model:
-```bash
-ollama pull gemma2
-```
-
-3. Install required packages:
+1. Install required packages:
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Configure environment variables in `.env`:
+2. Configure environment variables in `.env`:
 ```
 DB_HOST=localhost
 DB_USER=your_username
 DB_PASSWORD=your_password
 DB_NAME=AiMagazineDB
+
+# Gemini configuration
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-1.5-flash-latest
 ```
 
 ## Usage
@@ -42,7 +40,7 @@ python app.py
 To manually rewrite a post, send a POST request to `/api/rewrite`:
 
 ```bash
-curl -X POST http://localhost:5001/api/rewrite \
+curl -X POST http://localhost:5005/api/rewrite \
   -H "Content-Type: application/json" \
   -d '{"text": "Your Facebook post text here", "post_id": 123}'
 ```
@@ -66,14 +64,14 @@ Response example:
 To automatically rewrite multiple unprocessed posts from the database:
 
 ```bash
-curl -X POST http://localhost:5001/api/process-batch \
+curl -X POST http://localhost:5005/api/process-batch \
   -H "Content-Type: application/json" \
   -d '{"limit": 10}'
 ```
 
 This will:
 1. Fetch up to 10 unprocessed posts from the `facebook_posts` table
-2. Rewrite each post into an article using Gemma 2
+2. Rewrite each post into an article using Google Gemini
 3. Save the rewritten content to the `rewritten_articles` table
 4. Mark the posts as processed
 
@@ -96,5 +94,5 @@ python test_api.py --batch --limit 5
 
 To verify the service is running:
 ```bash
-curl http://localhost:5001/health
+curl http://localhost:5005/health
 ``` 

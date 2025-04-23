@@ -70,7 +70,7 @@
                                 {{ auth()->user()->name }}
                             </div>
 
-                            <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary-600 transition-all" role="menuitem" tabindex="-1">Hồ sơ cá nhân</a>
+                            <a href="{{ route('profile.edit') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-primary-600 transition-all" role="menuitem" tabindex="-1">Hồ sơ cá nhân</a>
                             
                             <!-- Authentication -->
                             <form method="POST" action="{{ route('logout') }}">
@@ -109,6 +109,8 @@
                         @if(auth()->user()->role === 'admin')
                             <a href="{{ route('admin.dashboard') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Quản trị</a>
                         @endif
+                        
+                        <a href="{{ route('profile.edit') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Hồ sơ cá nhân</a>
                         
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf

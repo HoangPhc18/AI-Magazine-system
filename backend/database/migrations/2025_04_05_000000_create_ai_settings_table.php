@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up()
     {
-        Schema::create('ai_settings', function (Blueprint $table) {
+        Schema::create('a_i_settings', function (Blueprint $table) {
             $table->id();
             $table->string('provider')->default('openai'); // openai, anthropic, mistral, ollama, custom
             $table->string('api_key')->nullable();
@@ -25,6 +25,6 @@ return new class extends Migration
 
     public function down()
     {
-        Schema::dropIfExists('ai_settings');
+        Schema::dropIfExists('a_i_settings');
     }
 }; 

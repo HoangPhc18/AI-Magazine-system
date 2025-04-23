@@ -10,6 +10,7 @@ import time
 import string
 import random
 import re
+import google.generativeai as genai
 
 # Load environment variables
 load_dotenv()
@@ -31,9 +32,22 @@ DB_CONFIG = {
     'database': os.getenv('DB_NAME')
 }
 
-# Ollama configuration
+# Google Gemini configuration
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', 'AIzaSyDNYibANNjOZOG5dDPb6YlZ72bXkr7mvL4')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash-latest')
+
+# Ollama configuration (keeping for backward compatibility)
 OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
 OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'gemma2:latest')
+
+# Timeout configuration
+API_TIMEOUT = int(os.getenv('API_TIMEOUT', 3600))
+MAX_RETRIES = int(os.getenv('MAX_RETRIES', 3))
+INITIAL_BACKOFF = int(os.getenv('INITIAL_BACKOFF', 5))
+MAX_TEXT_SIZE = int(os.getenv('MAX_TEXT_SIZE', 8000))
+
+# Initialize Gemini API
+genai.configure(api_key=GEMINI_API_KEY)
 
 def get_db_connection():
     """Create and return a database connection"""
@@ -108,9 +122,73 @@ def extract_json_from_text(text):
     
     return {"title": title, "content": content}
 
-def rewrite_text_with_gemma(original_text):
+# Thêm hàm retry (thử lại) cho các kết nối đến API
+def retry_with_backoff(func, max_retries=3, initial_backoff=5):
     """
-    Rewrite the given text using Ollama's Gemma 2 model
+    Retry a function with exponential backoff
+    
+    Args:
+        func: Function to retry
+        max_retries: Maximum number of retries
+        initial_backoff: Initial backoff time in seconds
+        
+    Returns:
+        Result of the function or raises the last exception
+    """
+    retries = 0
+    backoff = initial_backoff
+    
+    while retries < max_retries:
+        try:
+            return func()
+        except requests.exceptions.RequestException as e:
+            retries += 1
+            if retries == max_retries:
+                logger.error(f"Max retries ({max_retries}) reached. Final error: {e}")
+                raise
+            
+            wait_time = backoff * (2 ** (retries - 1))
+            logger.warning(f"Request failed. Retrying in {wait_time} seconds... (Attempt {retries}/{max_retries})")
+            time.sleep(wait_time)
+
+def limit_text_size(text, max_size=None):
+    """
+    Limit text size to avoid excessively long prompts
+    
+    Args:
+        text (str): Original text
+        max_size (int): Maximum size in characters
+        
+    Returns:
+        str: Limited text
+    """
+    if max_size is None:
+        max_size = MAX_TEXT_SIZE
+        
+    if len(text) <= max_size:
+        return text
+    
+    logger.warning(f"Limiting text from {len(text)} to {max_size} characters")
+    
+    # Try to find a sentence boundary near the limit
+    truncated = text[:max_size]
+    sentence_end = max(
+        truncated.rfind('.'),
+        truncated.rfind('!'),
+        truncated.rfind('?'),
+        truncated.rfind('\n')
+    )
+    
+    # If found a sentence end, truncate there
+    if sentence_end > max_size * 0.7:  # At least 70% of the desired length
+        return text[:sentence_end+1] + "..."
+    else:
+        # Otherwise truncate at max_size and add ellipsis
+        return text[:max_size] + "..."
+
+def rewrite_text_with_gemini_api(original_text):
+    """
+    Rewrite the given text using Google Gemini API
     
     Args:
         original_text (str): The original Facebook post to rewrite
@@ -118,16 +196,22 @@ def rewrite_text_with_gemma(original_text):
     Returns:
         dict: The rewritten content with title
     """
-    try:
-        # Request to Ollama API using environment variables
-        response = requests.post(
-            f"{OLLAMA_HOST}/api/generate",
-            json={
-                "model": OLLAMA_MODEL,
-                "prompt": f"""Hãy viết lại bài đăng Facebook dưới đây thành một bài báo có nội dung chính xác và đầy đủ.
-                
+    # Log debug information
+    logger.info(f"Using Gemini model: {GEMINI_MODEL}")
+    
+    # Limit text size to avoid excessively long prompts
+    limited_text = limit_text_size(original_text)
+    
+    def make_request():
+        try:
+            # Configure the model
+            model = genai.GenerativeModel(GEMINI_MODEL)
+            
+            # Create the prompt
+            prompt = f"""Hãy viết lại bài đăng Facebook dưới đây thành một bài báo có nội dung chính xác và đầy đủ.
+            
 Bài đăng Facebook gốc:
-{original_text}
+{limited_text}
 
 Yêu cầu:
 1. Tạo một tiêu đề hấp dẫn cho bài báo bằng tiếng Việt
@@ -141,39 +225,121 @@ Yêu cầu:
 {{
   "title": "Tiêu đề tiếng Việt của bạn ở đây",
   "content": "Nội dung mở rộng tiếng Việt của bạn ở đây"
-}}""",
-                "stream": False
-            },
-            timeout=300
-        )
-        
-        if response.status_code == 200:
-            result = response.json()
-            response_text = result.get('response', '')
+}}"""
+            
+            # Generate response with timeout
+            response = model.generate_content(prompt)
+            response_text = response.text
             
             # Log the raw response for debugging
             logger.info(f"Raw model response: {response_text[:100]}...")
             
-            # Use improved JSON parsing
-            parsed_result = extract_json_from_text(response_text)
+            return response_text
             
-            return {
-                "title": parsed_result.get("title", "Bài viết đã viết lại"),
-                "content": parsed_result.get("content", response_text)
-            }
-        else:
-            logger.error(f"Ollama API error: {response.status_code} - {response.text}")
-            return {
-                "title": "Lỗi",
-                "content": f"Lỗi: API trả về mã trạng thái {response.status_code}"
-            }
+        except Exception as e:
+            logger.error(f"Google Gemini API error: {str(e)}")
+            raise requests.exceptions.RequestException(f"Google Gemini API error: {str(e)}")
+    
+    try:
+        # Use retry for request
+        response_text = retry_with_backoff(make_request, max_retries=MAX_RETRIES, initial_backoff=INITIAL_BACKOFF)
+        
+        # Use improved JSON parsing
+        parsed_result = extract_json_from_text(response_text)
+        
+        return {
+            "title": parsed_result.get("title", "Bài viết đã viết lại"),
+            "content": parsed_result.get("content", response_text)
+        }
             
     except requests.exceptions.RequestException as e:
-        logger.error(f"Request error: {e}")
+        logger.error(f"Request error after retries: {e}")
         return {
-            "title": "Lỗi",
-            "content": f"Lỗi: {str(e)}"
+            "title": "Lỗi kết nối",
+            "content": f"Không thể kết nối đến dịch vụ AI sau nhiều lần thử: {str(e)}"
         }
+
+def rewrite_text_with_gemma(original_text):
+    """
+    Rewrite the given text using AI model
+    
+    Args:
+        original_text (str): The original Facebook post to rewrite
+        
+    Returns:
+        dict: The rewritten content with title
+    """
+    # Default to using Google Gemini API
+    return rewrite_text_with_gemini_api(original_text)
+    
+    # Legacy Ollama implementation is kept below but not used
+    """
+    # In ra thông tin debug
+    logger.info(f"OLLAMA_HOST: {OLLAMA_HOST}, OLLAMA_MODEL: {OLLAMA_MODEL}, API_TIMEOUT: {API_TIMEOUT}")
+    
+    # Limit text size to avoid excessively long prompts
+    limited_text = limit_text_size(original_text)
+    
+    def make_request():
+        # Request to Ollama API using environment variables
+        logger.info(f"Making request to Ollama API with timeout set to {API_TIMEOUT} seconds")
+        response = requests.post(
+            f"{OLLAMA_HOST}/api/generate",
+            json={
+                "model": OLLAMA_MODEL,
+                "prompt": f'''Hãy viết lại bài đăng Facebook dưới đây thành một bài báo có nội dung chính xác và đầy đủ.
+                
+Bài đăng Facebook gốc:
+{limited_text}
+
+Yêu cầu:
+1. Tạo một tiêu đề hấp dẫn cho bài báo bằng tiếng Việt
+2. Mở rộng nội dung chi tiết hơn và hấp dẫn hơn
+3. Làm cho nó chuyên nghiệp trong khi vẫn giữ ý nghĩa ban đầu
+4. Định dạng nội dung với các đoạn văn phù hợp
+5. Trả về một đối tượng JSON với các khóa 'title' và 'content' 
+6. TẤT CẢ NỘI DUNG PHẢI ĐƯỢC VIẾT BẰNG TIẾNG VIỆT
+
+Định dạng phản hồi của bạn dưới dạng JSON hợp lệ với cấu trúc sau:
+{{
+  "title": "Tiêu đề tiếng Việt của bạn ở đây",
+  "content": "Nội dung mở rộng tiếng Việt của bạn ở đây"
+}}''',
+                "stream": False
+            },
+            timeout=API_TIMEOUT
+        )
+        
+        if response.status_code != 200:
+            raise requests.exceptions.RequestException(f"Ollama API error: {response.status_code} - {response.text}")
+            
+        return response
+    
+    try:
+        # Sử dụng retry cho request
+        response = retry_with_backoff(make_request, max_retries=MAX_RETRIES, initial_backoff=INITIAL_BACKOFF)
+        
+        result = response.json()
+        response_text = result.get('response', '')
+        
+        # Log the raw response for debugging
+        logger.info(f"Raw model response: {response_text[:100]}...")
+        
+        # Use improved JSON parsing
+        parsed_result = extract_json_from_text(response_text)
+        
+        return {
+            "title": parsed_result.get("title", "Bài viết đã viết lại"),
+            "content": parsed_result.get("content", response_text)
+        }
+            
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request error after retries: {e}")
+        return {
+            "title": "Lỗi kết nối",
+            "content": f"Không thể kết nối đến dịch vụ AI sau nhiều lần thử: {str(e)}"
+        }
+    """
 
 def generate_slug(title):
     """Generate a URL-friendly slug from a title"""

@@ -17,6 +17,8 @@ use App\Http\Controllers\Api\AISettingsController as PublicAISettingsController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Api\FacebookPostController;
+use App\Http\Controllers\Api\UserProfileController;
+use App\Http\Controllers\Api\Admin\WebsiteConfigController;
 
 // Public routes
 Route::post('/auth/register', [AuthController::class, 'register']);
@@ -37,10 +39,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/profile', [AuthController::class, 'profile']);
 
-    // User routes
-    Route::get('/users/profile', [PublicUserController::class, 'profile']);
-    Route::put('/users/profile', [PublicUserController::class, 'updateProfile']);
-    Route::put('/users/change-password', [PublicUserController::class, 'changePassword']);
+    // User profile routes
+    Route::get('/users/profile', [UserProfileController::class, 'profile']);
+    Route::put('/users/profile', [UserProfileController::class, 'updateProfile']);
+    Route::put('/users/change-password', [UserProfileController::class, 'changePassword']);
 
     // AI Settings routes
     Route::get('ai-settings', [PublicAISettingsController::class, 'index']);
@@ -99,6 +101,15 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::put('/ai-settings', [AISettingsController::class, 'update']);
     Route::post('/ai-settings/test-connection', [AISettingsController::class, 'testConnection']);
     Route::post('/ai-settings/reset', [AISettingsController::class, 'resetSettings']);
+
+    // Website Config Management
+    Route::get('/website-config', [WebsiteConfigController::class, 'index']);
+    Route::get('/website-config/{group}', [WebsiteConfigController::class, 'getGroup']);
+    Route::put('/website-config/general', [WebsiteConfigController::class, 'updateGeneral']);
+    Route::put('/website-config/seo', [WebsiteConfigController::class, 'updateSeo']);
+    Route::put('/website-config/social', [WebsiteConfigController::class, 'updateSocial']);
+    Route::post('/website-config/generate-robots', [WebsiteConfigController::class, 'generateRobotsTxt']);
+    Route::post('/website-config/generate-sitemap', [WebsiteConfigController::class, 'generateSitemap']);
 });
 
 // Public callback for keyword rewrite

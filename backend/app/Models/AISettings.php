@@ -9,7 +9,7 @@ class AISettings extends Model
 {
     use HasFactory;
 
-    protected $table = 'ai_settings';
+    protected $table = 'a_i_settings';
 
     protected $fillable = [
         'openai_api_key',

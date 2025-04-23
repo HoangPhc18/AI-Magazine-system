@@ -13,7 +13,9 @@ use App\Http\Controllers\Admin\AiSettingController;
 use App\Http\Controllers\Admin\ApprovedArticleController;
 use App\Http\Controllers\Admin\KeywordRewriteController;
 use App\Http\Controllers\Admin\FacebookPostController;
+use App\Http\Controllers\Admin\WebsiteConfigController;
 use App\Http\Middleware\AdminMiddleware;
+use App\Http\Controllers\UserProfileController;
 use Illuminate\Support\Facades\Route;
 
 // Public routes - Frontend
@@ -31,6 +33,14 @@ Route::post('/logout', [LoginController::class, 'logout'])->name('logout')->midd
 // Registration routes
 Route::get('/register', [RegisterController::class, 'showRegistrationForm'])->name('register')->middleware('guest');
 Route::post('/register', [RegisterController::class, 'register'])->middleware('guest');
+
+// User profile routes
+Route::middleware(['auth'])->group(function () {
+    Route::get('/profile', [UserProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('/profile', [UserProfileController::class, 'update'])->name('profile.update');
+    Route::get('/profile/password', [UserProfileController::class, 'editPassword'])->name('profile.password');
+    Route::put('/profile/password', [UserProfileController::class, 'updatePassword'])->name('profile.password.update');
+});
 
 // Admin routes
 Route::middleware(['auth', AdminMiddleware::class])->prefix('admin')->name('admin.')->group(function () {
@@ -82,6 +92,18 @@ Route::middleware(['auth', AdminMiddleware::class])->prefix('admin')->name('admi
     Route::post('facebook-posts/process-batch', [FacebookPostController::class, 'processBatch'])->name('facebook-posts.process-batch');
     Route::get('facebook-posts/{facebookPost}/rewrite-form', [FacebookPostController::class, 'showRewriteForm'])->name('facebook-posts.rewrite-form');
     Route::post('facebook-posts/{facebookPost}/save-rewritten', [FacebookPostController::class, 'saveRewrittenArticle'])->name('facebook-posts.save-rewritten');
+
+    // Website Configuration
+    Route::get('/website-config/general', [WebsiteConfigController::class, 'showGeneralForm'])->name('website-config.general');
+    Route::post('/website-config/general', [WebsiteConfigController::class, 'updateGeneral'])->name('website-config.general.update');
+    Route::get('/website-config/seo', [WebsiteConfigController::class, 'showSeoForm'])->name('website-config.seo');
+    Route::post('/website-config/seo', [WebsiteConfigController::class, 'updateSeo'])->name('website-config.seo.update');
+    Route::get('/website-config/social', [WebsiteConfigController::class, 'showSocialForm'])->name('website-config.social');
+    Route::post('/website-config/social', [WebsiteConfigController::class, 'updateSocial'])->name('website-config.social.update');
+    Route::get('/website-config/ui', [WebsiteConfigController::class, 'showUiForm'])->name('website-config.ui');
+    Route::post('/website-config/ui', [WebsiteConfigController::class, 'updateUi'])->name('website-config.ui.update');
+    Route::get('/website-config/metadata', [WebsiteConfigController::class, 'showMetadataForm'])->name('website-config.metadata');
+    Route::post('/website-config/metadata', [WebsiteConfigController::class, 'updateMetadata'])->name('website-config.metadata.update');
 });
 
 // Test route for image debugging

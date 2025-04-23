@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Services\WebsiteConfigService;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Validator;
 
@@ -23,6 +25,16 @@ class AppServiceProvider extends ServiceProvider
         // Set max execution time from .env
         $maxExecutionTime = env('MAX_EXECUTION_TIME', 60);
         ini_set('max_execution_time', $maxExecutionTime);
+        
+        // Share website configuration with all views
+        View::composer('*', function ($view) {
+            $configService = app(WebsiteConfigService::class);
+            $view->with('generalConfig', $configService->getByGroup(WebsiteConfigService::GROUP_GENERAL));
+            $view->with('seoConfig', $configService->getByGroup(WebsiteConfigService::GROUP_SEO));
+            $view->with('socialConfig', $configService->getByGroup(WebsiteConfigService::GROUP_SOCIAL));
+            $view->with('uiConfig', $configService->getByGroup(WebsiteConfigService::GROUP_UI));
+            $view->with('metadataConfig', $configService->getByGroup(WebsiteConfigService::GROUP_METADATA));
+        });
         
         // Add validation rule for URL or localhost
         Validator::extend('url_or_local_host', function ($attribute, $value, $parameters, $validator) {

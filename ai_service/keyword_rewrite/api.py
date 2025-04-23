@@ -11,6 +11,7 @@ import threading
 import requests
 from datetime import datetime
 import urllib.parse
+import google.generativeai as genai
 
 # Vô hiệu hóa tự động tải .env của Flask
 os.environ["FLASK_SKIP_DOTENV"] = "1"
@@ -29,8 +30,8 @@ from rewriter import rewrite_content
 os.environ["PORT"] = "5003"
 os.environ["HOST"] = "0.0.0.0"
 os.environ["DEBUG"] = "False"
-os.environ["OLLAMA_MODEL"] = "gemma2:latest"
-os.environ["OLLAMA_HOST"] = "http://host.docker.internal:11434"
+os.environ["GEMINI_MODEL"] = "gemini-1.5-flash-latest"
+os.environ["GEMINI_API_KEY"] = "AIzaSyDNYibANNjOZOG5dDPb6YlZ72bXkr7mvL4"
 
 # Configure logging
 logging.basicConfig(
@@ -47,9 +48,12 @@ logger = logging.getLogger()
 app = Flask(__name__)
 CORS(app)
 
-# Get Ollama model from environment or use default
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL") or os.getenv("MODEL_NAME", "llama3:latest")
-OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+# Get model configuration from environment
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash-latest")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyDNYibANNjOZOG5dDPb6YlZ72bXkr7mvL4")
+
+# Initialize Gemini API
+genai.configure(api_key=GEMINI_API_KEY)
 
 # Biến toàn cục để theo dõi các yêu cầu đang xử lý
 active_tasks = {}
@@ -156,8 +160,8 @@ def process_keyword_task(keyword, rewrite_id, callback_url):
                          error_message=f"{error_detail} từ URL bài viết sau {max_retries} lần thử. Vui lòng thử từ khóa khác hoặc cung cấp URL bài viết cụ thể.")
             return
             
-        # Step 3: Rewrite the content using Ollama
-        logger.info(f"Rewriting content using Ollama (model: {OLLAMA_MODEL})")
+        # Step 3: Rewrite the content using Gemini
+        logger.info(f"Rewriting content using Gemini (model: {GEMINI_MODEL})")
         rewritten_content = rewrite_content(article_data["title"], article_data["content"])
         
         if rewritten_content.startswith("Error:"):
@@ -215,27 +219,38 @@ def send_callback(callback_url, rewrite_id, status, source_url=None, source_titl
         if error_message:
             data['error_message'] = error_message
             
-        # Fix cho Docker: thay thế localhost/127.0.0.1 bằng host.docker.internal
-        fixed_callback_url = callback_url
-        if "localhost" in callback_url or "127.0.0.1" in callback_url:
-            fixed_callback_url = callback_url.replace("localhost", "host.docker.internal").replace("127.0.0.1", "host.docker.internal")
-            logger.info(f"Sending callback to fixed URL: {fixed_callback_url} (original was: {callback_url})")
-        
-        # Đảm bảo URL bao gồm cả port 8000 nếu không có port nào được chỉ định
-        if "host.docker.internal" in fixed_callback_url and ":8000" not in fixed_callback_url:
-            parsed_url = urllib.parse.urlparse(fixed_callback_url)
-            if parsed_url.port is None:
-                fixed_callback_url = fixed_callback_url.replace("host.docker.internal", "host.docker.internal:8000")
-                logger.info(f"Added port 8000 to URL: {fixed_callback_url}")
-
-        response = requests.post(fixed_callback_url, json=data, timeout=30)
+        # Use BACKEND_URL from environment and append path
+        backend_url = os.getenv('BACKEND_URL')
+        if backend_url:
+            # Extract the path from the original callback_url
+            parsed_url = urllib.parse.urlparse(callback_url)
+            api_path = parsed_url.path
+            # Replace any domain/host part with our backend URL
+            fixed_callback_url = f"{backend_url}{api_path}"
+            logger.info(f"Using BACKEND_URL from environment: {fixed_callback_url}")
+            
+            # Add custom headers for Host header to ensure proper virtual host routing
+            headers = {
+                'Host': 'magazine.test',
+                'Content-Type': 'application/json'
+            }
+            
+            # Attempt the request with custom headers
+            logger.info(f"Sending callback with Host: magazine.test to: {fixed_callback_url}")
+            response = requests.post(fixed_callback_url, json=data, headers=headers, timeout=30)
+        else:
+            # Fallback to the original URL
+            fixed_callback_url = callback_url
+            response = requests.post(fixed_callback_url, json=data, timeout=30)
         
         if response.status_code >= 200 and response.status_code < 300:
-            logger.info(f"Callback successfully sent to {fixed_callback_url}")
+            logger.info(f"Callback successfully sent to {fixed_callback_url}, status code: {response.status_code}")
         else:
             logger.error(f"Error sending callback: {response.status_code} - {response.text}")
     except Exception as e:
         logger.error(f"Error sending callback: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
 
 @app.route('/api/keyword_rewrite/process', methods=['POST'])
 def process_keyword():

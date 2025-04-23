@@ -22,6 +22,7 @@ import sys
 import json
 import pickle
 import platform
+import traceback
 
 # Tạo thư mục cookies nếu chưa tồn tại
 os.makedirs("cookies", exist_ok=True)
@@ -341,141 +342,389 @@ def setup_driver(headless=None, use_profile=None, chrome_profile="Default"):
         logger.error(f"Error setting up Chrome driver: {str(e)}")
         return None
 
+def take_debug_screenshot(driver, element=None, prefix="debug"):
+    """Chụp ảnh màn hình hoặc phần tử cụ thể để debug"""
+    try:
+        # Tạo thư mục logs nếu chưa tồn tại
+        os.makedirs("logs", exist_ok=True)
+        
+        # Tạo tên file với timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"logs/{prefix}_{timestamp}.png"
+        
+        if element:
+            # Scroll đến phần tử
+            driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+            time.sleep(0.5)
+            
+            # Chụp ảnh trang web
+            driver.save_screenshot(filename)
+            logger.info(f"Đã chụp ảnh màn hình với phần tử ở giữa: {filename}")
+            
+            # Highlight phần tử
+            driver.execute_script("""
+                var element = arguments[0];
+                var originalStyle = element.getAttribute('style');
+                element.setAttribute('style', originalStyle + '; border: 3px solid red;');
+                setTimeout(function() {
+                    element.setAttribute('style', originalStyle);
+                }, 3000);
+            """, element)
+        else:
+            # Chụp ảnh toàn bộ trang
+            driver.save_screenshot(filename)
+            logger.info(f"Đã chụp ảnh màn hình: {filename}")
+            
+        return filename
+    except Exception as e:
+        logger.warning(f"Lỗi khi chụp ảnh debug: {str(e)}")
+        return None
+
 def get_facebook_posts(url, limit=10, headless=True, use_profile=False, chrome_profile="Default", save_to_db=False, username=None, password=None):
-    """Get posts from Facebook URL"""
+    """Get posts from a Facebook page or group"""
     driver = None
-    attempts = 0
     max_attempts = 3
     
-    # Use environment variables if not provided
-    if username is None:
-        username = FB_USERNAME
-    if password is None:
-        password = FB_PASSWORD
-    
-    logger.info(f"Will scrape URL: {url} with limit: {limit}")
-    logger.info(f"Using profile: {use_profile}, Headless mode: {headless}")
-    logger.info(f"Username provided: {'Yes' if username else 'No'}, Password provided: {'Yes' if password else 'No'}")
-    
-    while attempts < max_attempts:
-        attempts += 1
+    for attempts in range(1, max_attempts + 1):
         try:
-            # Setup Selenium driver
-            driver = setup_driver(headless=headless, use_profile=use_profile, chrome_profile=chrome_profile)
-            if not driver:
-                logger.error("Không thể khởi tạo trình duyệt Chrome")
-                continue
-                
-            # Check if URL is for a Facebook group
-            is_group = "groups" in url
+            # Thiết lập trình duyệt
+            driver = setup_driver(headless, use_profile, chrome_profile)
             
-            # Attempt to login to Facebook
-            login_success = False
-            if not use_profile:
-                login_success = login_facebook(driver, username, password)
-                if not login_success:
-                    logger.warning(f"Không thể đăng nhập (lần {attempts}/{max_attempts}). Thử truy cập URL mà không đăng nhập.")
-                else:
-                    logger.info("Đăng nhập Facebook thành công")
+            # Đăng nhập vào Facebook
+            login_success = login_facebook(driver, username, password)
             
-            # Navigate to the Facebook URL
-            logger.info(f"Truy cập URL: {url}")
-            driver.get(url)
-            
-            # Take screenshot for debugging
-            try:
-                os.makedirs("logs", exist_ok=True)
-                screenshot_path = f"logs/facebook_url_{attempts}.png"
-                driver.save_screenshot(screenshot_path)
-                logger.info(f"Đã lưu ảnh chụp màn hình tại: {screenshot_path}")
-            except Exception as e:
-                logger.warning(f"Không thể lưu ảnh chụp màn hình: {str(e)}")
-            
-            # Kiểm tra xem có hiển thị trang đăng nhập không
-            if "facebook.com/login" in driver.current_url and attempts < max_attempts:
-                logger.warning(f"Bị chuyển hướng đến trang đăng nhập (lần {attempts}/{max_attempts}). Thử lại...")
+            if not login_success:
+                logger.warning("Không thể đăng nhập vào Facebook, thử lại...")
                 if driver:
                     driver.quit()
                 continue
+                
+            # Xác định xem URL là của nhóm hay trang
+            is_group = "group" in url.lower() or "nhom" in url.lower()
+            logger.info(f"Truy cập URL {'nhóm' if is_group else 'trang'}: {url}")
             
-            # Wait for page to load
-            time.sleep(5)
+            # Đảm bảo URL không chứa link tới bài viết cụ thể
+            if "/posts/" in url or "/permalink/" in url or "story_fbid" in url:
+                logger.info("URL chứa link tới bài viết cụ thể, lấy URL trang/nhóm chính")
+                if "facebook.com" in url:
+                    if "groups" in url:
+                        # Trích xuất URL nhóm
+                        group_parts = url.split("facebook.com/groups/")
+                        if len(group_parts) > 1:
+                            group_id = group_parts[1].split("/")[0]
+                            url = f"https://www.facebook.com/groups/{group_id}"
+                    else:
+                        # Trích xuất URL trang/cá nhân
+                        page_parts = url.split("facebook.com/")
+                        if len(page_parts) > 1:
+                            page_id = page_parts[1].split("/")[0]
+                            url = f"https://www.facebook.com/{page_id}"
+                logger.info(f"Đã chuyển tới URL trang chính: {url}")
             
-            # Scroll down to load more posts
-            logger.info("Bắt đầu cuộn trang để tải bài viết...")
+            # Truy cập URL Facebook
+            driver.get(url)
+            
+            # Đợi trang tải
+            logger.info("Chờ trang tải...")
+            time.sleep(8)
+            
+            # Chụp ảnh màn hình ban đầu để debug
+            take_debug_screenshot(driver, None, "initial_page")
+            
+            # === ĐOẠN CODE ĐƠN GIẢN HÓA THEO MÃ NGƯỜI DÙNG CUNG CẤP ===
+            
+            # Cuộn trang để tải thêm bài viết - số lần cuộn tỷ lệ với limit
             scroll_count = 0
-            max_scrolls = min(limit // 2 + 5, 20)  # Adjust scrolling based on limit
+            max_scrolls = min(limit + 2, 10)  # Giới hạn số lần cuộn tối đa là 10
             
-            # Lưu chiều cao trang hiện tại
-            last_height = driver.execute_script("return document.body.scrollHeight")
-            
-            while scroll_count < max_scrolls:
-                # Cuộn xuống
+            logger.info(f"Bắt đầu cuộn trang {max_scrolls} lần để tải bài viết...")
+            for _ in range(max_scrolls):
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(3)  # Đợi lâu hơn cho nội dung tải
-                
-                # Tính chiều cao mới
-                new_height = driver.execute_script("return document.body.scrollHeight")
+                time.sleep(3)  # Đợi trang tải
                 scroll_count += 1
-                
-                # Kiểm tra chiều cao trang có thay đổi không
-                if new_height == last_height:
-                    logger.info(f"Đã đạt đến cuối trang sau {scroll_count} lần cuộn")
+                logger.info(f"Đã cuộn xuống {scroll_count}/{max_scrolls} lần")
+            
+            # Click vào tất cả các nút "Xem thêm" để mở rộng nội dung bài viết
+            logger.info("Bắt đầu click nút 'Xem thêm'...")
+            # Sử dụng JavaScript trực tiếp để tìm và click tất cả nút "Xem thêm"
+            expand_script = """
+                function expandAllSeeMores() {
+                    // Danh sách các từ khóa cần tìm
+                    const keywords = ['xem thêm', 'see more', 'hiển thị thêm', 'show more'];
+                    let clicked = 0;
+                    let attempts = 0;
                     
-                    # Thử nhấp vào các nút "Xem thêm" nếu có
-                    try:
-                        see_more_buttons = driver.find_elements(By.XPATH, 
-                            "//span[contains(text(), 'Xem thêm') or contains(text(), 'See more')]")
+                    // Hàm click được gọi nhiều lần để đảm bảo tất cả nút được click
+                    function clickButtons() {
+                        // Tất cả các thẻ div có role="button"
+                        let buttons = Array.from(document.querySelectorAll('div[role="button"]'));
                         
+                        // Thêm span có thể click
+                        let spans = Array.from(document.querySelectorAll('span[role="button"]'));
+                        buttons = buttons.concat(spans);
+                        
+                        // Lọc các nút có text chứa từ khóa
+                        buttons = buttons.filter(btn => {
+                            if (!btn || !btn.textContent) return false;
+                            const text = btn.textContent.toLowerCase();
+                            return keywords.some(keyword => text.includes(keyword));
+                        });
+                        
+                        // Click từng nút
+                        buttons.forEach(btn => {
+                            try {
+                                    btn.click();
+                                clicked++;
+                            } catch (e) {
+                                // Bỏ qua lỗi
+                            }
+                        });
+                        
+                        // Tìm thêm các thẻ span có thể chứa "Xem thêm"
+                        let seeMoreSpans = Array.from(document.querySelectorAll('span'))
+                            .filter(span => {
+                                if (!span || !span.textContent) return false;
+                                const text = span.textContent.toLowerCase();
+                                return keywords.some(keyword => text.includes(keyword) and text.length < 15);
+                            });
+                            
+                        seeMoreSpans.forEach(span => {
+                            try {
+                                span.click();
+                                clicked++;
+                            } catch (e) {
+                                // Bỏ qua lỗi
+                            }
+                        });
+                        
+                        return clicked;
+                    }
+                    
+                    // Click lần đầu
+                    clicked += clickButtons();
+                    
+                    // Đợi 1 giây rồi click lại để đảm bảo tất cả được mở
+                    setTimeout(() => {
+                        clicked += clickButtons();
+                        console.log("Clicked " + clicked + " 'See more' buttons");
+                    }, 1000);
+                    
+                    return clicked;
+                }
+                return expandAllSeeMores();
+            """
+            
+            try:
+                clicked = driver.execute_script(expand_script)
+                logger.info(f"Đã click {clicked} nút 'Xem thêm' bằng JavaScript")
+                time.sleep(2)  # Đợi nội dung mở rộng
+            except Exception as e:
+                logger.warning(f"Lỗi khi click nút 'Xem thêm' bằng JavaScript: {str(e)}")
+            
+            # Thêm phương pháp truyền thống sử dụng Selenium
+            see_more_selectors = [
+                "//div[contains(text(), 'Xem thêm') or contains(text(), 'See more')][@role='button']",
+                "//span[contains(text(), 'Xem thêm') or contains(text(), 'See more')]",
+                "//div[@role='button'][.//span[contains(text(), 'Xem thêm') or contains(text(), 'See more')]]"
+            ]
+            
+            # Thực hiện 2 lần để đảm bảo tất cả nút đều được click
+            for attempt in range(2):
+                for selector in see_more_selectors:
+                    try:
+                        see_more_buttons = driver.find_elements(By.XPATH, selector)
                         if see_more_buttons:
-                            logger.info(f"Tìm thấy {len(see_more_buttons)} nút 'Xem thêm'")
-                            for btn in see_more_buttons[:5]:
+                            logger.info(f"Lần {attempt+1}: Tìm thấy {len(see_more_buttons)} nút 'Xem thêm' với selector: {selector}")
+                            for btn in see_more_buttons[:50]:  # Tăng số lượng lên 50 nút
                                 try:
+                                    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
+                                    time.sleep(0.2)
                                     driver.execute_script("arguments[0].click();", btn)
-                                    time.sleep(1)
-                                except:
-                                    pass
-                        else:
-                            # Nếu không có nút "Xem thêm", thoát khỏi vòng lặp
-                            logger.info("Không tìm thấy nút 'Xem thêm'. Kết thúc cuộn.")
-                            break
+                                    time.sleep(0.2)
+                                except Exception as e:
+                                    logger.warning(f"Lỗi khi click nút: {str(e)}")
+                                    continue
                     except Exception as e:
-                        logger.warning(f"Lỗi khi tìm/nhấp nút 'Xem thêm': {str(e)}")
-                        break
+                        logger.warning(f"Lỗi khi click nút 'Xem thêm' với selector {selector}: {str(e)}")
+                        continue
                 
-                logger.info(f"Cuộn xuống {scroll_count}/{max_scrolls} lần")
-                last_height = new_height
+                # Đợi một chút trước khi thử lại
+                time.sleep(1)
             
-            # Extract post data
+            # Chụp ảnh màn hình sau khi đã cuộn và mở rộng bài viết
+            take_debug_screenshot(driver, None, "after_expand")
+            
+            # Trích xuất bài viết theo cách đơn giản
             logger.info("Bắt đầu trích xuất dữ liệu bài viết...")
-            posts = extract_posts_data(driver, is_group)
+            posts = []
             
-            # Log the number of posts found
-            logger.info(f"Đã tìm thấy {len(posts)} bài viết từ URL: {url}")
+            # Thử các selector chính để tìm bài viết
+            post_content_selectors = [
+                # Selector trong mã người dùng cung cấp
+                "//div[@data-ad-preview='message']",
+                # Selector phổ biến khác
+                "//div[@role='article']//div[@dir='auto' and @style]",
+                "//div[@role='article']//div[@data-ad-comet-preview='message']",
+                "//div[@role='feed']//div[@role='article']//div[@dir='auto' and @style]"
+            ]
             
-            # Limit the number of posts as requested
-            posts = posts[:limit]
+            for selector in post_content_selectors:
+                try:
+                    post_elements = driver.find_elements(By.XPATH, selector)
+                    if post_elements:
+                        logger.info(f"Tìm thấy {len(post_elements)} phần tử nội dung với selector: {selector}")
+                        
+                        # Chỉ lấy số lượng bài viết theo limit
+                        for idx, element in enumerate(post_elements[:limit]):
+                            try:
+                                # Trích xuất nội dung
+                                content = element.text.strip()
+                                
+                                # Xử lý nội dung, loại bỏ "Xem thêm"
+                                content = clean_content(content)
+                                
+                                if not content or len(content) < 10:
+                                    continue
+                                
+                                # Tìm URL bài viết gần nhất
+                                post_url = ""
+                                try:
+                                    # Tìm URL bài viết từ phần tử cha
+                                    article = element.find_element(By.XPATH, "./ancestor::div[@role='article']")
+                                    
+                                    # Thử nhiều selector URL khác nhau để đảm bảo tìm được URL
+                                    url_selectors = [
+                                        # Thời gian đăng thường chứa link đến bài viết
+                                        ".//a[contains(@href, '/posts/')]",
+                                        ".//a[contains(@href, '/permalink/')]",
+                                        ".//a[contains(@href, 'story_fbid=')]",
+                                        # Link ảnh/video
+                                        ".//a[contains(@href, '/photo.php')]",
+                                        ".//a[contains(@href, '/video.php')]",
+                                        # Link thời gian đăng
+                                        ".//a[contains(@aria-label, '') and contains(@class, 'x1i10hfl')]",
+                                        # Link tổng quát có thời gian
+                                        ".//a[.//span[contains(text(), 'giờ') or contains(text(), 'phút') or contains(text(), 'hr') or contains(text(), 'min')]]",
+                                        # Link bất kỳ trong article
+                                        ".//a[contains(@role, 'link')]"
+                                    ]
+                                    
+                                    for url_selector in url_selectors:
+                                        url_elements = article.find_elements(By.XPATH, url_selector)
+                                        if url_elements:
+                                            candidate_url = url_elements[0].get_attribute("href")
+                                            if candidate_url:
+                                                # Loại bỏ tham số query
+                                                post_url = candidate_url.split("?")[0]
+                                                logger.info(f"Tìm thấy URL bài viết: {post_url}")
+                                                break
+                                    
+                                    # Nếu không tìm thấy URL, thử tìm ID bài viết từ attribute
+                                    if not post_url:
+                                        # Thử tìm ID từ các attribute phổ biến
+                                        for attr in ["id", "data-id", "data-ft", "data-sigil"]:
+                                            attr_value = article.get_attribute(attr)
+                                            if attr_value and (":pfbid" in attr_value or "story_fbid" in attr_value):
+                                                logger.info(f"Tìm thấy ID bài viết từ attribute {attr}: {attr_value}")
+                                                # Tạo URL từ ID nếu có thể
+                                                if "groups" in url:
+                                                    group_id = url.split("/groups/")[1].split("/")[0] if "/groups/" in url else ""
+                                                    post_url = f"https://www.facebook.com/groups/{group_id}/posts/{attr_value}"
+                                                else:
+                                                    # Thử lấy username/page name từ URL gốc
+                                                    page_name = url.split("facebook.com/")[1].split("/")[0] if "facebook.com/" in url else ""
+                                                    if page_name and page_name != "groups":
+                                                        post_url = f"https://www.facebook.com/{page_name}/posts/{attr_value}"
+                                                break
+                                except Exception as e:
+                                    logger.warning(f"Lỗi khi tìm URL bài viết: {str(e)}")
+                                
+                                # Nếu vẫn không tìm được URL, sử dụng URL gốc + ID ngẫu nhiên
+                                if not post_url:
+                                    post_id = str(uuid.uuid4())
+                                    post_url = f"{url}#post_{post_id}"
+                                    logger.warning(f"Không tìm được URL bài viết, sử dụng ID tạm: {post_id}")
+                                
+                                # Tìm thông tin tác giả
+                                author_name = ""
+                                try:
+                                    article = element.find_element(By.XPATH, "./ancestor::div[@role='article']")
+                                    author_elements = article.find_elements(By.XPATH, ".//h3[contains(@class, 'x1heor9g')]//a | .//strong//a")
+                                    if author_elements:
+                                        author_name = author_elements[0].text
+                                except Exception as e:
+                                    logger.warning(f"Lỗi khi tìm thông tin tác giả: {str(e)}")
+                                
+                                # Tạo ID duy nhất từ URL bài viết
+                                post_id = ""
+                                if post_url:
+                                    # Trích xuất ID từ URL của bài viết
+                                    if "/posts/" in post_url:
+                                        post_id = post_url.split("/posts/")[1].split("/")[0]
+                                    elif "/permalink/" in post_url:
+                                        post_id = post_url.split("/permalink/")[1].split("/")[0]
+                                    elif "story_fbid=" in post_url:
+                                        post_id = post_url.split("story_fbid=")[1].split("&")[0]
+                                    elif "/photo.php" in post_url or "/video.php" in post_url:
+                                        # Tìm ID từ tham số id trong URL
+                                        if "id=" in post_url:
+                                            post_id = post_url.split("id=")[1].split("&")[0]
+                                    elif "#post_" in post_url:
+                                        post_id = post_url.split("#post_")[1]
+                                
+                                # Nếu không tìm được ID, tạo một ID mới
+                                if not post_id:
+                                    post_id = str(uuid.uuid4())
+                                
+                                # Tạo đối tượng bài viết
+                                post_data = {
+                                    'id': post_id,
+                                    'url': post_url,
+                                    'content': content,
+                                    'author_name': author_name,
+                                    'group_id': url.split("/")[-1] if is_group and "groups" in url else "",
+                                    'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                }
+                                
+                                posts.append(post_data)
+                                logger.info(f"Đã thu thập bài viết {idx+1}/{min(len(post_elements), limit)}")
+                                
+                                # Nếu đã đủ số bài viết theo yêu cầu, dừng lại
+                                if len(posts) >= limit:
+                                    logger.info(f"Đã đạt đến giới hạn {limit} bài viết, dừng trích xuất")
+                                    break
+                            except Exception as e:
+                                logger.warning(f"Lỗi khi xử lý bài viết {idx}: {str(e)}")
+                                continue
+                        
+                        # Nếu đã tìm được bài viết với selector này, dừng lại
+                        if posts:
+                            break
+                except Exception as e:
+                    logger.warning(f"Lỗi khi sử dụng selector {selector}: {str(e)}")
+                    continue
             
-            # Check if any posts were found
+            # Kiểm tra xem đã tìm thấy bài viết nào chưa
             if not posts:
                 logger.warning(f"Không tìm thấy bài viết nào (lần {attempts}/{max_attempts})")
                 if driver:
                     driver.quit()
                 if attempts < max_attempts:
                     logger.info(f"Thử lại lần {attempts+1}...")
-                    time.sleep(5)  # Đợi một chút trước khi thử lại
+                    time.sleep(5)
                     continue
             else:
-                # Save to database if requested
+                # Lưu vào database nếu được yêu cầu
                 if save_to_db and posts:
                     save_posts_to_database(posts)
                 return posts
                 
         except Exception as e:
             logger.error(f"Lỗi trong quá trình lấy bài viết (lần {attempts}/{max_attempts}): {str(e)}")
+            logger.error(traceback.format_exc())
             if attempts < max_attempts:
                 logger.info(f"Thử lại lần {attempts+1}...")
-                time.sleep(5)  # Đợi một chút trước khi thử lại
+                time.sleep(5)
             
         finally:
             if driver:
@@ -485,45 +734,355 @@ def get_facebook_posts(url, limit=10, headless=True, use_profile=False, chrome_p
     logger.error(f"Không thể lấy bài viết sau {max_attempts} lần thử")
     return []
 
-def extract_posts_data(driver, is_group=False):
+def extract_post_content(post_element):
+    """Extract post content more accurately, avoiding comments"""
+    content = ""
+    
+    # Danh sách các selector chỉ định cho nội dung bài viết, đã sắp xếp theo thứ tự ưu tiên
+    primary_content_selectors = [
+        # Selector mới dựa vào developer tools - ưu tiên cao nhất
+        './/div[@dir="auto" and @style="text-align: start;"]',
+        './/div[@dir="auto" and contains(@style, "text-align")]',
+        './/div[@role="article"]//div[@dir="auto" and @style]',
+        # Selector từ r2a
+        './/div[@id[starts-with(., "r2a")]]//div[@dir="auto"]',
+        './/div[@id[contains(., "r2a")]]//div[@dir="auto"]',
+        './/div[contains(@id, "r2a")]//div//div//span//div//div',
+        # Các selector hiện tại
+        './/div[contains(@data-ad-comet-preview, "message")]',
+        './/div[@data-ad-preview="message"]',
+        './/div[contains(@class, "xdj266r") and not(ancestor::div[contains(@aria-label, "Comment")])]',
+        './/div[contains(@class, "x11i5rnm") and not(ancestor::div[contains(@aria-label, "Comment")])]',
+        './/div[contains(@class, "userContent")]',
+    ]
+    
+    # Thử các selector chính trước
+    for selector in primary_content_selectors:
+        try:
+            elements = post_element.find_elements(By.XPATH, selector)
+            for element in elements:
+                # Kiểm tra phần tử không nằm trong comment
+                is_comment = element.find_elements(By.XPATH, './ancestor::div[contains(@aria-label, "Comment") or contains(@class, "commentable_item")]')
+                if not is_comment:
+                    text = element.text.strip()
+                    # Loại bỏ text "Xem thêm" khỏi nội dung
+                    if "Xem thêm" in text:
+                        text = text.replace("Xem thêm", "").strip()
+                    if "See more" in text:
+                        text = text.replace("See more", "").strip()
+                    
+                    if text and len(text) > 10:  # Chỉ lấy nội dung đủ dài
+                        logger.info(f"Tìm thấy nội dung bài viết với selector: {selector}")
+                        return text
+            
+            # Nếu không tìm thấy nội dung ý nghĩa, thử lấy các phần tử dài hơn 10 ký tự
+            for element in elements:
+                text = element.text.strip()
+                if text and len(text) > 10:
+                    return text
+        except Exception as e:
+            logger.warning(f"Lỗi khi dùng selector {selector}: {str(e)}")
+            continue
+    
+    # Nếu không tìm thấy nội dung bằng selector chính, thử cách tiếp cận khác
+    try:
+        # Thêm một phương pháp trích xuất dựa trên CSS selector
+        try:
+            # Thử CSS selector
+            content_elements = post_element.find_elements(By.CSS_SELECTOR, 'div[dir="auto"][style*="text-align"]')
+            for element in content_elements:
+                text = element.text.strip()
+                if "Xem thêm" in text:
+                    text = text.replace("Xem thêm", "").strip()
+                if text and len(text) > 10:
+                    return text
+        except:
+            pass
+            
+        # Lấy tất cả các div có thuộc tính dir="auto" (thường chứa text nội dung)
+        all_text_elements = post_element.find_elements(By.XPATH, './/div[@dir="auto"]')
+        
+        # Lọc ra các phần tử không thuộc comment section
+        for element in all_text_elements:
+            # Kiểm tra phần tử không nằm trong comment section
+            is_comment = element.find_elements(By.XPATH, './ancestor::div[contains(@aria-label, "Comment") or contains(@class, "comment")]')
+            is_timestamp = element.find_elements(By.XPATH, './/*[contains(text(), "giờ") or contains(text(), "phút") or contains(text(), "hr") or contains(text(), "min")]')
+            
+            if not is_comment and not is_timestamp:
+                text = element.text.strip()
+                # Lọc các text phổ biến không phải nội dung bài viết
+                if text and len(text) > 10 and not any(keyword in text.lower() for keyword in ["like", "comment", "share", "thích", "bình luận", "chia sẻ"]):
+                    return text
+    except Exception as e:
+        logger.warning(f"Lỗi khi trích xuất nội dung bài viết: {str(e)}")
+    
+    return content
+
+def get_deep_content(driver, post_element):
+    """Trích xuất nội dung bài viết với nhiều phương pháp, bao gồm JavaScript"""
+    try:
+        # Method 1: Sử dụng JavaScript để lấy text nội dung
+        try:
+            content = driver.execute_script("""
+                var element = arguments[0];
+                // Lọc ra các phần tử text là nội dung chính, không phải comment
+                var contentElements = element.querySelectorAll('div[dir="auto"][style*="text-align"]');
+                if (contentElements.length > 0) {
+                    // Nếu tìm thấy phần tử có style text-align
+                    for (var i=0; i < contentElements.length; i++) {
+                        var text = contentElements[i].innerText;
+                        if (text && text.length > 30) {
+                            return text;
+                        }
+                    }
+                }
+                
+                // Thử phương pháp khác nếu không tìm thấy
+                var allTextElements = element.querySelectorAll('div[dir="auto"]');
+                var content = '';
+                for (var i=0; i < allTextElements.length; i++) {
+                    var el = allTextElements[i];
+                    // Bỏ qua các phần tử nằm trong comment section
+                    var isComment = el.closest('div[aria-label*="Comment"]') != null;
+                    if (!isComment) {
+                        var text = el.innerText;
+                        if (text && text.length > 50) {
+                            content = text;
+                            break;
+                        }
+                    }
+                }
+                return content;
+            """, post_element)
+            
+            if content and len(content) > 20:
+                # Loại bỏ "Xem thêm" nếu có
+                if "Xem thêm" in content:
+                    content = content.replace("Xem thêm", "").strip()
+                if "See more" in content:
+                    content = content.replace("See more", "").strip()
+                return content
+        except Exception as e:
+            logger.warning(f"Lỗi khi trích xuất nội dung bằng JavaScript: {str(e)}")
+        
+        # Method 2: Trích xuất từ CSS selector cụ thể theo mẫu bạn cung cấp
+        try:
+            specific_elements = post_element.find_elements(By.CSS_SELECTOR, 'div[dir="auto"][style*="text-align: start"]')
+            for element in specific_elements:
+                text = element.text
+                if text and len(text) > 20:
+                    # Loại bỏ "Xem thêm" nếu có
+                    if "Xem thêm" in text:
+                        text = text.replace("Xem thêm", "").strip()
+                    if "See more" in text:
+                        text = text.replace("See more", "").strip()
+                    return text
+        except Exception as e:
+            logger.warning(f"Lỗi khi trích xuất nội dung bằng CSS selector cụ thể: {str(e)}")
+        
+        # Method 3: Duyệt qua tất cả các phần tử và phân tích nội dung
+        try:
+            # Ưu tiên các phần tử có thuộc tính dir="auto" và style
+            all_text_elements = post_element.find_elements(By.XPATH, './/div[@dir="auto" and @style]')
+            all_texts = []
+            
+            for element in all_text_elements:
+                # Loại bỏ phần tử nằm trong comment
+                is_comment = element.find_elements(By.XPATH, './ancestor::div[contains(@aria-label, "Comment")]')
+                if not is_comment:
+                    text = element.text.strip()
+                    if text and len(text) > 20:
+                        all_texts.append(text)
+            
+            # Chọn đoạn text dài nhất nếu có nhiều đoạn
+            if all_texts:
+                longest_text = max(all_texts, key=len)
+                # Loại bỏ "Xem thêm" nếu có
+                if "Xem thêm" in longest_text:
+                    longest_text = longest_text.replace("Xem thêm", "").strip()
+                if "See more" in longest_text:
+                    longest_text = longest_text.replace("See more", "").strip()
+                return longest_text
+        except Exception as e:
+            logger.warning(f"Lỗi khi phân tích tất cả các phần tử text: {str(e)}")
+            
+    except Exception as e:
+        logger.error(f"Lỗi trong hàm get_deep_content: {str(e)}")
+    
+    return ""
+
+def find_post_content_by_attribute(driver, post_element):
+    """
+    Tìm nội dung bài viết dựa vào thuộc tính r2a mà bạn đã chỉ ra
+    """
+    try:
+        # Thử trực tiếp với CSS selector theo ví dụ bạn đã cung cấp
+        script = """
+            return (function() {
+                var post = arguments[0];
+                
+                // Tìm tất cả các phần tử div có ID bắt đầu bằng r2a
+                var r2aElements = [];
+                var allDivs = post.getElementsByTagName('div');
+                for (var i = 0; i < allDivs.length; i++) {
+                    var div = allDivs[i];
+                    if (div.id && div.id.startsWith('r2a')) {
+                        r2aElements.push(div);
+                    }
+                }
+                
+                // Tìm nội dung trong các phần tử r2a
+                if (r2aElements.length > 0) {
+                    for (var i = 0; i < r2aElements.length; i++) {
+                        var contentDivs = r2aElements[i].querySelectorAll('div[dir="auto"][style*="text-align"]');
+                        if (contentDivs.length > 0) {
+                            // Lấy div nội dung đầu tiên có text
+                            for (var j = 0; j < contentDivs.length; j++) {
+                                var text = contentDivs[j].innerText;
+                                // Loại bỏ "Xem thêm" nếu có
+                                text = text.replace("Xem thêm", "").replace("See more", "").trim();
+                                if (text && text.length > 20) {
+                                    return text;
+                                }
+                            }
+                        }
+                        
+                        // Nếu không tìm thấy theo cách trên, lấy tất cả các div có dir="auto"
+                        var autoDivs = r2aElements[i].querySelectorAll('div[dir="auto"]');
+                        for (var j = 0; j < autoDivs.length; j++) {
+                            var text = autoDivs[j].innerText;
+                            // Loại bỏ "Xem thêm" nếu có
+                            text = text.replace("Xem thêm", "").replace("See more", "").trim();
+                            if (text && text.length > 30) {  // Chỉ lấy nội dung đủ dài
+                                return text;
+                            }
+                        }
+                    }
+                }
+                
+                // Thử tìm theo cấu trúc cụ thể bạn đã cung cấp: "#r2a > div > div > span > div > div"
+                var elementsWithStyle = post.querySelectorAll('div[style*="text-align"]');
+                for (var i = 0; i < elementsWithStyle.length; i++) {
+                    var text = elementsWithStyle[i].innerText;
+                    text = text.replace("Xem thêm", "").replace("See more", "").trim();
+                    if (text && text.length > 20) {
+                        return text;
+                    }
+                }
+                
+                return "";
+            })();
+        """
+        
+        content = driver.execute_script(script, post_element)
+        if content and len(content) > 20:
+            return content
+            
+        # Nếu không tìm được bằng JavaScript, thử với XPath
+        r2a_elements = post_element.find_elements(By.XPATH, './/div[starts-with(@id, "r2a")]')
+        if r2a_elements:
+            for r2a in r2a_elements:
+                # Tìm trong r2a theo cấu trúc bạn đã cung cấp
+                content_divs = r2a.find_elements(By.XPATH, './/div/div/span/div/div')
+                for div in content_divs:
+                    text = div.text.strip()
+                    if text and len(text) > 20:
+                        # Loại bỏ "Xem thêm" nếu có
+                        text = text.replace("Xem thêm", "").replace("See more", "").strip()
+                        return text
+        
+    except Exception as e:
+        logger.warning(f"Lỗi khi tìm nội dung theo thuộc tính r2a: {str(e)}")
+    
+    return ""
+
+def extract_posts_data(driver, is_group=False, url="", limit=10):
     """Extract post data from page"""
     posts = []
     selectors_tried = 0
     max_selectors = 5
     
-    # Danh sách các XPath selector để thử
+    # Danh sách các XPath selector để thử - Cập nhật các selector mới cho Facebook UI hiện tại
     post_selectors = [
-        # Selector cho bài viết trong nhóm
-        '//div[@role="article"]',
-        # Selector cho bài viết trên trang/profile (phiên bản mới)
-        '//div[contains(@class, "x1yztbdb") and contains(@class, "x1n2onr6")]',
-        # Selector cho feed
-        '//div[contains(@class, "x1lliihq")]//div[@role="article"]',
-        # Selector cho bài viết cũ hơn
-        '//div[contains(@data-pagelet, "FeedUnit")]',
-        # Selector phổ biến
-        '//div[contains(@class, "userContentWrapper")]'
+        # Selector chung cho bài viết - phiên bản mới nhất
+        '//div[@role="feed"]/div[contains(@class, "x1lliihq")]//div[@role="article"]',
+        # Selector bài viết trong feed
+        '//div[contains(@role, "feed")]//div[@role="article"]',
+        # Selector cho bài viết tường nhà/trang
+        '//div[@data-pagelet="FeedUnit"]//div[@role="article"]',
+        # Selector cho bài viết trong nhóm - phiên bản mới nhất
+        '//div[contains(@role, "feed")]//div[contains(@class, "x1yztbdb")]//div[@role="article"]',
+        # Fallback 
+        '//div[@role="article"]'
     ]
     
     logger.info("Bắt đầu tìm bài viết với nhiều selector khác nhau...")
+    
+    # Lấy URL hiện tại để kiểm tra
+    current_url = driver.current_url
+    logger.info(f"URL hiện tại khi bắt đầu trích xuất: {current_url}")
+    
+    # Kiểm tra nếu chúng ta đã được điều hướng vào một trang bài viết cụ thể
+    if "/posts/" in current_url or "/permalink/" in current_url or "story_fbid" in current_url:
+        logger.warning("Đã bị điều hướng vào trang bài viết cụ thể. Quay lại trang chính...")
+        # Quay lại URL ban đầu
+        original_url = current_url.split("/posts/")[0] if "/posts/" in current_url else current_url.split("/permalink/")[0]
+        driver.get(original_url)
+        time.sleep(5)  # Đợi trang tải
+    
+    # Thêm đoạn code debug để chụp lại trang hiện tại
+    try:
+        take_debug_screenshot(driver, None, "before_extract_posts")
+    except Exception as e:
+        logger.warning(f"Không thể chụp ảnh debug: {str(e)}")
     
     # Thử nhiều selector khác nhau
     for selector in post_selectors:
         selectors_tried += 1
         try:
+            logger.info(f"Thử selector: {selector}")
             post_elements = driver.find_elements(By.XPATH, selector)
             
             if post_elements:
                 logger.info(f"Tìm thấy {len(post_elements)} bài viết với selector: {selector}")
                 
+                # Thêm kiểm tra để đảm bảo chúng ta đang ở trang feed chính
+                if not post_elements[0].is_displayed():
+                    logger.warning("Phần tử bài viết đầu tiên không hiển thị, có thể đã bị điều hướng")
+                    continue
+                
                 # Trích xuất dữ liệu từ các bài viết
                 for idx, post in enumerate(post_elements[:50]):  # Giới hạn 50 bài viết
                     try:
-                        # Cuộn đến bài viết để đảm bảo hiển thị
-                        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", post)
-                        time.sleep(0.3)
+                        # QUAN TRỌNG: Kiểm tra xem chúng ta có bị điều hướng không
+                        if "/posts/" in driver.current_url or "/permalink/" in driver.current_url or "story_fbid" in driver.current_url:
+                            logger.warning(f"Phát hiện điều hướng sang bài viết cụ thể: {driver.current_url}")
+                            # Quay lại trang chính
+                            original_url = driver.current_url.split("/posts/")[0] if "/posts/" in driver.current_url else driver.current_url.split("/permalink/")[0]
+                            driver.get(original_url)
+                            time.sleep(5)  # Đợi trang tải
+                            # Tìm lại các bài viết
+                            post_elements = driver.find_elements(By.XPATH, selector)
+                            if idx < len(post_elements):
+                                post = post_elements[idx]
+                            else:
+                                continue
                         
-                        # Thử trích xuất URL bài viết
+                        # Cuộn đến bài viết để đảm bảo hiển thị - KHÔNG click vào bài viết
+                        try:
+                            driver.execute_script("arguments[0].scrollIntoView({block: 'center', behavior: 'smooth'});", post)
+                            time.sleep(0.5)  # Đợi ngắn sau khi cuộn
+                        except Exception as e:
+                            logger.warning(f"Lỗi khi cuộn đến bài viết: {str(e)}")
+                        
+                        # Chụp ảnh debug cho bài viết hiện tại
+                        try:
+                            take_debug_screenshot(driver, post, f"post_{idx}")
+                        except Exception as e:
+                            logger.warning(f"Không thể chụp ảnh bài viết {idx}: {str(e)}")
+                        
+                        # KHÔNG CLICK vào bài viết - chỉ trích xuất thông tin ngay tại trang feed
+                        # Trích xuất URL bài viết mà không nhấp vào nó
                         post_url = ""
                         timestamp_selectors = [
                             './/a[contains(@href, "/posts/")]',
@@ -548,24 +1107,39 @@ def extract_posts_data(driver, is_group=False):
                         
                         # Trích xuất nội dung bài viết
                         content = ""
-                        content_selectors = [
-                            './/div[contains(@data-ad-comet-preview, "message")]',
-                            './/div[contains(@class, "x1iorvi4") and contains(@class, "x1pi30zi")]',
-                            './/div[@data-ad-preview="message"]',
-                            './/div[contains(@class, "userContent")]',
-                            './/span[contains(@class, "x193iq5w")]',
-                            './/div[contains(@dir, "auto")]'
-                        ]
                         
-                        for content_selector in content_selectors:
+                        # Phương pháp 1: Tìm theo thuộc tính r2a
+                        r2a_content = find_post_content_by_attribute(driver, post)
+                        if r2a_content:
+                            content = r2a_content
+                            logger.info(f"Đã lấy được nội dung bài viết {idx} với phương pháp r2a")
+                        
+                        # Phương pháp 2: Nếu không tìm được, sử dụng phương pháp cũ
+                        if not content or len(content) < 20:
                             try:
-                                content_elements = post.find_elements(By.XPATH, content_selector)
-                                if content_elements:
-                                    content = content_elements[0].text
-                                    if content:
-                                        break
-                            except:
-                                continue
+                                temp_content = extract_post_content(post)
+                                if temp_content and len(temp_content) > len(content):
+                                    content = temp_content
+                                    logger.info(f"Đã lấy được nội dung bài viết {idx} với phương pháp thông thường")
+                            except Exception as extract_error:
+                                logger.warning(f"Lỗi khi trích xuất nội dung bài viết {idx}: {str(extract_error)}")
+                        
+                        # Phương pháp 3: Nếu vẫn không tìm được, sử dụng phương pháp sâu
+                        if not content or len(content) < 20:
+                            try:
+                                logger.info(f"Thử phương pháp trích xuất nội dung sâu hơn cho bài viết {idx}...")
+                                deep_content = get_deep_content(driver, post)
+                                if deep_content and len(deep_content) > len(content):
+                                    content = deep_content
+                                    logger.info(f"Đã lấy được nội dung bài viết {idx} với phương pháp sâu")
+                            except Exception as e:
+                                logger.warning(f"Lỗi khi trích xuất nội dung sâu bài viết {idx}: {str(e)}")
+                        
+                        # Thêm đoạn code debug sau phần trích xuất nội dung
+                        # Chụp ảnh debug nếu không tìm thấy nội dung
+                        if not content or len(content) < 20:
+                            logger.warning(f"Không thể trích xuất nội dung đầy đủ bài viết {idx}, chụp ảnh debug")
+                            take_debug_screenshot(driver, post, f"post_no_content_{idx}")
                         
                         # Trích xuất thời gian đăng
                         post_time = ""
@@ -588,50 +1162,94 @@ def extract_posts_data(driver, is_group=False):
                         
                         # Kiểm tra xem thu thập được nội dung hữu ích không
                         if content or post_url:
-                            # Tạo ID duy nhất nếu không có URL
-                            post_id = post_url.split("/")[-1] if post_url and "/" in post_url else str(uuid.uuid4())
+                            # Tạo ID duy nhất từ URL bài viết
+                            post_id = ""
+                            if post_url:
+                                # Trích xuất ID từ URL của bài viết
+                                if "/posts/" in post_url:
+                                    post_id = post_url.split("/posts/")[1].split("/")[0]
+                                elif "/permalink/" in post_url:
+                                    post_id = post_url.split("/permalink/")[1].split("/")[0]
+                                elif "story_fbid=" in post_url:
+                                    post_id = post_url.split("story_fbid=")[1].split("&")[0]
+                                elif "/photo.php" in post_url or "/video.php" in post_url:
+                                    # Tìm ID từ tham số id trong URL
+                                    if "id=" in post_url:
+                                        post_id = post_url.split("id=")[1].split("&")[0]
+                                elif "#post_" in post_url:
+                                    post_id = post_url.split("#post_")[1]
                             
-                            # Thu thập thêm thông tin về trang
-                            page_name = ""
-                            try:
-                                page_elements = driver.find_elements(By.XPATH, '//h1[contains(@class, "x1heor9g")]')
-                                if page_elements:
-                                    page_name = page_elements[0].text
-                            except:
-                                pass
+                            # Nếu không tìm được ID, tạo một ID mới
+                            if not post_id:
+                                post_id = str(uuid.uuid4())
+                            
+                            # Thu thập thông tin tác giả
+                            author_name = ""
+                            author_url = ""
+                            
+                            # Tìm tên tác giả
+                            author_selectors = [
+                                './/a[contains(@href, "/profile.php") or contains(@href, "/user/") or contains(@href, "/people/")]',
+                                './/h3[contains(@class, "x1heor9g")]//a',
+                                './/strong//a',
+                                './/span[contains(@class, "x3nfvp2")]//a',
+                                './/a[contains(@role, "link") and contains(@tabindex, "0")]'
+                            ]
+                            
+                            for author_selector in author_selectors:
+                                try:
+                                    author_elements = post.find_elements(By.XPATH, author_selector)
+                                    if author_elements:
+                                        author_name = author_elements[0].text
+                                        author_url = author_elements[0].get_attribute("href")
+                                        if author_name:
+                                            break
+                                except Exception as e:
+                                    logger.warning(f"Lỗi khi tìm tác giả với selector {author_selector}: {str(e)}")
+                                    continue
                                 
-                            # Tạo đối tượng dữ liệu bài viết
+                            # Tạo và thêm dữ liệu bài viết
                             post_data = {
-                                "post_id": post_id,
-                                "content": content,
-                                "url": post_url,
-                                "time": post_time,
-                                "page_or_group_name": page_name,
-                                "source_url": driver.current_url,
-                                "scraped_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                'id': post_id,
+                                'url': post_url,
+                                'content': content.strip() if content else "",
+                                'post_time': post_time,
+                                'author_name': author_name,
+                                'author_url': author_url,
+                                'group_id': url.split("/")[-1] if is_group and "groups" in url else "",
+                                'created_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                             }
                             
                             posts.append(post_data)
-                            logger.info(f"Đã thêm bài viết {idx+1}: URL={post_url[:30] + '...' if len(post_url) > 30 else post_url}")
+                            logger.info(f"Đã thu thập bài viết {idx+1}/{len(post_elements[:50])}")
+                            
+                            # Kiểm tra nếu đã đủ số lượng bài viết yêu cầu
+                            if len(posts) >= limit:
+                                logger.info(f"Đã đạt đến giới hạn {limit} bài viết, dừng trích xuất")
+                                break
                     except Exception as e:
-                        logger.warning(f"Lỗi khi xử lý bài viết: {str(e)}")
-                        continue
+                        logger.error(f"Lỗi khi xử lý bài viết {idx}: {str(e)}")
+                        logger.error(traceback.format_exc())
                 
-                # Nếu đã tìm thấy bài viết, không cần thử selector khác
+                # Nếu đã thu thập được bài viết, kết thúc vòng lặp
                 if posts:
                     break
-                    
             else:
-                logger.info(f"Không tìm thấy bài viết với selector {selectors_tried}/{len(post_selectors)}: {selector}")
+                logger.warning(f"Không tìm thấy bài viết nào với selector: {selector}")
                 
         except Exception as e:
-            logger.warning(f"Lỗi khi sử dụng selector {selector}: {str(e)}")
+            logger.error(f"Lỗi khi sử dụng selector {selector}: {str(e)}")
+            logger.error(traceback.format_exc())
+        
+        # Kiểm tra nếu đã thử hết các selector hoặc đã tìm thấy bài viết
+        if selectors_tried >= max_selectors or posts:
+            break
     
-    # Ghi log tổng kết
+    # Log kết quả
     if posts:
-        logger.info(f"Đã trích xuất tổng cộng {len(posts)} bài viết sau khi thử {selectors_tried}/{len(post_selectors)} selector")
+        logger.info(f"Trích xuất thành công {len(posts)} bài viết")
     else:
-        logger.warning(f"Không thể trích xuất bài viết nào sau khi thử {selectors_tried}/{len(post_selectors)} selector")
+        logger.warning("Không trích xuất được bài viết nào")
     
     return posts
 
@@ -645,6 +1263,23 @@ def save_posts_to_database(posts):
         # Connect to the database
         connection = get_db_connection()
         cursor = connection.cursor()
+        
+        # Kiểm tra kết nối database
+        if not connection.is_connected():
+            logger.error("Không thể kết nối đến cơ sở dữ liệu")
+            return
+            
+        # Kiểm tra cấu trúc bảng trước khi chèn dữ liệu
+        try:
+            cursor.execute("DESCRIBE facebook_posts")
+            columns = [column[0] for column in cursor.fetchall()]
+            logger.info(f"Cấu trúc bảng facebook_posts: {', '.join(columns)}")
+        except Exception as e:
+            logger.error(f"Lỗi khi kiểm tra cấu trúc bảng: {str(e)}")
+            if 'connection' in locals() and connection.is_connected():
+                cursor.close()
+                connection.close()
+            return
         
         # Prepare SQL query that matches the actual table structure
         insert_query = """
@@ -660,11 +1295,32 @@ def save_posts_to_database(posts):
         success_count = 0
         now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
-        for post in posts:
+        # Giới hạn số lượng bài viết để tránh timeout
+        max_posts = min(len(posts), 20)  # Tối đa 20 bài viết mỗi lần
+        logger.info(f"Xử lý {max_posts}/{len(posts)} bài viết để tránh timeout")
+        
+        for post in posts[:max_posts]:
             try:
+                content = post.get("content", "")
+                url = post.get("url", "")
+                
+                # Skip empty content
+                if not content or len(content.strip()) < 10:
+                    logger.warning(f"Bỏ qua bài viết có nội dung trống hoặc quá ngắn: '{content}'")
+                    continue
+                
+                # Giới hạn kích thước nội dung để tránh lỗi間に  # Loại bỏ tham số query
+                if len(content) > 10000:  # Giới hạn 10K ký tự
+                    logger.warning(f"Cắt nội dung bài viết dài từ {len(content)} xuống 10000 ký tự")
+                    content = content[:9995] + "..."
+                
+                # Log dữ liệu trước khi chèn (giúp debug)
+                logger.info(f"Lưu bài viết: URL={url[:30] + '...' if len(url) > 30 else url}")
+                logger.info(f"Nội dung: {content[:100] + '...' if len(content) > 100 else content}")
+                
                 values = (
-                    post.get("content", ""),
-                    post.get("url", ""),  # Map to source_url field
+                    content,
+                    url,  # Map to source_url field
                     post.get("page_or_group_name", ""),
                     0,  # processed = false
                     now,  # created_at
@@ -673,6 +1329,12 @@ def save_posts_to_database(posts):
                 
                 cursor.execute(insert_query, values)
                 success_count += 1
+                
+                # Commit sau mỗi 5 bài viết để tránh transaction quá lớn
+                if success_count % 5 == 0:
+                    connection.commit()
+                    logger.info(f"Đã commit {success_count} bài viết")
+                
             except Exception as e:
                 logger.error(f"Lỗi khi chèn bài viết vào cơ sở dữ liệu: {str(e)}")
                 continue
@@ -683,6 +1345,7 @@ def save_posts_to_database(posts):
         
     except Exception as e:
         logger.error(f"Lỗi khi lưu bài viết vào cơ sở dữ liệu: {str(e)}")
+        logger.error(traceback.format_exc())  # Thêm stack trace để debug
     finally:
         if 'connection' in locals() and connection.is_connected():
             cursor.close()
@@ -721,7 +1384,7 @@ def main():
         for i, post in enumerate(posts, 1):
             print(f"\n--- Post {i} ---")
             print(f"ID: {post.get('post_id', 'N/A')}")
-            print(f"Time: {post.get('time', 'N/A')}")
+            print(f"Time: {post.get('post_time', 'N/A')}")
             print(f"URL: {post.get('url', 'N/A')}")
             print(f"Content: {post.get('content', 'N/A')[:100]}...")
         
@@ -732,3 +1395,43 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# Thêm phương thức mới để xử lý nội dung
+def clean_content(content):
+    """Làm sạch nội dung bài viết, loại bỏ các cụm từ không mong muốn"""
+    if not content:
+        return ""
+        
+    # Danh sách các cụm từ cần loại bỏ
+    phrases_to_remove = [
+        "Xem thêm",
+        "See more",
+        "Hiển thị thêm",
+        "Show more",
+        "Xem nội dung đầy đủ",
+        "View full content",
+        "… Xem thêm",
+        "... Xem thêm",
+        "...Xem thêm",
+        "… See more",
+        "... See more",
+        "...See more"
+    ]
+    
+    # Loại bỏ từng cụm từ
+    clean_text = content
+    for phrase in phrases_to_remove:
+        # Loại bỏ cụm từ ở cuối nội dung
+        if clean_text.endswith(phrase):
+            clean_text = clean_text[:-len(phrase)].strip()
+        
+        # Loại bỏ cụm từ ở bất kỳ vị trí nào trong nội dung
+        clean_text = clean_text.replace(phrase, "").strip()
+    
+    # Loại bỏ nhiều dấu cách liên tiếp
+    clean_text = " ".join(clean_text.split())
+    
+    return clean_text
+
+# Thêm clean_content như một phương thức tĩnh
+get_facebook_posts.clean_content = clean_content

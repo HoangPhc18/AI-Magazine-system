@@ -4,10 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Models\ApprovedArticle;
 use App\Models\Category;
+use App\Services\WebsiteConfigService;
 use Illuminate\Http\Request;
 
 class HomeController extends Controller
 {
+    protected $configService;
+
+    public function __construct(WebsiteConfigService $configService)
+    {
+        $this->configService = $configService;
+    }
+
     public function index()
     {
         $featuredArticles = ApprovedArticle::with('category')
@@ -31,7 +39,17 @@ class HomeController extends Controller
             ->having('articles_count', '>', 0)
             ->get();
         
-        return view('home', compact('featuredArticles', 'recentArticles', 'categories'));
+        // Get website configurations
+        $generalConfig = $this->configService->getByGroup(WebsiteConfigService::GROUP_GENERAL);
+        $socialConfig = $this->configService->getByGroup(WebsiteConfigService::GROUP_SOCIAL);
+        
+        return view('home', compact(
+            'featuredArticles', 
+            'recentArticles', 
+            'categories', 
+            'generalConfig', 
+            'socialConfig'
+        ));
     }
 
     public function showArticle($slug)

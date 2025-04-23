@@ -6,7 +6,7 @@ Dịch vụ AI tự động tìm kiếm, trích xuất và viết lại bài vi�
 
 - Tìm kiếm bài viết từ Google News với từ khóa
 - Trích xuất nội dung bài viết
-- Viết lại nội dung bằng AI (sử dụng mô hình Ollama)
+- Viết lại nội dung bằng AI (sử dụng Google Gemini API)
 - API để tích hợp với hệ thống khác
 
 ## Cài đặt
@@ -14,12 +14,12 @@ Dịch vụ AI tự động tìm kiếm, trích xuất và viết lại bài vi�
 ### Yêu cầu
 
 - Python 3.8+
-- Ollama (để chạy mô hình ngôn ngữ)
+- Google Gemini API key
 
 ### Cài đặt thư viện
 
 ```bash
-pip install flask flask_cors requests python-dotenv beautifulsoup4 trafilatura
+pip install flask flask_cors requests python-dotenv beautifulsoup4 trafilatura google-generativeai
 ```
 
 Hoặc sử dụng file `requirements.txt`:
@@ -28,22 +28,17 @@ Hoặc sử dụng file `requirements.txt`:
 pip install -r requirements.txt
 ```
 
-### Cài đặt Ollama
-
-1. Tải Ollama từ [https://ollama.com/download](https://ollama.com/download)
-2. Cài đặt và khởi động Ollama
-3. Tải mô hình cơ bản bằng lệnh: `ollama pull gemma2:latest`
-
 ## Cấu hình
 
 Tạo file `.env` trong thư mục này với nội dung:
 
 ```
-PORT=5000
+PORT=5003
 HOST=0.0.0.0
 DEBUG=False
-OLLAMA_MODEL=gemma2:latest
-OLLAMA_HOST=http://localhost:11434
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_MODEL=gemini-1.5-flash-latest
+BACKEND_URL=http://your_backend_url
 ```
 
 ## Khởi động dịch vụ
@@ -152,6 +147,6 @@ Dịch vụ này được tích hợp với hệ thống Magazine AI System, cho
 Nếu gặp vấn đề, hãy kiểm tra:
 
 1. File log trong thư mục dịch vụ
-2. Đảm bảo Ollama đã được cài đặt và đang chạy
+2. Đảm bảo Google Gemini API key hợp lệ
 3. Kiểm tra cấu hình trong file `.env`
 4. Kiểm tra endpoint `/health` để xác nhận dịch vụ đang hoạt động 

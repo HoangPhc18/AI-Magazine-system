@@ -47,7 +47,7 @@ return [
     ],
 
     'facebook_rewrite' => [
-        'url' => env('FACEBOOK_REWRITE_URL', 'http://127.0.0.1:5001'),
+        'url' => env('FACEBOOK_REWRITE_URL', 'http://127.0.0.1:5005'),
     ],
 
 ];
