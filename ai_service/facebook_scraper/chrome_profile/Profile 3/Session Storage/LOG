@@ -1,2 +1,3 @@
-2025/04/23-12:05:45.763 53 Creating DB /app/chrome_profile/Profile 3/Session Storage since it was missing.
-2025/04/23-12:05:45.826 53 Reusing MANIFEST /app/chrome_profile/Profile 3/Session Storage/MANIFEST-000001
+2025/04/24-09:20:20.026 54 Reusing MANIFEST /app/chrome_profile/Profile 3/Session Storage/MANIFEST-000001
+2025/04/24-09:20:20.054 54 Recovering log #3
+2025/04/24-09:20:20.060 54 Reusing old log /app/chrome_profile/Profile 3/Session Storage/000003.log 

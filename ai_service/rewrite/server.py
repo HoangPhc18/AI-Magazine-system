@@ -80,7 +80,7 @@ def run_rewrite_process():
         logger.info("Bắt đầu chạy quy trình viết lại bài...")
         # Chạy rewrite_from_db.py với các tùy chọn
         process = subprocess.run(
-            [sys.executable, "rewrite_from_db.py", "--auto", "--limit", "10", "--delete"],
+            [sys.executable, "rewrite_from_db.py", "--auto", "--limit", "10"],
             capture_output=True, 
             text=True
         )
@@ -136,7 +136,7 @@ def rewrite_by_id(article_id):
             
         # Gọi script rewrite_from_db.py với article_id
         result = subprocess.run(
-            ['python', 'rewrite_from_db.py', '--article-id', str(article_id)],
+            [sys.executable, 'rewrite_from_db.py', '--article-id', str(article_id)],
             capture_output=True,
             text=True
         )
@@ -145,7 +145,7 @@ def rewrite_by_id(article_id):
         if result.returncode == 0:
             return jsonify({
                 'status': 'success',
-                'message': f'Article ID {article_id} has been processed',
+                'message': f'Article ID {article_id} has been processed using Gemini',
                 'output': result.stdout
             })
         else:
@@ -230,7 +230,7 @@ def rewrite_batch(count):
             
         # Gọi script rewrite_from_db.py với số lượng bài viết cần xử lý
         result = subprocess.run(
-            ['python', 'rewrite_from_db.py', '--limit', str(count)],
+            [sys.executable, 'rewrite_from_db.py', '--limit', str(count)],
             capture_output=True,
             text=True
         )
@@ -239,7 +239,7 @@ def rewrite_batch(count):
         if result.returncode == 0:
             return jsonify({
                 'status': 'success',
-                'message': f'Processed {count} articles',
+                'message': f'Processed {count} articles using Gemini',
                 'output': result.stdout
             })
         else:

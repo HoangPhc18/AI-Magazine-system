@@ -43,7 +43,8 @@ from google_news import (
     search_with_category,
     process_all_categories,
     save_article_to_json,
-    import_article_to_backend
+    import_article_to_backend,
+    get_category_by_id
 )
 from scrape_articles_selenium import extract_article_content
 
@@ -55,14 +56,15 @@ DB_HOST = os.getenv('DB_HOST', 'localhost')
 DB_USER = os.getenv('DB_USER', 'root')
 DB_PASSWORD = os.getenv('DB_PASSWORD', '')
 DB_NAME = os.getenv('DB_NAME', 'AiMagazineDB')
+DB_PORT = int(os.getenv('DB_PORT', '3306'))
 
 # Config kết nối database
 DB_CONFIG = {
-    "host": "localhost",
-    "user": "root",
-    "password": "",
-    "database": "aimagazine",
-    "port": 3306
+    "host": DB_HOST,
+    "user": DB_USER,
+    "password": DB_PASSWORD,
+    "database": DB_NAME,
+    "port": DB_PORT
 }
 
 # Cấu hình logging
@@ -85,10 +87,16 @@ DEFAULT_BATCH_SIZE = 5
 RETENTION_DAYS = 2
 
 # 🔹 Laravel Backend API URLs
-BACKEND_API_URL = "http://host.docker.internal:8000/api/articles"
-ARTICLES_BATCH_API_URL = "http://host.docker.internal:8000/api/articles/batch"
-ARTICLES_IMPORT_API_URL = "http://host.docker.internal:8000/api/articles/import"
-CATEGORIES_API_URL = "http://host.docker.internal:8000/api/categories"
+BACKEND_URL = os.getenv('BACKEND_URL', 'http://host.docker.internal')
+BACKEND_PORT = os.getenv('BACKEND_PORT', '80')
+BASE_API_URL = f"{BACKEND_URL}:{BACKEND_PORT}/api"
+if BACKEND_PORT == '80':
+    BASE_API_URL = f"{BACKEND_URL}/api"
+
+BACKEND_API_URL = f"{BASE_API_URL}/articles"
+ARTICLES_BATCH_API_URL = f"{BASE_API_URL}/articles/batch"
+ARTICLES_IMPORT_API_URL = f"{BASE_API_URL}/articles/import"
+CATEGORIES_API_URL = f"{BASE_API_URL}/categories"
 
 # Các biến toàn cục
 # Cache lưu các URL đã xử lý để tránh trùng lặp
@@ -438,52 +446,93 @@ def process_category(category_id, category_name, max_articles=2):
 
 def find_and_process_all_categories(max_articles_per_category=2):
     """
-    Tìm kiếm và xử lý bài viết cho tất cả các danh mục từ backend
-    :param max_articles_per_category: Số bài viết tối đa cho mỗi danh mục
-    :return: Kết quả tìm kiếm
+    Tìm kiếm và xử lý tất cả các danh mục từ backend.
+    Mỗi danh mục sẽ được tìm kiếm bài viết và lưu trữ.
+    
+    Args:
+        max_articles_per_category (int): Số bài viết tối đa cho mỗi danh mục
+        
+    Returns:
+        dict: Kết quả xử lý các danh mục
     """
+    results = {
+        'success': 0,
+        'failed': 0,
+        'articles_by_category': {},
+        'all_articles': [],
+        'total_articles': 0
+    }
+    
     logger.info(f"Bắt đầu tìm kiếm và xử lý bài viết cho các danh mục (tối đa {max_articles_per_category} bài/danh mục)")
     
-    # Lấy danh sách danh mục từ backend
+    # Lấy danh sách các danh mục từ backend
     categories = fetch_categories_from_backend()
     
     if not categories:
-        logger.error("Không thể lấy danh mục từ backend")
-        return {"success": 0, "failed": 0, "articles_by_category": {}, "all_articles": [], "total_articles": 0}
+        # Backup plan when backend is not available - use hardcoded categories
+        logger.warning("Không thể lấy danh mục từ backend, sử dụng danh mục mẫu...")
+        categories = [
+            {"id": 1, "name": "Thời sự", "slug": "thoi-su"},
+            {"id": 2, "name": "Thế giới", "slug": "the-gioi"},
+            {"id": 3, "name": "Kinh doanh", "slug": "kinh-doanh"},
+            {"id": 4, "name": "Giải trí", "slug": "giai-tri"},
+            {"id": 5, "name": "Thể thao", "slug": "the-thao"},
+            {"id": 6, "name": "Pháp luật", "slug": "phap-luat"},
+            {"id": 7, "name": "Giáo dục", "slug": "giao-duc"},
+            {"id": 8, "name": "Sức khỏe", "slug": "suc-khoe"},
+            {"id": 9, "name": "Đời sống", "slug": "doi-song"},
+            {"id": 10, "name": "Du lịch", "slug": "du-lich"}
+        ]
+        logger.info(f"Sử dụng {len(categories)} danh mục mẫu")
+        
+    # Xử lý từng danh mục
+    total_categories = len(categories)
+    logger.info(f"Đã tìm thấy {total_categories} danh mục để xử lý")
     
-    logger.info(f"Tìm thấy {len(categories)} danh mục từ backend")
+    # Xử lý tất cả các danh mục theo giới hạn
+    categories_processed = 0
     
-    # Kết quả
-    results = {
-        "success": 0,
-        "failed": 0,
-        "articles_by_category": {},
-        "all_articles": [],
-        "total_articles": 0
-    }
-    
-    # Xử lý lần lượt từng danh mục
     for category in categories:
-        category_id = category["id"]
-        category_name = category["name"]
+        if categories_processed >= total_categories:
+            break
+            
+        category_id = category.get('id')
+        category_name = category.get('name')
+        
+        if not category_id or not category_name:
+            logger.warning(f"Danh mục không hợp lệ, thiếu ID hoặc tên: {category}")
+            results['failed'] += 1
+            continue
+        
+        logger.info(f"Xử lý danh mục: ID={category_id}, Tên={category_name}")
         
         try:
+            # Tìm kiếm bài viết cho danh mục này
             articles = process_category(category_id, category_name, max_articles_per_category)
             
-            if articles:
-                # Cập nhật kết quả thành công
-                results["success"] += 1
-                results["articles_by_category"][category_name] = articles
-                results["all_articles"].extend(articles)
-                results["total_articles"] += len(articles)
-            else:
-                # Không tìm thấy bài viết nào
-                results["failed"] += 1
-                
+            if not articles or len(articles) == 0:
+                logger.warning(f"Không tìm thấy bài viết nào cho danh mục: {category_name}")
+                results['failed'] += 1
+                continue
+            
+            # Thêm bài viết vào kết quả
+            results['articles_by_category'][category_id] = articles
+            results['all_articles'].extend(articles)
+            results['success'] += 1
+            results['total_articles'] += len(articles)
+            
+            logger.info(f"Đã xử lý thành công danh mục: {category_name}, số bài viết tìm được: {len(articles)}")
+            
         except Exception as e:
             logger.error(f"Lỗi khi xử lý danh mục {category_name}: {str(e)}")
-            logger.error(traceback.format_exc())
-            results["failed"] += 1
+            results['failed'] += 1
+            
+        categories_processed += 1
+    
+    # Tổng kết
+    logger.info(f"\nĐã xử lý {categories_processed} danh mục")
+    logger.info(f"Thành công: {results['success']} danh mục, Thất bại: {results['failed']} danh mục")
+    logger.info(f"Tổng số bài viết đã tìm được: {results['total_articles']}")
     
     return results
 
@@ -940,20 +989,50 @@ def import_articles_to_database_directly(articles):
 
 def check_db_connection():
     """
-    Kiểm tra kết nối đến database
-    :return: Boolean - True nếu kết nối thành công, False nếu không
+    Kiểm tra kết nối đến cơ sở dữ liệu
+    
+    Returns:
+        bool: True nếu kết nối thành công, False nếu thất bại
     """
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
         if conn.is_connected():
-            logger.info("Kết nối đến database thành công")
+            logger.info("Kết nối CSDL thành công")
             conn.close()
             return True
         else:
-            logger.error("Không thể kết nối đến database")
+            logger.error("Không thể kết nối CSDL")
             return False
     except Exception as e:
-        logger.error(f"Lỗi khi kết nối đến database: {str(e)}")
+        logger.error(f"Lỗi kết nối CSDL: {str(e)}")
+        return False
+
+def check_backend_api():
+    """
+    Kiểm tra kết nối đến backend API
+    
+    Returns:
+        bool: True nếu kết nối thành công, False nếu thất bại
+    """
+    try:
+        logger.info(f"Kiểm tra kết nối đến Backend API: {CATEGORIES_API_URL}")
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36'}
+        response = requests.get(CATEGORIES_API_URL, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            categories = response.json()
+            logger.info(f"Kết nối API thành công! Tìm thấy {len(categories)} danh mục.")
+            
+            # In ra 3 danh mục đầu tiên để kiểm tra
+            for i, category in enumerate(categories[:3]):
+                logger.info(f"Danh mục {i+1}: ID={category.get('id')}, Tên={category.get('name')}")
+                
+            return True
+        else:
+            logger.error(f"Lỗi API HTTP {response.status_code}: {response.text}")
+            return False
+    except Exception as e:
+        logger.error(f"Lỗi kết nối API: {str(e)}")
         return False
 
 def generate_slug(title, add_uuid=True):
@@ -979,182 +1058,95 @@ def generate_slug(title, add_uuid=True):
 
 def main():
     """
-    Hàm chính điều khiển chương trình
+    Hàm main xử lý các tham số dòng lệnh và thực thi các lệnh tương ứng
     """
-    parser = argparse.ArgumentParser(description="Tìm kiếm và trích xuất bài viết từ Google News")
-    parser.add_argument('--all', action='store_true', help='Xử lý tất cả các danh mục từ backend')
-    parser.add_argument('--max-articles', type=int, default=2, help='Số bài viết tối đa cho mỗi danh mục')
-    parser.add_argument('--category', type=int, help='ID của danh mục cụ thể để xử lý')
-    parser.add_argument('--keyword', type=str, help='Từ khóa tìm kiếm')
-    parser.add_argument('--cleanup', action='store_true', help='Dọn dẹp các file tạm và file log cũ')
-    parser.add_argument('--retention', type=int, default=RETENTION_DAYS, help='Số ngày giữ lại file (mặc định: 7)')
-    parser.add_argument('--import-all', action='store_true', help='Import tất cả file JSON trong thư mục output vào backend')
-    parser.add_argument('--no-import', action='store_true', help='Không tự động import bài viết vào backend')
-    parser.add_argument('--single-file', action='store_true', help='Lưu tất cả bài viết vào một file JSON duy nhất')
+    parser = argparse.ArgumentParser(description="Scraper Service - Tìm kiếm và xử lý tin tức tự động")
+    
+    parser.add_argument("--all", action="store_true", help="Tìm kiếm và xử lý tất cả các danh mục")
+    parser.add_argument("--max", type=int, default=2, help="Số bài viết tối đa cho mỗi danh mục")
+    parser.add_argument("--category", type=int, help="ID của danh mục cần xử lý")
+    parser.add_argument("--auto-send", action="store_true", help="Tự động gửi bài viết đến backend")
+    parser.add_argument("--import", action="store_true", dest="import_all", help="Import tất cả các file JSON vào backend")
+    parser.add_argument("--import-file", type=str, help="Path to JSON file to import")
+    parser.add_argument("--cleanup", action="store_true", help="Dọn dẹp tệp tin tạm và log cũ")
+    parser.add_argument("--check", action="store_true", help="Kiểm tra kết nối database và API")
     
     args = parser.parse_args()
     
-    try:
-        # Kiểm tra và xử lý tham số
-        if args.cleanup:
-            # Dọn dẹp file tạm và log cũ
-            cleanup_temp_files()
-            cleanup_old_files(args.retention)
-            print(f"Đã dọn dẹp các file tạm và file log cũ hơn {args.retention} ngày")
-            return
-            
-        if args.import_all:
-            # Import tất cả file JSON trong thư mục output
-            success, failed = import_all_to_backend()
-            print(f"Đã import các file JSON: {success} thành công, {failed} thất bại")
-            return
-            
-        # Xử lý tất cả các danh mục
-        if args.all:
-            print(f"Xử lý tất cả các danh mục, tối đa {args.max_articles} bài viết mỗi danh mục")
-            results = find_and_process_all_categories(args.max_articles)
-            
-            # In kết quả
-            total_categories = results['success'] + results['failed']
-            total_articles = results['total_articles']
-            
-            print(f"\nĐã xử lý {total_categories} danh mục")
-            print(f"Thành công: {results['success']} danh mục, Thất bại: {results['failed']} danh mục")
-            print(f"Tổng số bài viết đã tìm được: {total_articles}")
-            
-            if results['success'] > 0:
-                # In thông tin chi tiết các danh mục thành công
-                print("\nCác danh mục đã xử lý thành công:\n")
-                
-                for category_name, articles in results['articles_by_category'].items():
-                    if articles:
-                        print(f"- {category_name}")
-                        print(f"  Số bài viết: {len(articles)}")
-                        
-                        for i, article in enumerate(articles, 1):
-                            print(f"  Bài viết #{i}:")
-                            print(f"    URL: {article['url']}")
-                            print(f"    Tiêu đề: {article['title']}")
-                            print(f"    Chiều dài nội dung: {article.get('content_length', len(article.get('content', '')))} ký tự")
-                            print(f"    Lưu tại: {article.get('json_filepath', article.get('file_path', 'Không rõ'))}")
-                            print()
-            
-            # Lưu tất cả bài viết vào file JSON
-            try:
-                # Luôn lưu vào một file JSON duy nhất
-                json_file_path = save_all_articles_to_single_file(results)
-                
-                if json_file_path:
-                    article_count = 0
-                    # Đếm số bài viết đã lưu thực tế
-                    if "all_articles" in results and isinstance(results["all_articles"], list):
-                        article_count = len(results["all_articles"])
-                    else:
-                        # Đếm từ tổng số bài viết trong articles_by_category
-                        for articles in results['articles_by_category'].values():
-                            article_count += len(articles)
-                    
-                    print(f"\nĐã lưu tất cả {article_count} bài viết vào file: {json_file_path}")
-                    
-                    if not args.no_import:
-                        # Tự động import vào backend
-                        print(f"\nĐang import tất cả bài viết vào backend...")
-                        success, failed = import_json_file_to_backend(json_file_path)
-                        print(f"Đã import vào database: {success} thành công, {failed} thất bại")
-            except Exception as e:
-                logger.error(f"Lỗi khi lưu hoặc import bài viết: {str(e)}")
-                logger.error(traceback.format_exc())
-                print(f"Lỗi khi lưu hoặc import bài viết: {str(e)}")
-                
-            return
+    # Kiểm tra kết nối database nếu được yêu cầu
+    if args.check:
+        print("\n----- KIỂM TRA KẾT NỐI -----")
+        db_status = check_db_connection()
+        api_status = check_backend_api()
         
-        # Xử lý theo ID danh mục nếu được chỉ định
-        if args.category:
-            from google_news import get_category_by_id
-            category = get_category_by_id(args.category)
-            
-            if category:
-                articles = process_category(args.category, category['name'], args.max_articles)
-                if articles:
-                    print(f"Đã xử lý thành công danh mục: {category['name']}")
-                    print(f"Tìm thấy {len(articles)} bài viết:")
-                    
-                    for i, article in enumerate(articles, 1):
-                        print(f"\nBài viết #{i}:")
-                        print(f"URL: {article['url']}")
-                        print(f"Tiêu đề: {article['title']}")
-                        print(f"Chiều dài nội dung: {article['content_length']} ký tự")
-                        print(f"Lưu tại: {article['json_filepath']}")
-                    
-                    # Lưu tất cả vào một file JSON duy nhất
-                    result = {
-                        "categories": [
-                            {
-                                "id": category["id"],
-                                "name": category["name"],
-                                "status": "success",
-                                "articles": articles
-                            }
-                        ]
-                    }
-                    
-                    json_file_path = save_all_articles_to_single_file(result)
-                    
-                    if json_file_path and not args.no_import:
-                        # Tự động import vào backend
-                        success, failed = import_json_file_to_backend(json_file_path)
-                        print(f"Đã import vào database: {success} thành công, {failed} thất bại")
-                else:
-                    print(f"Không thể xử lý danh mục: {category['name']}")
-            else:
-                logger.error(f"Không tìm thấy danh mục với ID: {args.category}")
-            return
-        
-        # Xử lý theo từ khóa nếu được chỉ định
-        if args.keyword:
-            from google_news import search_google_news
-            
-            logger.info(f"Tìm kiếm với từ khóa: {args.keyword}")
-            url = search_google_news(args.keyword)
-            
-            if url:
-                logger.info(f"Đã tìm thấy URL: {url}")
-                
-                # Trích xuất nội dung
-                article_data = extract_article_content(url)
-                
-                if article_data and article_data.get("title") and article_data.get("content"):
-                    # Lưu vào file JSON
-                    json_filepath = save_article_to_json(
-                        category_id=0,  # 0 vì không có category_id
-                        category_name=args.keyword,
-                        article_url=url,
-                        article_data=article_data
-                    )
-                    
-                    if json_filepath:
-                        print(f"Đã xử lý thành công từ khóa: {args.keyword}")
-                        print(f"URL: {url}")
-                        print(f"Tiêu đề: {article_data['title']}")
-                        print(f"Chiều dài nội dung: {len(article_data['content'])} ký tự")
-                        print(f"Lưu tại: {json_filepath}")
-                        
-                        if not args.no_import:
-                            # Tự động import vào backend
-                            success, failed = import_json_file_to_backend(json_filepath)
-                            print(f"Đã import vào database: {success} thành công, {failed} thất bại")
-                else:
-                    logger.error(f"Không thể trích xuất nội dung từ: {url}")
-            else:
-                logger.error(f"Không tìm thấy bài viết nào cho từ khóa: {args.keyword}")
-            return
-        
-        # Hiển thị hướng dẫn sử dụng nếu không có lệnh nào được chạy
-        parser.print_help()
+        print("\n----- KẾT QUẢ KIỂM TRA -----")
+        print(f"Kết nối CSDL: {'✓ Thành công' if db_status else '✗ Thất bại'}")
+        print(f"Kết nối API: {'✓ Thành công' if api_status else '✗ Thất bại'}")
+        print("---------------------------\n")
+        return
     
-    except Exception as e:
-        logger.error(f"Lỗi không xác định trong quá trình xử lý: {str(e)}")
-        logger.error(traceback.format_exc())
+    # Xử lý tất cả các danh mục
+    if args.all:
+        print(f"Xử lý tất cả các danh mục, tối đa {args.max} bài viết mỗi danh mục")
+        results = find_and_process_all_categories(max_articles_per_category=args.max)
+        
+        # Lưu tất cả bài viết vào 1 file JSON
+        logger.info(f"Bắt đầu lưu tất cả bài viết vào file JSON duy nhất, dữ liệu đầu vào: {type(results)}")
+        logger.info(f"Cấu trúc results: {list(results.keys())}")
+        
+        save_all_articles_to_single_file(results)
+        
+        # In thông báo tổng kết
+        print(f"\nĐã xử lý {results['success'] + results['failed']} danh mục")
+        print(f"Thành công: {results['success']} danh mục, Thất bại: {results['failed']} danh mục")
+        print(f"Tổng số bài viết đã tìm được: {results['total_articles']}")
+        
+        # Gửi đến backend nếu được yêu cầu
+        if args.auto_send and results['all_articles']:
+            logger.info(f"Gửi {len(results['all_articles'])} bài viết đến backend...")
+            send_to_backend(results['all_articles'])
+        
+    # Xử lý một danh mục cụ thể
+    elif args.category:
+        category = get_category_by_id(args.category)
+        if category:
+            category_name = category.get('name', f"Danh mục {args.category}")
+            print(f"Xử lý danh mục: {category_name} (ID: {args.category})")
+            
+            articles = process_category(args.category, category_name, args.max)
+            
+            if articles:
+                print(f"Đã tìm thấy {len(articles)} bài viết")
+                
+                # Gửi đến backend nếu được yêu cầu
+                if args.auto_send:
+                    logger.info(f"Gửi {len(articles)} bài viết đến backend...")
+                    send_to_backend(articles)
+            else:
+                print("Không tìm thấy bài viết nào cho danh mục này")
+        else:
+            print(f"Không tìm thấy thông tin về danh mục có ID: {args.category}")
+    
+    # Import các file JSON từ thư mục output vào backend
+    elif args.import_all:
+        import_all_to_backend()
+    
+    # Import một file JSON cụ thể vào backend
+    elif args.import_file:
+        if os.path.exists(args.import_file):
+            import_json_file_to_backend(args.import_file)
+        else:
+            print(f"Không tìm thấy file: {args.import_file}")
+    
+    # Dọn dẹp các tệp tin tạm và log cũ
+    elif args.cleanup:
+        cleanup_temp_files()
+        cleanup_old_files()
+        print("Đã dọn dẹp xong tệp tin tạm và log cũ")
+    
+    # Hiển thị trợ giúp nếu không có tham số nào được cung cấp
+    else:
+        parser.print_help()
 
 if __name__ == "__main__":
     main() 

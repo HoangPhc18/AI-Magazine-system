@@ -10,8 +10,8 @@ RUN apt-get update && apt-get install -y cron \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Cài thêm Flask để chạy API server
-RUN pip install --no-cache-dir flask
+# Cài thêm Flask và Google Generative AI để chạy API server và Gemini API
+RUN pip install --no-cache-dir flask google-generativeai>=0.3.0
 
 # Copy source code
 COPY . .

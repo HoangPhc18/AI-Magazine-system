@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Script to fetch articles from database and rewrite them using Gemma2
+Script to fetch articles from database and rewrite them using Gemini 1.5 Flash
 Can be run automatically via cron job:
     */30 * * * * cd /path/to/ai_service/rewrite && python rewrite_from_db.py --auto
 """
@@ -51,7 +51,11 @@ DB_CONFIG = {
     "port": int(os.getenv("DB_PORT", "3306"))
 }
 
-# Ollama API configuration
+# AI Model configuration
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyDNYibANNjOZOG5dDPb6YlZ72bXkr7mvL4")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+
+# Fallback Ollama configuration
 OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma2")
 
@@ -142,54 +146,65 @@ def get_unprocessed_articles(connection, limit=3, article_ids=None):
         if 'cursor' in locals():
             cursor.close()
 
-def rewrite_with_gemma2(text, word_limit=True):
-    """Rewrite text using Gemma2 via Ollama API"""
+def rewrite_with_gemini(text, word_limit=True):
+    """Rewrite text using Gemini API"""
     if not text:
         print("No text provided for rewriting")
         return None, 0
         
     # Create prompt based on word limit
     if word_limit:
-        prompt = f"""Hãy viết lại bài viết sau đây thành một đoạn văn ngắn gọn, tập trung vào thông tin quan trọng:
+        prompt = f"""Hãy viết lại bài viết sau đây thành một bài viết đầy đủ thông tin, có cấu trúc rõ ràng. 
+Giữ nguyên các thông tin quan trọng, ý nghĩa chính của bài viết gốc nhưng diễn đạt theo cách khác.
+Chia thành các đoạn hợp lý, đảm bảo bài viết có độ dài từ 500-1000 từ:
 
 {text}
 """
     else:
-        prompt = f"""Hãy viết lại bài viết sau đây với phong cách mạch lạc và hấp dẫn, giữ nguyên ý nghĩa chính:
+        prompt = f"""Hãy viết lại bài viết sau đây thành một bài viết có cấu trúc rõ ràng, mạch lạc và hấp dẫn.
+Giữ nguyên các thông tin quan trọng, ý nghĩa chính của bài viết gốc nhưng diễn đạt theo cách khác.
+Chia thành các đoạn hợp lý, đảm bảo bài viết có độ dài vừa phải:
 
 {text}
 """
-    
-    # Prepare API request
-    url = f"{OLLAMA_URL}/api/generate"
-    payload = {
-        "model": OLLAMA_MODEL,
-        "prompt": prompt,
-        "stream": False,
-        "options": {
-            "temperature": 0.7
-        }
-    }
     
     # Track start time
     start_time = time.time()
     
     try:
-        # Call Ollama API
-        response = requests.post(url, json=payload)
-        
-        if response.status_code != 200:
-            print(f"API error: {response.status_code} {response.text}")
+        # Import Google Generative AI
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=GEMINI_API_KEY)
+        except ImportError:
+            print("Error: Google Generative AI library not installed.")
+            print("Please install with: pip install google-generativeai")
             return None, 0
+            
+        # Create a generative model
+        model = genai.GenerativeModel(
+            model_name=GEMINI_MODEL,
+            generation_config={
+                "temperature": 0.7,
+                "max_output_tokens": 8000,  # Tăng số lượng token tối đa cho bài viết dài hơn
+            }
+        )
         
-        # Parse response
-        result = response.json()
+        # Generate content
+        response = model.generate_content(prompt)
+        
+        # Calculate elapsed time
         elapsed_time = time.time() - start_time
         
-        return result.get("response", ""), elapsed_time
+        # Return the generated text
+        if response and hasattr(response, 'text'):
+            return response.text, elapsed_time
+        else:
+            print("Error: No valid response from Gemini API")
+            return None, 0
     
     except Exception as e:
-        print(f"Error calling Gemma2 API: {e}")
+        print(f"Error calling Gemini API: {e}")
         return None, 0
 
 def save_rewritten_article(connection, article_id, original_content, rewritten_content, metadata):
@@ -337,8 +352,8 @@ def process_article(connection, article):
     print(f"\nProcessing article: {title}")
     print(f"Original content length: {len(content)} chars, {len(content.split())} words")
     
-    # Rewrite content
-    rewritten_content, processing_time = rewrite_with_gemma2(content)
+    # Rewrite content using Gemini
+    rewritten_content, processing_time = rewrite_with_gemini(content)
     
     if not rewritten_content:
         print("Failed to rewrite article")
@@ -352,39 +367,66 @@ def process_article(connection, article):
     print(f"Processing time: {processing_time:.2f} seconds")
     
     # Check if word count is within target range
-    in_target_range = 50 <= rewritten_word_count <= 200
+    in_target_range = 500 <= rewritten_word_count <= 1000
     if in_target_range:
-        print("✅ Word count within target range (50-200 words)")
+        print("✅ Word count within target range (500-1000 words)")
     else:
-        print(f"⚠️ Word count outside target range: {rewritten_word_count} words")
+        print(f"⚠️ Word count outside target range: {rewritten_word_count} words (target: 500-1000)")
     
     # Prepare metadata
     metadata = {
         "original_word_count": original_word_count,
         "rewritten_word_count": rewritten_word_count,
         "processing_time": processing_time,
-        "provider": "ollama",
-        "model": OLLAMA_MODEL,
+        "provider": "gemini",
+        "model": GEMINI_MODEL,
         "in_target_range": in_target_range,
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
     
     # Display preview
     print("\nPreview of rewritten content:")
-    print(rewritten_content[:300] + "..." if len(rewritten_content) > 300 else rewritten_content)
+    print(rewritten_content[:500] + "..." if len(rewritten_content) > 500 else rewritten_content)
     
     # Save to database
     print("\nSaving to database...")
     save_success = save_rewritten_article(connection, article_id, content, rewritten_content, metadata)
     
     if save_success:
-        # Automatically delete the original article after successful rewriting
-        print("Deleting original article from database...")
-        delete_success = delete_original_article(connection, article_id)
-        if not delete_success:
-            print("Warning: Original article could not be deleted")
+        # Update the is_ai_rewritten flag
+        update_article_flag(connection, article_id)
     
     return save_success
+
+def update_article_flag(connection, article_id):
+    """Update the is_ai_rewritten flag to 1 for the article"""
+    if not connection:
+        return False
+        
+    try:
+        cursor = connection.cursor()
+        
+        # Update query
+        query = "UPDATE articles SET is_ai_rewritten = 1 WHERE id = %s"
+        
+        # Execute query
+        cursor.execute(query, (article_id,))
+        
+        # Commit the transaction
+        connection.commit()
+        
+        if cursor.rowcount > 0:
+            print(f"Updated is_ai_rewritten flag for article (ID: {article_id})")
+            return True
+        else:
+            print(f"No article with ID {article_id} found for update")
+            return False
+    except Exception as e:
+        print(f"Error updating article flag: {e}")
+        return False
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
 
 def main():
     """Main function"""
@@ -393,7 +435,7 @@ def main():
     
     # Setup logging
     logger = setup_logging(args.log_file)
-    logger.info("=== ARTICLE REWRITING FROM DATABASE ===")
+    logger.info("=== ARTICLE REWRITING FROM DATABASE USING GEMINI ===")
     
     # Connect to database
     connection = connect_to_database()

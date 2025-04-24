@@ -1,11 +1,12 @@
 # Dịch vụ viết lại nội dung bằng AI
 
-Module này cung cấp các công cụ để viết lại nội dung bài viết sử dụng các mô hình AI khác nhau như OpenAI API hoặc Ollama local.
+Module này cung cấp các công cụ để viết lại nội dung bài viết sử dụng các mô hình AI khác nhau như OpenAI API, Google Gemini API hoặc Ollama local.
 
 ## Tính năng
 
 - Hỗ trợ nhiều nhà cung cấp mô hình AI:
   - OpenAI API (GPT-3.5, GPT-4, v.v.)
+  - Google Gemini API (gemini-1.5-flash)
   - Ollama (gemma2, llama, mistral, v.v.)
 - Tự động chuyển đổi giữa các nhà cung cấp dựa trên tính khả dụng
 - Cấu hình linh hoạt cho mỗi nhà cung cấp
@@ -38,12 +39,20 @@ Tạo file `.env` hoặc thiết lập biến môi trường (xem [.env.example]
 
 ```
 OPENAI_API_KEY=your_openai_api_key
+GEMINI_API_KEY=your_gemini_api_key
 DB_HOST=localhost
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=your_password
 DB_NAME=magazine
 ```
+
+### Google Gemini API
+
+Để sử dụng Gemini API:
+1. Đăng ký API key tại https://ai.google.dev/ 
+2. Thêm API key vào file `.env`
+3. Cài đặt thư viện cần thiết: `pip install google-generativeai`
 
 ### Ollama
 
@@ -89,6 +98,9 @@ CREATE TABLE `rewritten_articles` (
 ```bash
 # Viết lại 5 bài viết mới nhất
 python -m rewrite.run_rewriter
+
+# Chỉ định nhà cung cấp (sử dụng Gemini)
+python -m rewrite.run_rewriter --provider gemini
 
 # Chỉ định nhà cung cấp (sử dụng Ollama)
 python -m rewrite.run_rewriter --provider ollama

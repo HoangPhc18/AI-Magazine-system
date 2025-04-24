@@ -8,6 +8,8 @@ RUN apt-get update && apt-get install -y \
     unzip \
     gnupg \
     cron \
+    curl \
+    iputils-ping \
     && rm -rf /var/lib/apt/lists/*
 
 # Cài đặt Google Chrome driver dependencies

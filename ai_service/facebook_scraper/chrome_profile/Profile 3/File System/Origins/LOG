@@ -1,2 +1,3 @@
-2025/04/23-12:05:52.760 39 Creating DB /app/chrome_profile/Profile 3/File System/Origins since it was missing.
-2025/04/23-12:05:53.036 39 Reusing MANIFEST /app/chrome_profile/Profile 3/File System/Origins/MANIFEST-000001
+2025/04/24-09:20:22.357 36 Reusing MANIFEST /app/chrome_profile/Profile 3/File System/Origins/MANIFEST-000001
+2025/04/24-09:20:22.376 36 Recovering log #3
+2025/04/24-09:20:22.378 36 Reusing old log /app/chrome_profile/Profile 3/File System/Origins/000003.log 

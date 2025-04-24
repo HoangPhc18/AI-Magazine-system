@@ -122,69 +122,114 @@ def extract_json_from_text(text):
     
     return {"title": title, "content": content}
 
-# Thêm hàm retry (thử lại) cho các kết nối đến API
-def retry_with_backoff(func, max_retries=3, initial_backoff=5):
+def clean_content_for_db(content):
     """
-    Retry a function with exponential backoff
+    Clean content for database storage by removing special characters and JSON artifacts
     
     Args:
-        func: Function to retry
-        max_retries: Maximum number of retries
-        initial_backoff: Initial backoff time in seconds
+        content (str): The content to clean
         
     Returns:
-        Result of the function or raises the last exception
+        str: Cleaned content ready for database storage
     """
-    retries = 0
-    backoff = initial_backoff
+    if not content:
+        return ""
+        
+    # Remove JSON-specific escape sequences
+    content = content.replace('\\n', '\n').replace('\\r', '\r').replace('\\"', '"')
     
-    while retries < max_retries:
-        try:
-            return func()
-        except requests.exceptions.RequestException as e:
-            retries += 1
-            if retries == max_retries:
-                logger.error(f"Max retries ({max_retries}) reached. Final error: {e}")
-                raise
-            
-            wait_time = backoff * (2 ** (retries - 1))
-            logger.warning(f"Request failed. Retrying in {wait_time} seconds... (Attempt {retries}/{max_retries})")
-            time.sleep(wait_time)
+    # Remove any remaining backslashes before other characters
+    content = re.sub(r'\\(.)', r'\1', content)
+    
+    # Remove control characters
+    content = re.sub(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]', '', content)
+    
+    # Clean up excessive newlines (more than 2 consecutive newlines)
+    content = re.sub(r'\n{3,}', '\n\n', content)
+    
+    # Fix spacing after period if needed
+    content = re.sub(r'\.(?=[A-Z])', '. ', content)
+    
+    # Ensure there are spaces after commas
+    content = re.sub(r',(?=[^\s])', ', ', content)
+    
+    return content.strip()
 
-def limit_text_size(text, max_size=None):
-    """
-    Limit text size to avoid excessively long prompts
+def save_rewritten_article(post_id, post_data, rewritten_data):
+    """Save the rewritten article to the database"""
+    conn = get_db_connection()
+    if not conn:
+        logger.error("Could not connect to database")
+        return False
     
-    Args:
-        text (str): Original text
-        max_size (int): Maximum size in characters
+    try:
+        cursor = conn.cursor()
+        now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
-    Returns:
-        str: Limited text
-    """
-    if max_size is None:
-        max_size = MAX_TEXT_SIZE
+        # Get title and content from rewritten_data
+        title = rewritten_data.get("title", "")
+        content = rewritten_data.get("content", "")
         
-    if len(text) <= max_size:
-        return text
-    
-    logger.warning(f"Limiting text from {len(text)} to {max_size} characters")
-    
-    # Try to find a sentence boundary near the limit
-    truncated = text[:max_size]
-    sentence_end = max(
-        truncated.rfind('.'),
-        truncated.rfind('!'),
-        truncated.rfind('?'),
-        truncated.rfind('\n')
-    )
-    
-    # If found a sentence end, truncate there
-    if sentence_end > max_size * 0.7:  # At least 70% of the desired length
-        return text[:sentence_end+1] + "..."
-    else:
-        # Otherwise truncate at max_size and add ellipsis
-        return text[:max_size] + "..."
+        # Clean content before storing in database
+        clean_title = clean_content_for_db(title)
+        clean_content = clean_content_for_db(content)
+        
+        # Log the cleaned content
+        logger.info(f"Cleaned title: {clean_title[:50]}...")
+        logger.info(f"Cleaned content sample: {clean_content[:100]}...")
+        
+        # Generate slug from title
+        slug = generate_slug(clean_title)
+        
+        # Insert into rewritten_articles table
+        insert_query = """
+        INSERT INTO rewritten_articles (
+            title, slug, content, meta_description, user_id, category_id, 
+            original_article_id, ai_generated, status, 
+            created_at, updated_at
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        # Create a meta description from the first 100-200 chars of the content
+        meta_desc = clean_content[:200] + "..." if len(clean_content) > 200 else clean_content
+        
+        # Default values for user_id and category_id, adjust as needed
+        user_id = 1  # System user
+        category_id = 1  # Default category
+        
+        cursor.execute(insert_query, (
+            clean_title,
+            slug,
+            clean_content,
+            meta_desc,
+            user_id,
+            category_id,
+            post_id,
+            1,  # ai_generated = true
+            'pending',  # status
+            now,
+            now
+        ))
+        
+        # Update facebook_posts to mark as processed
+        update_query = """
+        UPDATE facebook_posts
+        SET processed = 1, updated_at = %s
+        WHERE id = %s
+        """
+        cursor.execute(update_query, (now, post_id))
+        
+        conn.commit()
+        logger.info(f"Successfully saved rewritten article for post ID {post_id}")
+        return True
+    except mysql.connector.Error as err:
+        logger.error(f"Database error when saving article: {err}")
+        return False
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
 
 def rewrite_text_with_gemini_api(original_text):
     """
@@ -214,18 +259,18 @@ Bài đăng Facebook gốc:
 {limited_text}
 
 Yêu cầu:
-1. Tạo một tiêu đề hấp dẫn cho bài báo bằng tiếng Việt
+1. Tạo một tiêu đề hấp dẫn cho bài báo bằng tiếng Việt (không quá 100 ký tự)
 2. Mở rộng nội dung chi tiết hơn và hấp dẫn hơn
 3. Làm cho nó chuyên nghiệp trong khi vẫn giữ ý nghĩa ban đầu
-4. Định dạng nội dung với các đoạn văn phù hợp
-5. Trả về một đối tượng JSON với các khóa 'title' và 'content' 
-6. TẤT CẢ NỘI DUNG PHẢI ĐƯỢC VIẾT BẰNG TIẾNG VIỆT
+4. Định dạng nội dung thành các đoạn văn rõ ràng, mỗi đoạn cách nhau đúng một dòng trống
+5. KHÔNG bao gồm các dấu ngoặc, JSON hoặc định dạng đặc biệt trong nội dung viết lại
+6. Tất cả nội dung phải được viết bằng tiếng Việt
+7. Cung cấp văn bản thuần túy, KHÔNG bao gồm bất kỳ định dạng JSON nào trong phản hồi
 
-Định dạng phản hồi của bạn dưới dạng JSON hợp lệ với cấu trúc sau:
-{{
-  "title": "Tiêu đề tiếng Việt của bạn ở đây",
-  "content": "Nội dung mở rộng tiếng Việt của bạn ở đây"
-}}"""
+Định dạng phản hồi:
+Tiêu đề: [tiêu đề bài viết]
+
+[nội dung bài viết với các đoạn văn được định dạng rõ ràng]"""
             
             # Generate response with timeout
             response = model.generate_content(prompt)
@@ -234,7 +279,32 @@ Yêu cầu:
             # Log the raw response for debugging
             logger.info(f"Raw model response: {response_text[:100]}...")
             
-            return response_text
+            # Extract title and content from response
+            title_match = re.search(r'Tiêu đề:?\s*(.+)', response_text)
+            title = title_match.group(1).strip() if title_match else "Bài viết đã viết lại"
+            
+            # Remove the title line and any lines before it to get the content
+            content_lines = response_text.split('\n')
+            content_start = 0
+            for i, line in enumerate(content_lines):
+                if "Tiêu đề:" in line or re.match(r'^[Tt]iêu đề', line):
+                    content_start = i + 1
+                    break
+            
+            # Join remaining lines as content, skipping empty lines at the start
+            while content_start < len(content_lines) and not content_lines[content_start].strip():
+                content_start += 1
+                
+            content = '\n'.join(content_lines[content_start:])
+            
+            # Clean up content
+            content = clean_content_for_db(content)
+            title = clean_content_for_db(title)
+            
+            return {
+                "title": title,
+                "content": content
+            }
             
         except Exception as e:
             logger.error(f"Google Gemini API error: {str(e)}")
@@ -242,16 +312,9 @@ Yêu cầu:
     
     try:
         # Use retry for request
-        response_text = retry_with_backoff(make_request, max_retries=MAX_RETRIES, initial_backoff=INITIAL_BACKOFF)
+        result = retry_with_backoff(make_request, max_retries=MAX_RETRIES, initial_backoff=INITIAL_BACKOFF)
+        return result
         
-        # Use improved JSON parsing
-        parsed_result = extract_json_from_text(response_text)
-        
-        return {
-            "title": parsed_result.get("title", "Bài viết đã viết lại"),
-            "content": parsed_result.get("content", response_text)
-        }
-            
     except requests.exceptions.RequestException as e:
         logger.error(f"Request error after retries: {e}")
         return {
@@ -381,63 +444,69 @@ def get_unprocessed_facebook_posts(limit=10):
             cursor.close()
             conn.close()
 
-def save_rewritten_article(post_id, post_data, rewritten_data):
-    """Save the rewritten article to the database"""
-    conn = get_db_connection()
-    if not conn:
-        logger.error("Could not connect to database")
-        return False
+# Thêm hàm retry (thử lại) cho các kết nối đến API
+def retry_with_backoff(func, max_retries=3, initial_backoff=5):
+    """
+    Retry a function with exponential backoff
     
-    try:
-        cursor = conn.cursor()
-        now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    Args:
+        func: Function to retry
+        max_retries: Maximum number of retries
+        initial_backoff: Initial backoff time in seconds
         
-        # Generate slug from title
-        slug = generate_slug(rewritten_data["title"])
+    Returns:
+        Result of the function or raises the last exception
+    """
+    retries = 0
+    backoff = initial_backoff
+    
+    while retries < max_retries:
+        try:
+            return func()
+        except requests.exceptions.RequestException as e:
+            retries += 1
+            if retries == max_retries:
+                logger.error(f"Max retries ({max_retries}) reached. Final error: {e}")
+                raise
+            
+            wait_time = backoff * (2 ** (retries - 1))
+            logger.warning(f"Request failed. Retrying in {wait_time} seconds... (Attempt {retries}/{max_retries})")
+            time.sleep(wait_time)
+
+def limit_text_size(text, max_size=None):
+    """
+    Limit text size to avoid excessively long prompts
+    
+    Args:
+        text (str): Original text
+        max_size (int): Maximum size in characters
         
-        # Insert into rewritten_articles table
-        insert_query = """
-        INSERT INTO rewritten_articles (
-            title, slug, content, user_id, category_id, 
-            original_article_id, ai_generated, status, 
-            created_at, updated_at
-        )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        # Default values for user_id and category_id, adjust as needed
-        user_id = 1  # System user
-        category_id = 1  # Default category
+    Returns:
+        str: Limited text
+    """
+    if max_size is None:
+        max_size = MAX_TEXT_SIZE
         
-        cursor.execute(insert_query, (
-            rewritten_data["title"],
-            slug,
-            rewritten_data["content"],
-            user_id,
-            category_id,
-            post_id,
-            1,  # ai_generated = true
-            'pending',  # status
-            now,
-            now
-        ))
-        
-        # Update facebook_posts to mark as processed
-        update_query = """
-        UPDATE facebook_posts
-        SET processed = 1, updated_at = %s
-        WHERE id = %s
-        """
-        cursor.execute(update_query, (now, post_id))
-        
-        conn.commit()
-        return True
-    except mysql.connector.Error as err:
-        logger.error(f"Database error: {err}")
-        return False
-    finally:
-        if conn.is_connected():
-            cursor.close()
-            conn.close()
+    if len(text) <= max_size:
+        return text
+    
+    logger.warning(f"Limiting text from {len(text)} to {max_size} characters")
+    
+    # Try to find a sentence boundary near the limit
+    truncated = text[:max_size]
+    sentence_end = max(
+        truncated.rfind('.'),
+        truncated.rfind('!'),
+        truncated.rfind('?'),
+        truncated.rfind('\n')
+    )
+    
+    # If found a sentence end, truncate there
+    if sentence_end > max_size * 0.7:  # At least 70% of the desired length
+        return text[:sentence_end+1] + "..."
+    else:
+        # Otherwise truncate at max_size and add ellipsis
+        return text[:max_size] + "..."
 
 @app.route('/api/rewrite', methods=['POST'])
 def rewrite_post():

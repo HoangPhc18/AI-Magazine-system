@@ -30,6 +30,17 @@ from selenium.common.exceptions import TimeoutException, NoSuchElementException,
 # Import the content extractor from scrape_articles_selenium.py
 from scrape_articles_selenium import extract_article_content
 
+# Import biến từ main.py
+try:
+    from main import CATEGORIES_API_URL, BACKEND_API_URL
+except ImportError:
+    # Fallback to environment variables if can't import from main
+    BACKEND_URL = os.getenv('BACKEND_URL', 'http://host.docker.internal')
+    BACKEND_PORT = os.getenv('BACKEND_PORT', '8000')
+    BASE_API_URL = f"{BACKEND_URL}:{BACKEND_PORT}/api"
+    CATEGORIES_API_URL = f"{BASE_API_URL}/categories"
+    BACKEND_API_URL = f"{BASE_API_URL}/articles"
+
 # 🔹 Số bài viết tối đa cho mỗi danh mục
 MAX_ARTICLES_PER_CATEGORY = 3
 
@@ -37,10 +48,6 @@ MAX_ARTICLES_PER_CATEGORY = 3
 os.environ["PORT"] = "5001"
 os.environ["HOST"] = "0.0.0.0"
 os.environ["DEBUG"] = "False"
-
-# API URLs
-BACKEND_API_URL = "http://host.docker.internal:8000/api/articles/import"
-CATEGORIES_API_URL = "http://host.docker.internal:8000/api/categories"
 
 # Thư mục đầu ra JSON
 OUTPUT_DIR = "output"
