@@ -247,6 +247,8 @@
         const featuredImageSelector = new MediaSelector({
             type: 'image',
             insertCallback: function(media) {
+                console.log('Featured image callback with media:', media);
+                // Đặt giá trị ID vào input hidden
                 document.getElementById('featured_image_id').value = media.id;
                 
                 // Update displayed image if it exists
@@ -256,17 +258,28 @@
                 if (existingImageInfo) {
                     // Update existing image
                     const img = existingImageInfo.querySelector('img');
-                    img.src = media.url;
-                    img.alt = media.name;
                     
-                    const nameEl = existingImageInfo.querySelector('p:last-child');
-                    if (nameEl) {
-                        nameEl.textContent = media.name;
+                    if (img) {
+                        // Cập nhật hình ảnh hiện tại nếu tồn tại
+                        img.src = media.url;
+                        img.alt = media.name;
+                        
+                        const nameEl = existingImageInfo.querySelector('p:last-child');
+                        if (nameEl) {
+                            nameEl.textContent = media.name;
+                        } else {
+                            const newNameEl = document.createElement('p');
+                            newNameEl.className = 'mt-1 text-sm text-gray-500';
+                            newNameEl.textContent = media.name;
+                            existingImageInfo.appendChild(newNameEl);
+                        }
                     } else {
-                        const newNameEl = document.createElement('p');
-                        newNameEl.className = 'mt-1 text-sm text-gray-500';
-                        newNameEl.textContent = media.name;
-                        existingImageInfo.appendChild(newNameEl);
+                        // Nếu img không tồn tại, tạo mới toàn bộ phần tử hiển thị
+                        existingImageInfo.innerHTML = `
+                            <p class="mb-2 text-sm text-gray-500">Ảnh hiện tại:</p>
+                            <img src="${media.url}" alt="${media.name}" class="max-w-xs h-auto rounded-lg shadow">
+                            <p class="mt-1 text-sm text-gray-500">${media.name}</p>
+                        `;
                     }
                 } else {
                     // Create new image display

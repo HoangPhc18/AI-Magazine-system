@@ -3,16 +3,18 @@
 @section('title', $article->meta_title ?? $article->title)
 
 @section('content')
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="bg-white shadow-xl rounded-xl overflow-hidden transition-all duration-500">
         <!-- Featured Image -->
         @if($article->featuredImage)
-            <div class="relative aspect-video overflow-hidden rounded-xl">
+            <div class="relative aspect-video overflow-hidden">
                 <img src="{{ $article->featuredImage->url }}" alt="{{ $article->title }}" class="w-full h-full object-cover">
+                <div class="absolute bottom-0 left-0 w-full h-1/4 bg-gradient-to-t from-black/50 to-transparent"></div>
             </div>
         @elseif($article->featured_image)
-            <div class="relative aspect-video overflow-hidden rounded-xl">
+            <div class="relative aspect-video overflow-hidden">
                 <img src="{{ asset('storage/' . $article->featured_image) }}" alt="{{ $article->title }}" class="w-full h-full object-cover">
+                <div class="absolute bottom-0 left-0 w-full h-1/4 bg-gradient-to-t from-black/50 to-transparent"></div>
             </div>
         @endif
 
@@ -48,7 +50,9 @@
 
             <!-- Article Content -->
             <div class="prose prose-lg max-w-none text-gray-700 mb-10 article-content">
-                {!! $article->content !!}
+                <div class="article-container">
+                    {!! $article->processed_content !!}
+                </div>
             </div>
 
             <!-- Social Share -->
@@ -88,7 +92,9 @@
             @foreach($relatedArticles as $related)
             <div class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300 hover-lift group">
                 <div class="h-40 overflow-hidden">
-                    @if($related->featured_image)
+                    @if($related->featuredImage)
+                        <img src="{{ $related->featuredImage->url }}" alt="{{ $related->title }}" class="w-full h-full object-cover transform group-hover:scale-105 transition-all duration-500">
+                    @elseif($related->featured_image)
                         <img src="{{ asset('storage/' . $related->featured_image) }}" alt="{{ $related->title }}" class="w-full h-full object-cover transform group-hover:scale-105 transition-all duration-500">
                     @else
                         <div class="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center group-hover:from-primary-50 group-hover:to-gray-100 transition-colors duration-500">
@@ -122,35 +128,124 @@
 </div>
 
 <style>
+    /* Container chính cho nội dung bài viết */
+    .article-content .article-container {
+        @apply w-full mx-auto overflow-hidden;
+    }
     .article-content h2 {
         @apply text-2xl font-bold text-gray-800 my-6;
     }
     .article-content h3 {
         @apply text-xl font-bold text-gray-800 my-5;
     }
+    .article-content h4 {
+        @apply text-lg font-bold text-gray-800 my-4;
+    }
     .article-content p {
-        @apply mb-4 leading-relaxed;
+        @apply mb-6 leading-relaxed text-gray-700;
+    }
+    .article-content p + p {
+        @apply mt-4;
+    }
+    .article-content br {
+        @apply block content-[''] h-4;
     }
     .article-content a {
         @apply text-primary-600 hover:text-primary-800 transition-colors;
     }
     .article-content ul {
-        @apply list-disc pl-5 mb-4;
+        @apply list-disc pl-5 mb-4 space-y-2;
     }
     .article-content ol {
-        @apply list-decimal pl-5 mb-4;
+        @apply list-decimal pl-5 mb-4 space-y-2;
+    }
+    .article-content .image-container {
+        @apply my-6 mx-auto text-center max-w-full overflow-hidden;
     }
     .article-content img {
-        @apply rounded-lg my-6 mx-auto;
+        @apply rounded-lg my-6 mx-auto max-w-full h-[400px] inline-block object-cover;
+    }
+    .article-content .img-fluid {
+        @apply rounded-lg my-6 mx-auto max-w-full h-[400px] shadow-md hover:shadow-lg transition-shadow duration-300 block object-cover;
+    }
+    /* Xử lý hình ảnh full-width */
+    .article-content .full-width {
+        @apply w-full max-w-full;
+    }
+    .article-content img.full-width {
+        @apply w-full object-cover object-center h-[400px];
+    }
+    .article-content .image-wrapper.full-width {
+        @apply w-full my-6 max-w-full;
+    }
+    .article-content .image-wrapper.full-width img {
+        @apply w-full m-0 h-[400px];
+    }
+    .article-content figure {
+        @apply my-8 mx-auto text-center max-w-3xl;
+    }
+    .article-content figure img {
+        @apply inline-block mx-auto rounded-lg shadow-md max-w-full h-[400px] object-cover;
+    }
+    .article-content figure figcaption {
+        @apply text-sm text-gray-600 mt-2 italic;
+    }
+    .article-content .image-grid {
+        @apply grid grid-cols-1 md:grid-cols-2 gap-4 my-6;
+    }
+    .article-content .image-grid img {
+        @apply my-0 w-full h-full object-cover;
+    }
+    .article-content img.small {
+        @apply max-w-xs;
+    }
+    .article-content img.medium {
+        @apply max-w-md;
+    }
+    .article-content img.float-left {
+        @apply float-left mr-4 mb-4;
+    }
+    .article-content img.float-right {
+        @apply float-right ml-4 mb-4;
     }
     .article-content blockquote {
-        @apply border-l-4 border-primary-300 pl-4 italic my-6 text-gray-600;
+        @apply border-l-4 border-primary-300 pl-4 italic my-6 text-gray-600 bg-gray-50 py-2 pr-2 rounded-r;
     }
     .line-clamp-2 {
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
         overflow: hidden;
+    }
+    .article-content p + p > img {
+        @apply mt-2;
+    }
+    .article-content p:has(img) + p:has(img) {
+        @apply mt-1;
+    }
+    .article-content p:has(img) {
+        @apply text-center w-full mx-auto;
+    }
+    .article-content img[style*="float:left"],
+    .article-content img[style*="float: left"] {
+        @apply float-left mr-4 mb-4;
+    }
+    .article-content img[style*="float:right"],
+    .article-content img[style*="float: right"] {
+        @apply float-right ml-4 mb-4;
+    }
+    .article-content .image-wrapper {
+        @apply block w-full text-center my-6 overflow-hidden;
+    }
+    @media (max-width: 640px) {
+        .article-content img.float-left,
+        .article-content img.float-right,
+        .article-content img[style*="float:left"],
+        .article-content img[style*="float:right"],
+        .article-content img[style*="float: left"],
+        .article-content img[style*="float: right"] {
+            @apply float-none mx-auto my-4 block;
+        }
     }
 </style>
 @endsection 

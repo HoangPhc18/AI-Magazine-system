@@ -366,6 +366,9 @@ class MediaSelector {
             this.items = [];
         }
         
+        // Lưu trữ items để sử dụng sau này
+        this._itemsCache = this.items;
+        
         // Hiển thị thông báo nếu không có data
         this.toggleEmptyMessage(this.items.length === 0);
         
@@ -375,8 +378,9 @@ class MediaSelector {
         
         this.items.forEach(item => {
             // Kiểm tra xem item có trong danh sách đã chọn không
-            const isSelected = this.options.selectedIds.includes(item.id) || 
-                              this.selectedItems.some(selectedItem => selectedItem.id === item.id);
+            const isSelected = Array.isArray(this.options.selectedIds) && 
+                              this.options.selectedIds.includes(parseInt(item.id)) || 
+                              this.selectedItems.some(selectedItem => parseInt(selectedItem.id) === parseInt(item.id));
             
             console.log(`Item ${item.id} isSelected:`, isSelected);
             
@@ -386,12 +390,16 @@ class MediaSelector {
             itemElement.dataset.id = item.id;
             
             // Tạo hình ảnh
-            let thumbnail = item.thumbnail || '/images/placeholder.png';
+            let thumbnail = item.thumbnail || '/storage/images/placeholder.png';
+            if (item.url) {
+                thumbnail = item.url; // Sử dụng URL trực tiếp nếu có
+            }
+            
             itemElement.innerHTML = `
                 <div class="h-32 bg-gray-100 overflow-hidden">
-                    <img src="${thumbnail}" class="w-full h-full object-cover" alt="${item.name}">
+                    <img src="${thumbnail}" class="w-full h-full object-cover" alt="${item.name || 'Media item'}" onerror="this.onerror=null; this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22100%22%20height%3D%22100%22%20viewBox%3D%220%200%20100%20100%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20fill%3D%22%23f8f9fa%22%20width%3D%22100%22%20height%3D%22100%22%2F%3E%3Ctext%20fill%3D%22%23999%22%20font-family%3D%22Arial%2C%20sans-serif%22%20font-size%3D%2210%22%20text-anchor%3D%22middle%22%20x%3D%2250%22%20y%3D%2255%22%3E${item.name || 'Media'}%3C%2Ftext%3E%3C%2Fsvg%3E'">
                 </div>
-                <div class="p-2 text-sm truncate" title="${item.name}">${item.name}</div>
+                <div class="p-2 text-sm truncate" title="${item.name || 'Media item'}">${item.name || 'Media item'}</div>
             `;
             
             // Thêm checkmark nếu đã chọn
@@ -417,14 +425,32 @@ class MediaSelector {
         });
         
         // Cập nhật lại selectedItems từ selectedIds
-        if (this.options.selectedIds && this.options.selectedIds.length > 0) {
-            this.selectedItems = this.items.filter(item => this.options.selectedIds.includes(item.id));
-            if (!this.options.multiple && this.selectedItems.length > 1) {
+        if (Array.isArray(this.options.selectedIds) && this.options.selectedIds.length > 0) {
+            // Đảm bảo chỉ lấy những item thực sự tồn tại trong danh sách items hiện tại
+            const foundItems = this.items.filter(item => 
+                this.options.selectedIds.includes(parseInt(item.id))
+            );
+            
+            // Nếu có items phù hợp, cập nhật selectedItems
+            if (foundItems.length > 0) {
+                this.selectedItems = foundItems;
+                
                 // Nếu không phải chế độ multiple, chỉ giữ lại item đầu tiên
-                this.selectedItems = [this.selectedItems[0]];
-                this.options.selectedIds = [this.selectedItems[0].id];
+                if (!this.options.multiple && this.selectedItems.length > 1) {
+                    this.selectedItems = [this.selectedItems[0]];
+                    this.options.selectedIds = [parseInt(this.selectedItems[0].id)];
+                }
+                
+                console.log('Updated selectedItems from selectedIds:', this.selectedItems);
+            } else {
+                // Nếu không tìm thấy item nào trong trang hiện tại, có thể item đã chọn nằm ở trang khác
+                console.log('Selected items not found in current page. IDs:', this.options.selectedIds);
             }
-            console.log('Updated selectedItems from selectedIds:', this.selectedItems);
+        }
+        
+        // Hiển thị thông tin về item đã chọn (nếu có)
+        if (typeof this.updateSelectedInfo === 'function') {
+            this.updateSelectedInfo();
         }
     }
     
@@ -566,8 +592,13 @@ class MediaSelector {
             }
         }
         
-        // Cập nhật thông tin cho form ngầm
-        this.updateSelectedInfo();
+        // Thêm phương thức updateSelectedInfo nếu chưa được định nghĩa
+        if (typeof this.updateSelectedInfo !== 'function') {
+            // Không làm gì cả nếu phương thức không tồn tại
+            console.log('updateSelectedInfo is not defined, skipping.');
+        } else {
+            this.updateSelectedInfo();
+        }
         
         console.log('After toggle - Selected items:', this.selectedItems);
         console.log('After toggle - Selected IDs:', this.options.selectedIds);
@@ -650,12 +681,76 @@ class MediaSelector {
         }
         
         if (typeof this.options.insertCallback === 'function') {
-            console.log('Calling insertCallback with:', this.options.multiple ? this.selectedItems : this.selectedItems[0]);
-            this.options.insertCallback(this.options.multiple ? this.selectedItems : this.selectedItems[0]);
+            // Đảm bảo các đối tượng media được chọn đầy đủ các trường cần thiết
+            const mediaToInsert = this.options.multiple ? this.selectedItems : this.selectedItems[0];
+            
+            // Kiểm tra và dự phòng nếu item không có id
+            if (this.options.multiple) {
+                // Xử lý các item trong mảng
+                const safeItems = mediaToInsert.map(item => {
+                    // Đảm bảo item có id, url, và name
+                    return {
+                        id: item && item.id ? item.id : 0,
+                        url: item && item.url ? item.url : (item && item.thumbnail ? item.thumbnail : '/storage/images/placeholder.png'),
+                        name: item && item.name ? item.name : 'Unknown'
+                    };
+                });
+                console.log('Calling insertCallback with safe items:', safeItems);
+                this.options.insertCallback(safeItems);
+            } else {
+                // Xử lý item đơn lẻ
+                const safeItem = {
+                    id: mediaToInsert && mediaToInsert.id ? mediaToInsert.id : 0,
+                    url: mediaToInsert && mediaToInsert.url ? mediaToInsert.url : (mediaToInsert && mediaToInsert.thumbnail ? mediaToInsert.thumbnail : '/storage/images/placeholder.png'),
+                    name: mediaToInsert && mediaToInsert.name ? mediaToInsert.name : 'Unknown'
+                };
+                console.log('Calling insertCallback with safe item:', safeItem);
+                this.options.insertCallback(safeItem);
+            }
         } else {
             console.warn('No insertCallback provided');
         }
         
+        this.close();
+    }
+
+    insertMedia() {
+        let selectedMedia = null;
+        
+        // Ensure we have selectedItems and it's an array
+        if (!Array.isArray(this.selectedItems) || this.selectedItems.length === 0) {
+            console.warn('No media selected or selectedItems is not an array');
+            return;
+        }
+        
+        // Get the first selected item
+        selectedMedia = this.selectedItems[0];
+        
+        // Validate that the media object has the required properties
+        if (!selectedMedia || typeof selectedMedia !== 'object') {
+            console.error('Selected media is not a valid object:', selectedMedia);
+            return;
+        }
+        
+        // Make sure it has id, url and name properties
+        if (!selectedMedia.id || !selectedMedia.url) {
+            console.error('Selected media missing required properties:', selectedMedia);
+            return;
+        }
+        
+        // Ensure name property exists
+        if (!selectedMedia.name) {
+            selectedMedia.name = 'Unnamed media';
+        }
+        
+        console.log('Inserting media:', selectedMedia);
+        
+        // Call the insertCallback with the selected media
+        if (this.options.insertCallback && typeof this.options.insertCallback === 'function') {
+            this.options.insertCallback(selectedMedia);
+        }
+        
+        // Close the modal
         this.close();
     }
 }
