@@ -118,6 +118,46 @@ docker compose build scheduler
 docker compose up -d scheduler
 ```
 
+## API Documentation
+
+Tài liệu API (Swagger/OpenAPI) có sẵn và có thể được truy cập theo các cách sau:
+
+### Xem tài liệu API trực tuyến
+
+Truy cập http://localhost:8000/docs để xem tài liệu API được tạo bằng Swagger UI.
+
+### Tệp định nghĩa API
+
+Các tệp định nghĩa API có sẵn trong thư mục `backend/docs/`:
+- `swagger.yaml`: Định nghĩa API ở định dạng YAML
+- `swagger.json`: Định nghĩa API ở định dạng JSON
+
+Bạn có thể sử dụng các tệp này với các công cụ như:
+- [Swagger Editor](https://editor.swagger.io/)
+- [Swagger UI](https://swagger.io/tools/swagger-ui/)
+- [Postman](https://www.postman.com/)
+
+### Sử dụng API
+
+1. **Xác thực**: 
+   - Đăng ký người dùng mới: `POST /api/auth/register`
+   - Đăng nhập: `POST /api/auth/login`
+   - Sử dụng token nhận được trong header `Authorization: Bearer {token}`
+
+2. **Endpoints chính**:
+   - Bài viết: `/api/articles`
+   - Danh mục: `/api/categories`
+   - Facebook Posts: `/api/facebook-posts`
+   - Media: `/api/media`
+   - Quản lý người dùng (Admin): `/api/admin/users`
+   - Cài đặt AI: `/api/ai-settings` hoặc `/api/admin/ai-settings`
+
+3. **Để biết thêm chi tiết**, vui lòng tham khảo tài liệu API đầy đủ.
+
+### Cấu hình tài liệu API (dành cho nhà phát triển)
+
+Mặc định, tài liệu API được phục vụ từ thư mục `backend/docs/`. Nếu bạn muốn thay đổi, hãy cập nhật các tệp định nghĩa trong thư mục đó và khởi động lại server.
+
 ## Bảo trì
 
 ### Sao lưu dữ liệu

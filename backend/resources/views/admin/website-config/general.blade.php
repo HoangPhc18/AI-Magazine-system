@@ -111,17 +111,17 @@
                                     Chọn từ thư viện
                                 </button>
                                 
-                                <span class="text-gray-500 self-center">hoặc</span>
+                                <!-- <span class="text-gray-500 self-center">hoặc</span> -->
                             </div>
                             
-                            <label for="logo" class="block text-sm font-medium text-gray-700">
+                            <!-- <label for="logo" class="block text-sm font-medium text-gray-700">
                                 Tải lên logo mới
-                            </label>
+                            </label> -->
                             <input type="file" name="logo" id="logo" 
                                    class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4
                                    file:rounded-md file:border-0 file:text-sm file:font-semibold
                                    file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100">
-                            <p class="mt-1 text-sm text-gray-500">Kích thước tối ưu: 200x80 pixels. (PNG, JPG, JPEG)</p>
+                            <!-- <p class="mt-1 text-sm text-gray-500">Kích thước tối ưu: 200x80 pixels. (PNG, JPG, JPEG)</p> -->
                             @error('logo')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror
@@ -149,17 +149,17 @@
                                     Chọn từ thư viện
                                 </button>
                                 
-                                <span class="text-gray-500 self-center">hoặc</span>
+                                <!-- <span class="text-gray-500 self-center">hoặc</span> -->
                             </div>
                             
-                            <label for="favicon" class="block text-sm font-medium text-gray-700">
+                            <!-- <label for="favicon" class="block text-sm font-medium text-gray-700">
                                 Tải lên favicon mới
-                            </label>
+                            </label> -->
                             <input type="file" name="favicon" id="favicon" 
                                    class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4
                                    file:rounded-md file:border-0 file:text-sm file:font-semibold
                                    file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100">
-                            <p class="mt-1 text-sm text-gray-500">Kích thước tối ưu: 32x32 pixels. (PNG, ICO)</p>
+                            <!-- <p class="mt-1 text-sm text-gray-500">Kích thước tối ưu: 32x32 pixels. (PNG, ICO)</p> -->
                             @error('favicon')
                                 <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
                             @enderror

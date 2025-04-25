@@ -178,7 +178,9 @@
 
         <div class="lg:pl-64 min-h-screen">
             <main class="min-h-screen pb-20">
-                @yield('content')
+                <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 py-6">
+                    @yield('content')
+                </div>
             </main>
         </div>
     </div>

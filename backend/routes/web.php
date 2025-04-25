@@ -113,3 +113,8 @@ Route::middleware(['auth', AdminMiddleware::class])->prefix('admin')->name('admi
 
 // Test route for image debugging
 Route::get('/debug-images', [App\Http\Controllers\Admin\HomeController::class, 'debugImagePaths']);
+
+// Serve API Documentation
+Route::get('/docs', function () {
+    return view('docs.index');
+});

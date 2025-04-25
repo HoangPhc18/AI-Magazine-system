@@ -1,0 +1,16 @@
+Options +Indexes
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Serve .yaml files with the correct content type
+    <FilesMatch "\.yaml$">
+        ForceType text/yaml
+        Header set Access-Control-Allow-Origin "*"
+    </FilesMatch>
+    
+    # Serve .json files with the correct content type
+    <FilesMatch "\.json$">
+        ForceType application/json
+        Header set Access-Control-Allow-Origin "*"
+    </FilesMatch>
+</IfModule> 

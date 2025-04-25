@@ -1,0 +1,1599 @@
+openapi: 3.0.0
+info:
+  title: Magazine AI System API
+  description: API documentation for Magazine AI System
+  version: 1.0.0
+servers:
+  - url: /api
+    description: API Server
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [admin, user]
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    
+    Article:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        title:
+          type: string
+        slug:
+          type: string
+        summary:
+          type: string
+          nullable: true
+        content:
+          type: string
+        category:
+          $ref: '#/components/schemas/Category'
+        status:
+          type: string
+          enum: [approved, archived]
+        featured_image:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Media:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        file_name:
+          type: string
+        file_path:
+          type: string
+        file_size:
+          type: integer
+        file_type:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AISettings:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        api_key:
+          type: string
+        model:
+          type: string
+        temperature:
+          type: number
+          format: float
+        max_tokens:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    FacebookPost:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        content:
+          type: string
+        post_url:
+          type: string
+        page_name:
+          type: string
+        post_date:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [pending, processed, rewritten, failed]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        message:
+          type: string
+        status:
+          type: string
+          enum: [error]
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      description: Creates a new user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+                - password_confirmation
+              properties:
+                name:
+                  type: string
+                  example: John Doe
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  format: password
+                  example: password123
+                password_confirmation:
+                  type: string
+                  format: password
+                  example: password123
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  token:
+                    type: string
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login a user
+      description: Authenticates a user and returns a token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  format: password
+                  example: password123
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  token:
+                    type: string
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout a user
+      description: Invalidates the user's token
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /auth/profile:
+    get:
+      tags:
+        - Authentication
+      summary: Get user profile
+      description: Returns the authenticated user's profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /articles:
+    get:
+      tags:
+        - Articles
+      summary: Get all articles
+      description: Returns all approved articles
+      responses:
+        '200':
+          description: List of articles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Article'
+    post:
+      tags:
+        - Articles
+      summary: Create article
+      description: Creates a new article (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - content
+              properties:
+                title:
+                  type: string
+                content:
+                  type: string
+                summary:
+                  type: string
+                category_id:
+                  type: integer
+                featured_image:
+                  type: string
+      responses:
+        '201':
+          description: Article created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Article'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /articles/latest:
+    get:
+      tags:
+        - Articles
+      summary: Get latest articles
+      description: Returns the latest approved articles
+      parameters:
+        - name: limit
+          in: query
+          description: Number of articles to return
+          required: false
+          schema:
+            type: integer
+            default: 6
+      responses:
+        '200':
+          description: List of latest articles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Article'
+
+  /articles/{article}:
+    get:
+      tags:
+        - Articles
+      summary: Get article by ID
+      description: Returns a specific article by ID
+      parameters:
+        - name: article
+          in: path
+          description: ID of the article
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Article details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Article'
+        '404':
+          description: Article not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Articles
+      summary: Update article
+      description: Updates a specific article (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: article
+          in: path
+          description: ID of the article
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                content:
+                  type: string
+                summary:
+                  type: string
+                category_id:
+                  type: integer
+                featured_image:
+                  type: string
+                status:
+                  type: string
+                  enum: [approved, archived]
+      responses:
+        '200':
+          description: Article updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Article'
+        '404':
+          description: Article not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Articles
+      summary: Delete article
+      description: Deletes a specific article (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: article
+          in: path
+          description: ID of the article
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Article deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          description: Article not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /articles/search:
+    get:
+      tags:
+        - Articles
+      summary: Search articles
+      description: Searches articles by query
+      parameters:
+        - name: query
+          in: query
+          description: Search query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of articles matching the search query
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Article'
+
+  /articles/import:
+    post:
+      tags:
+        - Articles
+      summary: Import articles from scraper
+      description: Imports multiple articles from a scraper service
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - articles
+              properties:
+                articles:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - title
+                      - content
+                      - source_name
+                      - source_url
+                    properties:
+                      title:
+                        type: string
+                      content:
+                        type: string
+                      summary:
+                        type: string
+                      source_name:
+                        type: string
+                      source_url:
+                        type: string
+                      source_icon:
+                        type: string
+                      date:
+                        type: string
+                        format: date-time
+                      category:
+                        type: string
+                      meta_data:
+                        type: object
+      responses:
+        '200':
+          description: Import results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [success, warning, error]
+                  message:
+                    type: string
+                  skipped:
+                    type: integer
+                  execution_time:
+                    type: string
+                  errors:
+                    type: array
+                    items:
+                      type: string
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /categories:
+    get:
+      tags:
+        - Categories
+      summary: Get all categories
+      description: Returns all categories
+      responses:
+        '200':
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Category'
+    post:
+      tags:
+        - Categories
+      summary: Create category
+      description: Creates a new category (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '201':
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /categories/{category}:
+    get:
+      tags:
+        - Categories
+      summary: Get category by ID
+      description: Returns a specific category by ID
+      parameters:
+        - name: category
+          in: path
+          description: ID of the category
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Category details
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Category'
+        '404':
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Categories
+      summary: Update category
+      description: Updates a specific category (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: category
+          in: path
+          description: ID of the category
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+      responses:
+        '200':
+          description: Category updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '404':
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Categories
+      summary: Delete category
+      description: Deletes a specific category (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: category
+          in: path
+          description: ID of the category
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Category deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /categories/{category}/articles:
+    get:
+      tags:
+        - Categories
+      summary: Get articles by category
+      description: Returns all articles belonging to a specific category
+      parameters:
+        - name: category
+          in: path
+          description: ID of the category
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of articles in the category
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Article'
+        '404':
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /facebook-posts:
+    get:
+      tags:
+        - Facebook Posts
+      summary: Get all Facebook posts
+      description: Returns all Facebook posts
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of Facebook posts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FacebookPost'
+    delete:
+      tags:
+        - Facebook Posts
+      summary: Delete Facebook post
+      description: Deletes a specific Facebook post
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID of the Facebook post
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Facebook post deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          description: Facebook post not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /facebook-posts/scrape:
+    post:
+      tags:
+        - Facebook Posts
+      summary: Scrape Facebook posts
+      description: Initiates a scraping job for Facebook posts
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - url
+              properties:
+                url:
+                  type: string
+                  example: https://www.facebook.com/examplepage
+      responses:
+        '200':
+          description: Scrape job initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  job_id:
+                    type: string
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /facebook-posts/scrape-api:
+    post:
+      tags:
+        - Facebook Posts
+      summary: Scrape Facebook posts via API
+      description: Initiates a scraping job for Facebook posts using an external API
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - urls
+              properties:
+                urls:
+                  type: array
+                  items:
+                    type: string
+                  example: ["https://www.facebook.com/examplepage"]
+      responses:
+        '200':
+          description: Scrape job initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+                  job_id:
+                    type: string
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /facebook-posts/jobs:
+    get:
+      tags:
+        - Facebook Posts
+      summary: Get all scrape jobs
+      description: Returns all scraping jobs
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of scraping jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        status:
+                          type: string
+                        progress:
+                          type: integer
+                        created_at:
+                          type: string
+                          format: date-time
+
+  /facebook-posts/jobs/{jobId}:
+    get:
+      tags:
+        - Facebook Posts
+      summary: Get job status
+      description: Returns the status of a specific scraping job
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          description: ID of the job
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  status:
+                    type: string
+                  progress:
+                    type: integer
+                  created_at:
+                    type: string
+                    format: date-time
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /facebook-posts/{id}:
+    get:
+      tags:
+        - Facebook Posts
+      summary: Get Facebook post by ID
+      description: Returns a specific Facebook post by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID of the Facebook post
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Facebook post details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacebookPost'
+        '404':
+          description: Facebook post not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /facebook-posts/{id}/status:
+    patch:
+      tags:
+        - Facebook Posts
+      summary: Update Facebook post status
+      description: Updates the status of a specific Facebook post
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID of the Facebook post
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [pending, processed, rewritten, failed]
+      responses:
+        '200':
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FacebookPost'
+        '404':
+          description: Facebook post not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /media:
+    get:
+      tags:
+        - Media
+      summary: Get all media
+      description: Returns all media files (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of media files
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Media'
+    post:
+      tags:
+        - Media
+      summary: Upload media
+      description: Uploads a new media file
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: Media uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /media/select:
+    get:
+      tags:
+        - Media
+      summary: Select media
+      description: Returns media files for selection
+      parameters:
+        - name: search
+          in: query
+          description: Search term
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Page number
+          required: false
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: List of media files
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Media'
+                  meta:
+                    type: object
+                    properties:
+                      current_page:
+                        type: integer
+                      last_page:
+                        type: integer
+                      per_page:
+                        type: integer
+                      total:
+                        type: integer
+
+  /media/{media}:
+    get:
+      tags:
+        - Media
+      summary: Get media by ID
+      description: Returns a specific media file by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: media
+          in: path
+          description: ID of the media
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Media details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+        '404':
+          description: Media not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Media
+      summary: Delete media
+      description: Deletes a specific media file
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: media
+          in: path
+          description: ID of the media
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Media deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          description: Media not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/dashboard/stats:
+    get:
+      tags:
+        - Admin
+      summary: Get dashboard stats
+      description: Returns statistics for the admin dashboard
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_articles:
+                    type: integer
+                  total_users:
+                    type: integer
+                  total_categories:
+                    type: integer
+                  recent_articles:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Article'
+
+  /admin/users:
+    get:
+      tags:
+        - Admin
+      summary: Get all users
+      description: Returns all users (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+    post:
+      tags:
+        - Admin
+      summary: Create user
+      description: Creates a new user (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+                - role
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                role:
+                  type: string
+                  enum: [admin, user]
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/users/{id}:
+    get:
+      tags:
+        - Admin
+      summary: Get user by ID
+      description: Returns a specific user by ID (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID of the user
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Admin
+      summary: Update user
+      description: Updates a specific user (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID of the user
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                role:
+                  type: string
+                  enum: [admin, user]
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Admin
+      summary: Delete user
+      description: Deletes a specific user (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID of the user
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/users/{id}/status:
+    patch:
+      tags:
+        - Admin
+      summary: Update user status
+      description: Updates the status of a specific user (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          description: ID of the user
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - is_active
+              properties:
+                is_active:
+                  type: boolean
+      responses:
+        '200':
+          description: User status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/ai-settings:
+    get:
+      tags:
+        - AI Settings
+      summary: Get AI settings
+      description: Returns the current AI settings (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: AI settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AISettings'
+    put:
+      tags:
+        - AI Settings
+      summary: Update AI settings
+      description: Updates the AI settings (admin only)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                api_key:
+                  type: string
+                model:
+                  type: string
+                temperature:
+                  type: number
+                  format: float
+                max_tokens:
+                  type: integer
+      responses:
+        '200':
+          description: AI settings updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AISettings'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /admin/ai-settings/test-connection:
+    post:
+      tags:
+        - AI Settings
+      summary: Test AI connection
+      description: Tests the connection to the AI service (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Connection test results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [success, error]
+                  message:
+                    type: string
+
+  /admin/ai-settings/reset:
+    post:
+      tags:
+        - AI Settings
+      summary: Reset AI settings
+      description: Resets the AI settings to default values (admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: AI settings reset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AISettings'
+  
+  /ai-settings:
+    get:
+      tags:
+        - User
+      summary: Get user AI settings
+      description: Returns the current user's AI settings
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: AI settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AISettings'
+    put:
+      tags:
+        - User
+      summary: Update user AI settings
+      description: Updates the user's AI settings
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                model:
+                  type: string
+                temperature:
+                  type: number
+                  format: float
+                max_tokens:
+                  type: integer
+      responses:
+        '200':
+          description: AI settings updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AISettings'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error' 
