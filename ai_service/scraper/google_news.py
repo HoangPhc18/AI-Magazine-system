@@ -184,8 +184,10 @@ def import_article_to_backend(category_id, article_url, title, content):
             'content': content
         }
         
-        logger.info(f"Importing article to backend: {BACKEND_API_URL}")
-        response = requests.post(BACKEND_API_URL, headers=headers, json=data, timeout=30)
+        # Sử dụng endpoint import thay vì API articles trực tiếp
+        import_endpoint = f"{BACKEND_API_URL}/import"
+        logger.info(f"Importing article to backend: {import_endpoint}")
+        response = requests.post(import_endpoint, headers=headers, json=data, timeout=30)
         
         if response.status_code == 200 or response.status_code == 201:
             logger.info(f"Successfully imported article for category ID {category_id}")
@@ -743,7 +745,13 @@ def search_with_category(category_id):
         if not article_url:
             logger.error(f"No article URL found for category: {category_name}")
             return None
-            
+        
+        # Kiểm tra bài viết đã tồn tại trong database chưa
+        if check_article_exists(article_url):
+            logger.warning(f"Bài viết đã tồn tại trong database, tìm bài viết khác: {article_url}")
+            # Có thể thêm logic để tìm bài viết khác ở đây nếu cần
+            # Hiện tại chúng ta chấp nhận và tiếp tục xử lý, nhưng không import vào database
+        
         logger.info(f"Found article URL: {article_url}, extracting content...")
         
         # Trích xuất nội dung bài viết
@@ -768,8 +776,11 @@ def search_with_category(category_id):
         if not json_filepath:
             logger.error(f"Failed to save article to JSON for category: {category_name}")
         
-        # Lưu thông tin vào backend nếu cần
-        # import_article_to_backend(category_id, article_url, article_data["title"], article_data["content"])
+        # Lưu thông tin vào backend nếu bài viết chưa tồn tại
+        if not check_article_exists(article_url):
+            import_article_to_backend(category_id, article_url, article_data["title"], article_data["content"])
+        else:
+            logger.info(f"Bỏ qua import vì bài viết đã tồn tại trong database")
         
         return {
             "category_id": category_id,
@@ -911,6 +922,53 @@ def save_article_to_json(category_id, category_name, article_url, article_data):
     except Exception as e:
         logger.error(f"Error saving article to JSON: {str(e)}")
         return None
+
+def check_article_exists(url):
+    """
+    Kiểm tra một bài viết đã tồn tại trong database hay chưa dựa trên URL
+    
+    Args:
+        url (str): URL của bài viết cần kiểm tra
+    
+    Returns:
+        bool: True nếu bài viết đã tồn tại, False nếu chưa tồn tại hoặc có lỗi
+    """
+    try:
+        # URL để kiểm tra bài viết
+        check_url = f"{BACKEND_API_URL}/articles/check"
+        
+        headers = {
+            'User-Agent': random.choice(USER_AGENTS),
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        }
+        
+        data = {
+            'url': url
+        }
+        
+        logger.info(f"Kiểm tra bài viết đã tồn tại: {url}")
+        response = requests.post(check_url, headers=headers, json=data, timeout=10)
+        
+        if response.status_code == 200:
+            result = response.json()
+            exists = result.get('exists', False)
+            
+            if exists:
+                logger.warning(f"Bài viết đã tồn tại trong database: {url}")
+                return True
+            else:
+                logger.info(f"Bài viết chưa tồn tại trong database: {url}")
+                return False
+        else:
+            # Nếu API thất bại, giả định bài viết chưa tồn tại để tiếp tục xử lý
+            logger.warning(f"Không thể kiểm tra bài viết, giả định chưa tồn tại: {url}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Lỗi khi kiểm tra bài viết: {str(e)}")
+        # Trong trường hợp lỗi, giả định bài viết chưa tồn tại để tiếp tục xử lý
+        return False
 
 if __name__ == '__main__':
     # Kiểm tra xem có chạy chế độ xử lý tất cả danh mục hay không

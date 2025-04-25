@@ -1,3 +1,2 @@
-2025/04/24-09:20:19.898 53 Reusing MANIFEST /app/chrome_profile/Profile 3/Local Storage/leveldb/MANIFEST-000001
-2025/04/24-09:20:19.961 53 Recovering log #3
-2025/04/24-09:20:19.968 53 Reusing old log /app/chrome_profile/Profile 3/Local Storage/leveldb/000003.log 
+2025/04/25-05:03:42.848 54 Creating DB /app/chrome_profile/Profile 3/Local Storage/leveldb since it was missing.
+2025/04/25-05:03:42.895 54 Reusing MANIFEST /app/chrome_profile/Profile 3/Local Storage/leveldb/MANIFEST-000001

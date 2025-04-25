@@ -93,10 +93,13 @@ BASE_API_URL = f"{BACKEND_URL}:{BACKEND_PORT}/api"
 if BACKEND_PORT == '80':
     BASE_API_URL = f"{BACKEND_URL}/api"
 
-BACKEND_API_URL = f"{BASE_API_URL}/articles"
+# URL configuration
+BACKEND_API_URL = BASE_API_URL
+CATEGORIES_API_URL = f"{BASE_API_URL}/categories"
+ARTICLES_API_URL = f"{BASE_API_URL}/articles"
 ARTICLES_BATCH_API_URL = f"{BASE_API_URL}/articles/batch"
 ARTICLES_IMPORT_API_URL = f"{BASE_API_URL}/articles/import"
-CATEGORIES_API_URL = f"{BASE_API_URL}/categories"
+ARTICLES_CHECK_API_URL = f"{BASE_API_URL}/articles/check"
 
 # Các biến toàn cục
 # Cache lưu các URL đã xử lý để tránh trùng lặp
@@ -248,109 +251,86 @@ def send_to_backend(articles, batch_size=DEFAULT_BATCH_SIZE, auto_send=True):
         else:
             # Nếu không có published_at, sử dụng thời gian hiện tại
                 normalized["published_at"] = datetime.now().isoformat()
-        
+                
         normalized_articles.append(normalized)
     
+    # Chia thành các batch để gửi
+    batches = [normalized_articles[i:i + batch_size] for i in range(0, len(normalized_articles), batch_size)]
     logger.info(f"Gửi {len(normalized_articles)} bài viết tới backend...")
     
-    success = True
-    total_batches = (len(normalized_articles) + batch_size - 1) // batch_size
+    total_success = True
     
-    for i in range(0, len(normalized_articles), batch_size):
-        batch = normalized_articles[i:i+batch_size]
-        batch_num = i // batch_size + 1
+    for i, batch in enumerate(batches, 1):
+        logger.info(f"Gửi batch {i}/{len(batches)} ({len(batch)} bài viết)")
         
-        logger.info(f"Gửi batch {batch_num}/{total_batches} ({len(batch)} bài viết)")
+        # Chuẩn bị payload theo đúng định dạng API yêu cầu
+        payload = {
+            "articles": batch
+        }
         
-        try:
-            payload = {"articles": batch}
-            headers = {
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            }
-            
-            # In payload mẫu để kiểm tra
-            if batch:
-                sample = batch[0].copy()
-                if 'content' in sample and sample['content'] and len(sample['content']) > 100:
-                    sample['content'] = sample['content'][:100] + "..."
-                logger.debug(f"Payload mẫu (bài viết đầu tiên): {json.dumps(sample, ensure_ascii=False)}")
-            
-            # Thiết lập timeout và số lần thử lại
-            max_retries = 3
-            retry_count = 0
-            
-            while retry_count < max_retries:
-                try:
-                    response = requests.post(
-                        BACKEND_API_URL, 
-                        json=payload, 
-                        headers=headers,
-                        timeout=30  # 30 giây timeout
-                    )
-                    
-                    # Kiểm tra xem response có phải JSON không
-                    response_content = response.text
-                    logger.debug(f"Response status: {response.status_code}")
-                    
-                    if response.status_code in (200, 201):
-                        try:
-                            result = response.json()
-                            logger.info(f"[OK] Batch {batch_num}: {result.get('message', '')}")
-                            if 'errors' in result and result['errors']:
-                                logger.warning(f"[WARN] Có {len(result['errors'])} lỗi trong batch {batch_num}:")
-                                for error in result['errors']:
-                                    logger.warning(f"  - {error}")
-                        except json.JSONDecodeError:
-                            logger.warning(f"[WARN] Response không phải JSON hợp lệ mặc dù status code = {response.status_code}")
-                            logger.warning(f"[WARN] Response content: {response_content[:200]}...")
-                        break
-                    else:
-                        logger.error(f"[ERROR] Batch {batch_num}: Lỗi {response.status_code} - {response.text[:200]}...")
-                        retry_count += 1
-                        if retry_count < max_retries:
-                            wait_time = 2 ** retry_count  # Tăng thời gian chờ theo cấp số nhân
-                            logger.info(f"Thử lại sau {wait_time} giây...")
-                            time.sleep(wait_time)
-                        else:
-                            success = False
-                            logger.error(f"[ERROR] Đã thử lại {max_retries} lần không thành công cho batch {batch_num}")
+        # Thiết lập header
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+        }
+        
+        # Gửi request, với cơ chế thử lại nếu lỗi
+        max_retries = 3
+        retry_count = 0
+        retry_delay = 2  # Giây
+        
+        while retry_count < max_retries:
+            try:
+                # Sử dụng endpoint import thay vì gửi trực tiếp đến articles
+                response = requests.post(
+                    ARTICLES_IMPORT_API_URL,
+                    json=payload,
+                    headers=headers
+                )
                 
-                except requests.exceptions.Timeout:
-                    retry_count += 1
-                    if retry_count < max_retries:
-                        wait_time = 2 ** retry_count
-                        logger.info(f"Request timeout. Thử lại sau {wait_time} giây...")
-                        time.sleep(wait_time)
-                    else:
-                        success = False
-                        logger.error(f"[ERROR] Timeout sau {max_retries} lần thử lại cho batch {batch_num}")
-                
-                except requests.exceptions.ConnectionError:
-                    retry_count += 1
-                    if retry_count < max_retries:
-                        wait_time = 2 ** retry_count
-                        logger.info(f"Lỗi kết nối. Thử lại sau {wait_time} giây...")
-                        time.sleep(wait_time)
-                    else:
-                        success = False
-                        logger.error(f"[ERROR] Lỗi kết nối sau {max_retries} lần thử lại cho batch {batch_num}")
-                
-                except Exception as e:
-                    logger.error(f"[ERROR] Batch {batch_num}: Lỗi không mong đợi: {str(e)}")
-                    success = False
+                if response.status_code == 200 or response.status_code == 201:
+                    logger.info(f"[OK] Batch {i}: Gửi thành công")
+                    # Phân tích phản hồi để tính số bài viết đã import
+                    try:
+                        result = response.json()
+                        success = result.get('success', 0)
+                        skipped = result.get('skipped', 0)
+                        logger.info(f"[INFO] Batch {i}: {success} bài viết đã import, {skipped} bài viết bị bỏ qua")
+                    except:
+                        pass
                     break
-            
-        except Exception as e:
-            logger.error(f"[ERROR] Lỗi khi gửi batch {batch_num}: {str(e)}")
-            success = False
+                else:
+                    error_msg = response.text[:100] + "..." if len(response.text) > 100 else response.text
+                    logger.error(f"[ERROR] Batch {i}: Lỗi {response.status_code} - {error_msg}")
+                    
+                    # Thử lại sau thời gian delay
+                    retry_count += 1
+                    if retry_count < max_retries:
+                        logger.info(f"Thử lại sau {retry_delay} giây...")
+                        time.sleep(retry_delay)
+                        # Tăng thời gian delay cho lần thử tiếp theo
+                        retry_delay *= 2
+                    else:
+                        logger.error(f"[ERROR] Đã thử lại {max_retries} lần không thành công cho batch {i}")
+                        total_success = False
+                        
+            except Exception as e:
+                logger.error(f"[ERROR] Batch {i}: Exception - {str(e)}")
+                retry_count += 1
+                if retry_count < max_retries:
+                    logger.info(f"Thử lại sau {retry_delay} giây...")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                else:
+                    logger.error(f"[ERROR] Đã thử lại {max_retries} lần không thành công cho batch {i}")
+                    total_success = False
     
-    if success:
-        logger.info(f"[OK] Đã gửi thành công {len(normalized_articles)} bài viết tới backend")
+    if total_success:
+        logger.info(f"[OK] Tất cả {len(normalized_articles)} bài viết đã được gửi thành công")
     else:
-        logger.warning("[WARN] Có lỗi xảy ra khi gửi bài viết tới backend")
-    
-    return success
+        logger.warning(f"[WARN] Có lỗi xảy ra khi gửi bài viết tới backend")
+        
+    return total_success
 
 def cleanup_temp_files():
     """
@@ -534,6 +514,11 @@ def find_and_process_all_categories(max_articles_per_category=2):
     logger.info(f"Thành công: {results['success']} danh mục, Thất bại: {results['failed']} danh mục")
     logger.info(f"Tổng số bài viết đã tìm được: {results['total_articles']}")
     
+    # Tự động import các bài viết vào database
+    if results['all_articles'] and len(results['all_articles']) > 0:
+        logger.info(f"Tự động import {len(results['all_articles'])} bài viết vào database")
+        send_to_backend(results['all_articles'])
+    
     return results
 
 def import_all_to_backend(directory=None):
@@ -702,10 +687,21 @@ def save_all_articles_to_single_file(results):
     # Tạo tên file duy nhất
     current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
     unique_id = str(uuid.uuid4())[:8]  # Lấy 8 ký tự đầu của UUID
-    output_file = os.path.join(OUTPUT_DIR, f"all_articles_{current_time}_{unique_id}.json")
+    
+    # Kiểm tra xem đường dẫn /app/output có tồn tại không (Docker environment)
+    docker_output = "/app/output"
+    if os.path.exists(docker_output) and os.path.isdir(docker_output):
+        output_file = os.path.join(docker_output, f"all_articles_{current_time}_{unique_id}.json")
+        # Bảo đảm cũng tạo bản sao trong OUTPUT_DIR để import_json_file_to_backend có thể tìm thấy
+        local_output_file = os.path.join(OUTPUT_DIR, f"all_articles_{current_time}_{unique_id}.json")
+    else:
+        output_file = os.path.join(OUTPUT_DIR, f"all_articles_{current_time}_{unique_id}.json")
+        local_output_file = output_file
     
     # Đảm bảo thư mục output tồn tại
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    if output_file != local_output_file:
+        os.makedirs(os.path.dirname(local_output_file), exist_ok=True)
     
     # Lưu vào file JSON
     try:
@@ -714,12 +710,17 @@ def save_all_articles_to_single_file(results):
         
         logger.info(f"Đã lưu {len(all_articles)} bài viết vào file JSON duy nhất: {output_file}")
         
+        # Nếu đang chạy trong Docker, tạo bản sao để đảm bảo import
+        if output_file != local_output_file:
+            shutil.copy2(output_file, local_output_file)
+            logger.info(f"Đã tạo bản sao tại: {local_output_file} để đảm bảo import vào DB")
+        
         # In thông tin bài viết đầu tiên để debug
         if all_articles:
             first_article = all_articles[0]
             logger.info(f"Bài viết mẫu: Title={first_article.get('title', 'Không tiêu đề')}, Content length={len(first_article.get('content', ''))}")
             
-        return output_file
+        return local_output_file  # Trả về đường dẫn đến file có thể đọc được từ hàm import
     except Exception as e:
         logger.error(f"Lỗi khi lưu file JSON: {str(e)}")
         logger.error(traceback.format_exc())
@@ -751,7 +752,28 @@ def import_json_file_to_backend(json_file_path):
     """
     logger.info(f"Đang import bài viết từ file: {json_file_path}")
     
-    if not os.path.exists(json_file_path):
+    # Kiểm tra sự tồn tại của file
+    file_exists = os.path.exists(json_file_path)
+    
+    # Thử tìm file ở đường dẫn /app/output/ nếu không tìm thấy ở đường dẫn gốc
+    if not file_exists and not json_file_path.startswith('/app/output/'):
+        filename = os.path.basename(json_file_path)
+        docker_path = f"/app/output/{filename}"
+        if os.path.exists(docker_path):
+            logger.info(f"Không tìm thấy file tại {json_file_path}, nhưng tìm thấy tại {docker_path}")
+            json_file_path = docker_path
+            file_exists = True
+    
+    # Thử tìm file ở OUTPUT_DIR nếu không tìm thấy ở đường dẫn /app/output/
+    if not file_exists and json_file_path.startswith('/app/output/'):
+        filename = os.path.basename(json_file_path)
+        local_path = os.path.join(OUTPUT_DIR, filename)
+        if os.path.exists(local_path):
+            logger.info(f"Không tìm thấy file tại {json_file_path}, nhưng tìm thấy tại {local_path}")
+            json_file_path = local_path
+            file_exists = True
+    
+    if not file_exists:
         logger.error(f"File không tồn tại: {json_file_path}")
         return 0, 0
     
@@ -800,7 +822,7 @@ def import_json_file_to_backend(json_file_path):
             "source_icon": article.get("source_icon", ""),
             "published_at": article.get("published_at", datetime.now().isoformat()),
             "meta_data": article.get("meta_data", {}),
-            "category": article.get("category_id", 1)  # Đảm bảo sử dụng category, không phải category_id
+            "category": article.get("category_id", 1)  # Đảm bảo sử dụng category_id, không phải category
         }
         
         # Tạo summary từ nội dung nếu không có
@@ -1094,18 +1116,22 @@ def main():
         logger.info(f"Bắt đầu lưu tất cả bài viết vào file JSON duy nhất, dữ liệu đầu vào: {type(results)}")
         logger.info(f"Cấu trúc results: {list(results.keys())}")
         
-        save_all_articles_to_single_file(results)
+        json_file = save_all_articles_to_single_file(results)
         
         # In thông báo tổng kết
         print(f"\nĐã xử lý {results['success'] + results['failed']} danh mục")
         print(f"Thành công: {results['success']} danh mục, Thất bại: {results['failed']} danh mục")
         print(f"Tổng số bài viết đã tìm được: {results['total_articles']}")
         
-        # Gửi đến backend nếu được yêu cầu
+        # Gửi đến backend nếu được yêu cầu hoặc tự động import
         if args.auto_send and results['all_articles']:
             logger.info(f"Gửi {len(results['all_articles'])} bài viết đến backend...")
             send_to_backend(results['all_articles'])
-        
+        elif json_file:
+            # Tự động import file JSON kể cả khi không có flag auto-send
+            logger.info(f"Tự động import file JSON {json_file} vào database")
+            import_json_file_to_backend(json_file)
+    
     # Xử lý một danh mục cụ thể
     elif args.category:
         category = get_category_by_id(args.category)
