@@ -10,15 +10,13 @@
             @php $mainFeature = $featuredArticles->first(); @endphp
             <div class="grid grid-cols-1 md:grid-cols-2">
                 <div class="relative h-80 md:h-auto">
-                    @if($mainFeature->featured_image)
-                        <img src="{{ asset('storage/' . $mainFeature->featured_image) }}" alt="{{ $mainFeature->title }}" class="w-full h-full object-cover transition-transform duration-700 hover:scale-105">
-                    @else
-                        <div class="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-50 flex items-center justify-center">
-                            <svg class="w-16 h-16 text-primary-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-                                <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path>
-                            </svg>
-                        </div>
-                    @endif
+                    <div class="aspect-video overflow-hidden">
+                        @if($mainFeature->featuredImage)
+                            <img src="{{ $mainFeature->featuredImage->url }}" alt="{{ $mainFeature->title }}" class="w-full h-full object-cover transition-transform duration-700 hover:scale-105">
+                        @elseif($mainFeature->featured_image)
+                            <img src="{{ asset('storage/' . $mainFeature->featured_image) }}" alt="{{ $mainFeature->title }}" class="w-full h-full object-cover transition-transform duration-700 hover:scale-105">
+                        @endif
+                    </div>
                     <div class="absolute top-0 left-0 bg-gradient-to-r from-primary-600 to-primary-500 text-white px-4 py-1 uppercase text-xs font-bold tracking-wider">
                         Nổi bật
                     </div>
@@ -65,13 +63,15 @@
         
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             @foreach($recentArticles as $article)
-                <div class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 hover-lift group">
-                    <div class="relative h-48 overflow-hidden">
-                        @if($article->featured_image)
+                <div class="bg-white shadow-md rounded-lg overflow-hidden group">
+                    <div class="h-48 overflow-hidden relative">
+                        @if($article->featuredImage)
+                            <img src="{{ $article->featuredImage->url }}" alt="{{ $article->title }}" class="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500">
+                        @elseif($article->featured_image)
                             <img src="{{ asset('storage/' . $article->featured_image) }}" alt="{{ $article->title }}" class="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500">
                         @else
-                            <div class="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center group-hover:from-primary-50 group-hover:to-gray-100 transition-colors duration-500">
-                                <svg class="w-12 h-12 text-gray-400 group-hover:text-primary-400 transition-colors duration-500" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <div class="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-50 flex items-center justify-center">
+                                <svg class="w-10 h-10 text-primary-400" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"></path>
                                 </svg>
                             </div>

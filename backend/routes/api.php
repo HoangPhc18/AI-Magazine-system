@@ -9,7 +9,8 @@ use App\Http\Controllers\Api\Admin\ApprovedArticleController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\KeywordRewriteController;
 use App\Http\Controllers\Api\Admin\FacebookRewriteController;
-use App\Http\Controllers\Api\Admin\MediaController;
+use App\Http\Controllers\Api\Admin\MediaController as AdminMediaController;
+use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\ArticleController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
@@ -24,6 +25,9 @@ use App\Http\Controllers\Api\Admin\WebsiteConfigController;
 // Public routes
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
+
+// Public media selection route for the media selector
+Route::get('/media/select', [MediaController::class, 'select'])->name('api.public.media.select');
 
 // Public article and category routes
 Route::get('/articles', [ArticleController::class, 'index']);
@@ -64,11 +68,11 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::patch('/users/{id}/status', [UserController::class, 'updateStatus']);
 
     // Media Management
-    Route::get('/media', [MediaController::class, 'index']);
-    Route::post('/media', [MediaController::class, 'store']);
-    Route::get('/media/select', [MediaController::class, 'select'])->name('api.media.select');
-    Route::get('/media/{media}', [MediaController::class, 'show']);
-    Route::delete('/media/{media}', [MediaController::class, 'destroy']);
+    Route::get('/media', [AdminMediaController::class, 'index']);
+    Route::post('/media', [AdminMediaController::class, 'store']);
+    Route::get('/media/select', [AdminMediaController::class, 'select'])->name('api.media.select');
+    Route::get('/media/{media}', [AdminMediaController::class, 'show']);
+    Route::delete('/media/{media}', [AdminMediaController::class, 'destroy']);
 
     // Rewritten Articles Management
     Route::get('/articles/rewritten', [RewrittenArticleController::class, 'index']);

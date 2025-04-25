@@ -19,8 +19,10 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         @forelse($articles as $article)
             <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-                <div class="h-48 relative">
-                    @if($article->featured_image)
+                <div class="h-48 overflow-hidden">
+                    @if($article->featuredImage)
+                        <img src="{{ $article->featuredImage->url }}" alt="{{ $article->title }}" class="w-full h-full object-cover">
+                    @elseif($article->featured_image)
                         <img src="{{ asset('storage/' . $article->featured_image) }}" alt="{{ $article->title }}" class="w-full h-full object-cover">
                     @else
                         <div class="w-full h-full bg-gray-200 flex items-center justify-center">

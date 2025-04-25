@@ -6,10 +6,13 @@
 <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
     <div class="bg-white shadow-xl rounded-xl overflow-hidden transition-all duration-500">
         <!-- Featured Image -->
-        @if($article->featured_image)
-            <div class="w-full h-96 relative">
+        @if($article->featuredImage)
+            <div class="relative aspect-video overflow-hidden rounded-xl">
+                <img src="{{ $article->featuredImage->url }}" alt="{{ $article->title }}" class="w-full h-full object-cover">
+            </div>
+        @elseif($article->featured_image)
+            <div class="relative aspect-video overflow-hidden rounded-xl">
                 <img src="{{ asset('storage/' . $article->featured_image) }}" alt="{{ $article->title }}" class="w-full h-full object-cover">
-                <div class="absolute bottom-0 left-0 bg-gradient-to-t from-black via-black/60 to-transparent w-full h-2/3"></div>
             </div>
         @endif
 

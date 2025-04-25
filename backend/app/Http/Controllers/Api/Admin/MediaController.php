@@ -146,9 +146,20 @@ class MediaController extends Controller
         }
 
         $media = $query->latest()->paginate($request->input('per_page', 40));
+        
+        // Format media items to include URL and type flags
+        $mediaItems = collect($media->items())->map(function($item) {
+            // Add URL to each item
+            $item->url = $item->getUrlAttribute();
+            // Add is_image flag to each item
+            $item->is_image = $item->getIsImageAttribute();
+            // Add is_document flag to each item
+            $item->is_document = $item->getIsDocumentAttribute();
+            return $item;
+        });
 
         return response()->json([
-            'media' => $media->items(),
+            'media' => $mediaItems,
             'pagination' => [
                 'total' => $media->total(),
                 'per_page' => $media->perPage(),

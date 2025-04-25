@@ -189,6 +189,12 @@ class ApprovedArticleController extends Controller
             // Generate slug from title
             $validated['slug'] = Str::slug($validated['title']);
 
+            // Nếu không có featured_image_id mới và bài viết đã có
+            // Giữ lại giá trị cũ để không bị mất
+            if (!isset($validated['featured_image_id']) && $approvedArticle->featured_image_id) {
+                $validated['featured_image_id'] = $approvedArticle->featured_image_id;
+            }
+
             // Xử lý ảnh đại diện
             if ($request->hasFile('featured_image')) {
                 // Lấy file ảnh từ request

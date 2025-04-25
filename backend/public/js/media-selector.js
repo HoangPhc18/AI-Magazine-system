@@ -4,13 +4,18 @@
  */
 class MediaSelector {
     constructor(options = {}) {
+        // Ensure selectedIds is always an array
+        if (options.selectedIds && !Array.isArray(options.selectedIds)) {
+            options.selectedIds = [options.selectedIds];
+        }
+        
         this.options = Object.assign({
             modalId: 'media-selector-modal',
-            selectUrl: '/admin/media/select',
+            selectUrl: '/api/media/select',
             insertCallback: null,
             type: '', // 'image' or 'document' or empty for all
             multiple: false,
-            selectedIds: [],
+            selectedIds: [], // IDs of items to pre-select
         }, options);
 
         this.page = 1;
@@ -18,6 +23,8 @@ class MediaSelector {
         this.items = [];
         this.pagination = {};
         this.selectedItems = [];
+        
+        console.log('MediaSelector initialized with options:', this.options);
         
         // Initialize the modal if not exists
         this.initModal();
@@ -189,10 +196,8 @@ class MediaSelector {
                 }
             }
             
-            // Media item
-            if (e.target.closest('.media-item')) {
-                this.toggleItem(e.target.closest('.media-item'));
-            }
+            // Media item - REMOVED from here to avoid double toggle
+            // We'll use only the direct click handler added to each item
         });
         
         // Search button
@@ -231,8 +236,13 @@ class MediaSelector {
         if (modal) {
             modal.classList.remove('hidden');
             
-            // Clear previous selection if not multiple
-            if (!this.options.multiple) {
+            // Initialize selectedItems from selectedIds if provided
+            if (this.options.selectedIds && this.options.selectedIds.length > 0) {
+                console.log('Initializing with selected IDs:', this.options.selectedIds);
+                // We'll update the actual items after loading
+            }
+            else if (!this.options.multiple) {
+                // Clear previous selection if not multiple and no pre-selected IDs
                 this.selectedItems = [];
             }
             
@@ -285,14 +295,36 @@ class MediaSelector {
             params.append('type', this.options.type);
         }
         
+        const url = `${this.options.selectUrl}?${params.toString()}`;
+        console.log('Fetching media from:', url);
+        
         // Using axios instead of fetch for authentication support
-        axios.get(`${this.options.selectUrl}?${params.toString()}`)
+        axios.get(url)
             .then(response => {
                 const data = response.data;
                 console.log('Data received:', data);
                 if (data && data.media) {
                     this.items = data.media;
                     this.pagination = data.pagination;
+                    
+                    // Update selectedItems from selectedIds if needed
+                    if (this.options.selectedIds && this.options.selectedIds.length > 0) {
+                        // Find the selected items in the loaded items
+                        const selectedItemsFromIds = this.items.filter(item => 
+                            this.options.selectedIds.includes(item.id)
+                        );
+                        
+                        // If not in multiple mode, keep only the first match
+                        if (!this.options.multiple && selectedItemsFromIds.length > 0) {
+                            this.selectedItems = [selectedItemsFromIds[0]];
+                        } else if (selectedItemsFromIds.length > 0) {
+                            // In multiple mode or if we have matches
+                            this.selectedItems = selectedItemsFromIds;
+                        }
+                        
+                        console.log('Updated selectedItems from IDs:', this.selectedItems);
+                    }
+                    
                     this.renderItems();
                     this.renderPagination();
                 } else {
@@ -301,9 +333,24 @@ class MediaSelector {
             })
             .catch(error => {
                 console.error('Error loading media items:', error);
+                let errorMessage = error.message;
+                
+                // Add more details for specific error types
+                if (error.response) {
+                    // The request was made and the server responded with a status code
+                    // that falls out of the range of 2xx
+                    errorMessage += ` (${error.response.status}: ${error.response.statusText})`;
+                    console.error('Response data:', error.response.data);
+                    console.error('Response headers:', error.response.headers);
+                } else if (error.request) {
+                    // The request was made but no response was received
+                    errorMessage += ' (No response received)';
+                    console.error('Request:', error.request);
+                }
+                
                 container.innerHTML = `
                     <div class="col-span-full text-center py-8 text-red-500">
-                        <p>Đã xảy ra lỗi khi tải media: ${error.message}. Vui lòng thử lại.</p>
+                        <p>Đã xảy ra lỗi khi tải media: ${errorMessage}. Vui lòng thử lại.</p>
                     </div>
                 `;
             });
@@ -313,60 +360,72 @@ class MediaSelector {
      * Render media items
      */
     renderItems() {
-        const container = document.getElementById('media-items-container');
-        if (!container) return;
+        console.log('Rendering items. Currently selected items IDs:', this.options.selectedIds);
         
-        if (!this.items || this.items.length === 0) {
-            container.innerHTML = `
-                <div class="col-span-full text-center py-8 text-gray-500">
-                    <p>Không tìm thấy media nào</p>
-                </div>
-            `;
-            return;
+        if (!Array.isArray(this.items)) {
+            this.items = [];
         }
         
-        container.innerHTML = '';
+        // Hiển thị thông báo nếu không có data
+        this.toggleEmptyMessage(this.items.length === 0);
+        
+        // Hiển thị items
+        const itemsGrid = document.getElementById('media-items-container');
+        itemsGrid.innerHTML = '';
         
         this.items.forEach(item => {
-            const isSelected = this.selectedItems.some(selected => selected.id === item.id);
+            // Kiểm tra xem item có trong danh sách đã chọn không
+            const isSelected = this.options.selectedIds.includes(item.id) || 
+                              this.selectedItems.some(selectedItem => selectedItem.id === item.id);
+            
+            console.log(`Item ${item.id} isSelected:`, isSelected);
+            
+            // Tạo HTML cho item
             const itemElement = document.createElement('div');
-            itemElement.className = `media-item relative group border rounded overflow-hidden shadow cursor-pointer ${isSelected ? 'ring-2 ring-green-500' : ''}`;
+            itemElement.className = `media-item relative group/item rounded-md overflow-hidden border cursor-pointer ${isSelected ? 'ring-2 ring-green-500' : ''}`;
             itemElement.dataset.id = item.id;
             
-            if (item.type === 'image') {
-                itemElement.innerHTML = `
-                    <div class="aspect-w-1 aspect-h-1 bg-gray-200">
-                        <img src="${item.url}" alt="${item.name}" class="w-full h-full object-cover">
-                    </div>
-                    <div class="px-2 py-1 text-xs truncate" title="${item.name}">${item.name}</div>
-                    ${isSelected ? `
-                        <div class="absolute top-2 right-2 h-5 w-5 bg-green-500 rounded-full flex items-center justify-center">
-                            <svg class="h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                        </div>
-                    ` : ''}
+            // Tạo hình ảnh
+            let thumbnail = item.thumbnail || '/images/placeholder.png';
+            itemElement.innerHTML = `
+                <div class="h-32 bg-gray-100 overflow-hidden">
+                    <img src="${thumbnail}" class="w-full h-full object-cover" alt="${item.name}">
+                </div>
+                <div class="p-2 text-sm truncate" title="${item.name}">${item.name}</div>
+            `;
+            
+            // Thêm checkmark nếu đã chọn
+            if (isSelected) {
+                const checkmarkDiv = document.createElement('div');
+                checkmarkDiv.className = 'absolute top-2 right-2 h-5 w-5 bg-green-500 rounded-full flex items-center justify-center';
+                checkmarkDiv.innerHTML = `
+                    <svg class="h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    </svg>
                 `;
-            } else {
-                itemElement.innerHTML = `
-                    <div class="aspect-w-1 aspect-h-1 bg-gray-100 flex items-center justify-center">
-                        <svg class="h-10 w-10 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                    </div>
-                    <div class="px-2 py-1 text-xs truncate" title="${item.name}">${item.name}</div>
-                    ${isSelected ? `
-                        <div class="absolute top-2 right-2 h-5 w-5 bg-green-500 rounded-full flex items-center justify-center">
-                            <svg class="h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
-                        </div>
-                    ` : ''}
-                `;
+                itemElement.appendChild(checkmarkDiv);
             }
             
-            container.appendChild(itemElement);
+            // Xử lý sự kiện click
+            itemElement.addEventListener('click', (e) => {
+                e.stopPropagation(); // Ngăn sự kiện lan ra các thành phần cha
+                console.log('Item clicked:', item.id);
+                this.toggleItem(item);
+            });
+            
+            itemsGrid.appendChild(itemElement);
         });
+        
+        // Cập nhật lại selectedItems từ selectedIds
+        if (this.options.selectedIds && this.options.selectedIds.length > 0) {
+            this.selectedItems = this.items.filter(item => this.options.selectedIds.includes(item.id));
+            if (!this.options.multiple && this.selectedItems.length > 1) {
+                // Nếu không phải chế độ multiple, chỉ giữ lại item đầu tiên
+                this.selectedItems = [this.selectedItems[0]];
+                this.options.selectedIds = [this.selectedItems[0].id];
+            }
+            console.log('Updated selectedItems from selectedIds:', this.selectedItems);
+        }
     }
     
     /**
@@ -433,47 +492,104 @@ class MediaSelector {
     
     /**
      * Toggle selection of an item
+     * @param {Object} item - Item object to toggle selection
      */
-    toggleItem(itemElement) {
-        if (!itemElement) return;
-        
-        const id = parseInt(itemElement.dataset.id);
-        const item = this.items.find(i => i.id === id);
-        
+    toggleItem(item) {
         if (!item) return;
         
+        const id = parseInt(item.id);
         const isSelected = this.selectedItems.some(selected => selected.id === id);
+        console.log('Toggle item:', id, 'Currently selected:', isSelected);
         
-        if (isSelected) {
-            // Remove from selection
-            this.selectedItems = this.selectedItems.filter(selected => selected.id !== id);
-            itemElement.classList.remove('ring-2', 'ring-green-500');
-            const checkmark = itemElement.querySelector('.absolute.top-2.right-2');
-            if (checkmark) checkmark.remove();
-        } else {
-            // Add to selection
-            if (!this.options.multiple) {
-                // Clear previous selections
-                this.selectedItems = [];
-                document.querySelectorAll('.media-item').forEach(item => {
-                    item.classList.remove('ring-2', 'ring-green-500');
-                    const checkmark = item.querySelector('.absolute.top-2.right-2');
-                    if (checkmark) checkmark.remove();
-                });
-            }
+        // Tìm phần tử DOM hiển thị item này
+        const itemElement = document.querySelector(`.media-item[data-id="${id}"]`);
+        
+        if (!this.options.multiple) {
+            // Chế độ chọn một item: xóa tất cả selection cũ
+            this.selectedItems = [];
+            this.options.selectedIds = [];
             
+            // Xóa trạng thái đã chọn từ tất cả các item
+            document.querySelectorAll('.media-item').forEach(el => {
+                el.classList.remove('ring-2', 'ring-green-500');
+                const checkmark = el.querySelector('.absolute.top-2.right-2');
+                if (checkmark) checkmark.remove();
+            });
+            
+            // Thêm item mới
             this.selectedItems.push(item);
-            itemElement.classList.add('ring-2', 'ring-green-500');
+            this.options.selectedIds.push(id);
             
-            const checkmarkDiv = document.createElement('div');
-            checkmarkDiv.className = 'absolute top-2 right-2 h-5 w-5 bg-green-500 rounded-full flex items-center justify-center';
-            checkmarkDiv.innerHTML = `
-                <svg class="h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                </svg>
+            if (itemElement) {
+                itemElement.classList.add('ring-2', 'ring-green-500');
+                
+                // Thêm checkmark
+                const checkmarkDiv = document.createElement('div');
+                checkmarkDiv.className = 'absolute top-2 right-2 h-5 w-5 bg-green-500 rounded-full flex items-center justify-center';
+                checkmarkDiv.innerHTML = `
+                    <svg class="h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    </svg>
+                `;
+                itemElement.appendChild(checkmarkDiv);
+            }
+        } else {
+            // Chế độ chọn nhiều item: toggle selection
+            if (isSelected) {
+                // Nếu đã chọn thì bỏ chọn
+                this.selectedItems = this.selectedItems.filter(selected => selected.id !== id);
+                this.options.selectedIds = this.options.selectedIds.filter(selectedId => selectedId !== id);
+                
+                if (itemElement) {
+                    itemElement.classList.remove('ring-2', 'ring-green-500');
+                    const checkmark = itemElement.querySelector('.absolute.top-2.right-2');
+                    if (checkmark) checkmark.remove();
+                }
+            } else {
+                // Nếu chưa chọn thì chọn
+                this.selectedItems.push(item);
+                this.options.selectedIds.push(id);
+                
+                if (itemElement) {
+                    itemElement.classList.add('ring-2', 'ring-green-500');
+                    
+                    // Thêm checkmark
+                    const checkmarkDiv = document.createElement('div');
+                    checkmarkDiv.className = 'absolute top-2 right-2 h-5 w-5 bg-green-500 rounded-full flex items-center justify-center';
+                    checkmarkDiv.innerHTML = `
+                        <svg class="h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                        </svg>
+                    `;
+                    itemElement.appendChild(checkmarkDiv);
+                }
+            }
+        }
+        
+        // Cập nhật thông tin cho form ngầm
+        this.updateSelectedInfo();
+        
+        console.log('After toggle - Selected items:', this.selectedItems);
+        console.log('After toggle - Selected IDs:', this.options.selectedIds);
+    }
+    
+    /**
+     * Toggle empty message display
+     * @param {boolean} show - Whether to show the empty message
+     */
+    toggleEmptyMessage(show) {
+        const container = document.getElementById('media-items-container');
+        if (!container) return;
+        
+        if (show) {
+            container.innerHTML = `
+                <div class="col-span-full text-center py-8 text-gray-500">
+                    <svg class="h-12 w-12 mx-auto text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <p class="mt-2">Không có media nào được tìm thấy.</p>
+                </div>
             `;
-            
-            itemElement.appendChild(checkmarkDiv);
         }
     }
     
@@ -481,13 +597,63 @@ class MediaSelector {
      * Insert selected media
      */
     insert() {
+        console.log('Insert called. Selected items:', this.selectedItems);
+        
         if (this.selectedItems.length === 0) {
-            alert('Vui lòng chọn ít nhất một media.');
-            return;
+            // Check visually selected items in DOM as fallback
+            const visuallySelectedItems = document.querySelectorAll('.media-item.ring-2.ring-green-500');
+            console.log('Visually selected items:', visuallySelectedItems.length);
+            
+            if (visuallySelectedItems.length > 0) {
+                // Recover selectedItems from visual selection
+                this.selectedItems = [];
+                visuallySelectedItems.forEach(element => {
+                    const id = parseInt(element.dataset.id);
+                    const item = this.items.find(i => i.id === id);
+                    if (item) {
+                        this.selectedItems.push(item);
+                        // Also update selectedIds
+                        if (!this.options.selectedIds.includes(id)) {
+                            this.options.selectedIds.push(id);
+                        }
+                    }
+                });
+                console.log('Recovered selected items:', this.selectedItems);
+            } else {
+                // Hình ảnh đầu tiên được chọn mặc định nếu có sẵn và chưa có lựa chọn
+                if (this.items.length > 0 && !this.options.multiple) {
+                    const firstItem = this.items[0];
+                    this.selectedItems = [firstItem];
+                    this.options.selectedIds = [firstItem.id];
+                    console.log('Auto selected first item:', firstItem);
+                    
+                    // Cập nhật giao diện
+                    const firstElement = document.querySelector(`.media-item[data-id="${firstItem.id}"]`);
+                    if (firstElement) {
+                        firstElement.classList.add('ring-2', 'ring-green-500');
+                        if (!firstElement.querySelector('.absolute.top-2.right-2')) {
+                            const checkmarkDiv = document.createElement('div');
+                            checkmarkDiv.className = 'absolute top-2 right-2 h-5 w-5 bg-green-500 rounded-full flex items-center justify-center';
+                            checkmarkDiv.innerHTML = `
+                                <svg class="h-3 w-3 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                </svg>
+                            `;
+                            firstElement.appendChild(checkmarkDiv);
+                        }
+                    }
+                } else {
+                    alert('Vui lòng chọn ít nhất một media.');
+                    return;
+                }
+            }
         }
         
         if (typeof this.options.insertCallback === 'function') {
+            console.log('Calling insertCallback with:', this.options.multiple ? this.selectedItems : this.selectedItems[0]);
             this.options.insertCallback(this.options.multiple ? this.selectedItems : this.selectedItems[0]);
+        } else {
+            console.warn('No insertCallback provided');
         }
         
         this.close();

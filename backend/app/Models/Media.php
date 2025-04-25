@@ -55,4 +55,13 @@ class Media extends Model
     {
         return $this->type === 'document';
     }
+
+    /**
+     * Get the thumbnail URL for the media file
+     * For now, it returns the same URL as the full image
+     */
+    public function getThumbnailAttribute()
+    {
+        return $this->url;
+    }
 } 

@@ -11,7 +11,7 @@ class ApprovedArticleController extends Controller
 {
     public function index()
     {
-        $articles = ApprovedArticle::with(['category', 'originalArticle'])->get();
+        $articles = ApprovedArticle::with(['category', 'originalArticle', 'featuredImage'])->get();
         return response()->json([
             'data' => ApprovedArticleResource::collection($articles)
         ]);
@@ -19,7 +19,7 @@ class ApprovedArticleController extends Controller
 
     public function show(ApprovedArticle $approvedArticle)
     {
-        $approvedArticle->load(['category', 'originalArticle']);
+        $approvedArticle->load(['category', 'originalArticle', 'featuredImage']);
         return new ApprovedArticleResource($approvedArticle);
     }
 
@@ -28,11 +28,12 @@ class ApprovedArticleController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'content' => 'required|string',
-            'category_id' => 'required|exists:categories,id'
+            'category_id' => 'required|exists:categories,id',
+            'featured_image_id' => 'nullable|exists:media,id'
         ]);
 
         $approvedArticle->update($validated);
-        return new ApprovedArticleResource($approvedArticle->load(['category', 'originalArticle']));
+        return new ApprovedArticleResource($approvedArticle->load(['category', 'originalArticle', 'featuredImage']));
     }
 
     public function archive(ApprovedArticle $approvedArticle)
