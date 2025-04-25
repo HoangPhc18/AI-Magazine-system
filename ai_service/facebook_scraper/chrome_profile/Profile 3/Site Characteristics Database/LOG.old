@@ -1,5 +1,1 @@
-2025/04/25-05:03:42.550 3f Log #3: 3 ops saved to Table #4 OK
-2025/04/25-05:03:42.572 3f Archiving /app/chrome_profile/Profile 3/Site Characteristics Database/000003.log: OK
-2025/04/25-05:03:42.587 3f Table #4: 3 entries OK
-2025/04/25-05:03:42.618 3f Archiving /app/chrome_profile/Profile 3/Site Characteristics Database/MANIFEST-000001: OK
-2025/04/25-05:03:42.658 3f **** Repaired leveldb /app/chrome_profile/Profile 3/Site Characteristics Database; recovered 1 files; 219 bytes. Some data may have been lost. ****
+2025/04/25-05:03:42.733 3f Reusing MANIFEST /app/chrome_profile/Profile 3/Site Characteristics Database/MANIFEST-000001

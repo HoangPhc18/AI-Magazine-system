@@ -245,13 +245,22 @@ def save_rewritten_article(connection, article_id, original_content, rewritten_c
         
         # Try to find the category_id from categories table if it exists
         try:
-            category_query = """
-            SELECT id FROM categories WHERE name = %s OR slug = %s LIMIT 1
-            """
-            cursor.execute(category_query, (category_name, category_name))
-            category_result = cursor.fetchone()
-            if category_result:
-                category_id = category_result[0]
+            # Check if category is already a number (direct category_id)
+            if str(category_name).isdigit():
+                category_id = int(category_name)
+                print(f"Using category ID directly from article: {category_id}")
+            else:
+                # Try to find by name or slug
+                category_query = """
+                SELECT id FROM categories WHERE name = %s OR slug = %s LIMIT 1
+                """
+                cursor.execute(category_query, (category_name, category_name))
+                category_result = cursor.fetchone()
+                if category_result:
+                    category_id = category_result[0]
+                    print(f"Found category ID {category_id} for name/slug: {category_name}")
+                else:
+                    print(f"Could not find category for '{category_name}', using default ID: 1")
         except Exception as e:
             print(f"Could not find category ID for '{category_name}', using default: {e}")
         
@@ -281,6 +290,7 @@ def save_rewritten_article(connection, article_id, original_content, rewritten_c
         connection.commit()
         
         print(f"Saved rewritten article to rewritten_articles table (ID: {cursor.lastrowid})")
+        print(f"Using category ID: {category_id} for rewritten article")
         
         # Also update the original article to mark it as rewritten
         update_query = """

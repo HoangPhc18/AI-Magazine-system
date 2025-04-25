@@ -1,5 +1,1 @@
-2025/04/25-05:03:44.903 40 Log #3: 3 ops saved to Table #4 OK
-2025/04/25-05:03:44.909 40 Archiving /app/chrome_profile/Profile 3/File System/Origins/000003.log: OK
-2025/04/25-05:03:44.910 40 Table #4: 3 entries OK
-2025/04/25-05:03:44.919 40 Archiving /app/chrome_profile/Profile 3/File System/Origins/MANIFEST-000001: OK
-2025/04/25-05:03:44.935 40 **** Repaired leveldb /app/chrome_profile/Profile 3/File System/Origins; recovered 1 files; 181 bytes. Some data may have been lost. ****
+2025/04/25-05:03:44.988 40 Reusing MANIFEST /app/chrome_profile/Profile 3/File System/Origins/MANIFEST-000001
