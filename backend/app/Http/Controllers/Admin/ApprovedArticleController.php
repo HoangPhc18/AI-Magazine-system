@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\ApprovedArticle;
 use App\Models\Category;
+use App\Models\Media;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
@@ -49,34 +50,23 @@ class ApprovedArticleController extends Controller
             $query->where('category_id', request('category_id'));
         }
 
-        $articles = $query->with(['category', 'user'])->latest()->paginate(10);
+        $articles = $query->with(['category', 'user', 'featuredImage'])->latest()->paginate(10);
 
-        // Loop through articles to check if they have a corresponding rewritten_article
-        // that needs to be deleted
-        foreach ($articles as $article) {
-            if ($article->original_article_id) {
-                $rewrittenArticle = \App\Models\RewrittenArticle::find($article->original_article_id);
-                if ($rewrittenArticle) {
-                    try {
-                        // Permanently delete the rewritten article
-                        $rewrittenArticle->forceDelete();
-                        
-                        // Log for tracking purposes
-                        \Log::info('Deleted rewritten article after finding it in approved articles list', [
-                            'rewritten_article_id' => $rewrittenArticle->id,
-                            'approved_article_id' => $article->id
-                        ]);
-                    } catch (\Exception $e) {
-                        \Log::error('Error deleting rewritten article', [
-                            'rewritten_article_id' => $rewrittenArticle->id,
-                            'error' => $e->getMessage()
-                        ]);
-                    }
-                }
-            }
-        }
+        // Load categories for filter
+        $categories = Category::all();
 
-        return view('admin.approved-articles.index', compact('articles'));
+        return view('admin.approved-articles.index', compact('articles', 'categories'));
+    }
+
+    /**
+     * Show the form for creating a new approved article
+     */
+    public function create()
+    {
+        $categories = Category::all();
+        $images = Media::where('type', 'image')->latest()->take(10)->get();
+        
+        return view('admin.approved-articles.create', compact('categories', 'images'));
     }
 
     /**
@@ -92,8 +82,8 @@ class ApprovedArticleController extends Controller
             'ai_generated' => 'nullable|boolean',
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500',
+            'featured_image_id' => 'nullable|exists:media,id',
             'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'current_featured_image' => 'nullable|string',
             'status' => 'required|in:published,unpublished',
         ]);
 
@@ -112,21 +102,27 @@ class ApprovedArticleController extends Controller
                 // Lấy file ảnh từ request
                 $image = $request->file('featured_image');
                 
-                // Tạo tên file duy nhất
-                $filename = Str::random(20) . '.' . $image->getClientOriginalExtension();
+                // Upload as a Media object
+                $fileName = time() . '_' . Str::slug(pathinfo($image->getClientOriginalName(), PATHINFO_FILENAME)) . '.' . $image->getClientOriginalExtension();
+                $path = 'images/' . date('Y/m');
+                $filePath = $image->storeAs($path, $fileName, 'public');
                 
-                // Lưu ảnh vào thư mục public/articles
-                $imagePath = $image->storeAs('articles', $filename, 'public');
-                
-                // Ensure we store only the path without 'public/' prefix
-                $validated['featured_image'] = $imagePath;
-                
-                Log::info('Đã upload ảnh mới cho bài viết', [
-                    'image_path' => $imagePath,
-                    'filename' => $filename
+                $media = Media::create([
+                    'name' => $request->title,
+                    'file_name' => $fileName,
+                    'file_path' => $filePath,
+                    'mime_type' => $image->getMimeType(),
+                    'size' => $image->getSize(),
+                    'type' => 'image',
+                    'user_id' => Auth::id(),
                 ]);
-            } elseif ($request->has('current_featured_image')) {
-                $validated['featured_image'] = $request->input('current_featured_image');
+                
+                $validated['featured_image_id'] = $media->id;
+                
+                Log::info('New media created from article upload', [
+                    'media_id' => $media->id,
+                    'path' => $filePath,
+                ]);
             }
 
             // Set published_at if status is published
@@ -135,6 +131,9 @@ class ApprovedArticleController extends Controller
             }
 
             $approvedArticle = ApprovedArticle::create($validated);
+            
+            // Process article media entities from content
+            $this->processArticleMedia($approvedArticle, $request->input('content_media_ids', []));
             
             // Commit transaction
             DB::commit();
@@ -162,7 +161,9 @@ class ApprovedArticleController extends Controller
     public function edit(ApprovedArticle $approvedArticle)
     {
         $categories = Category::all();
-        return view('admin.approved-articles.edit', compact('approvedArticle', 'categories'));
+        $images = Media::where('type', 'image')->latest()->take(10)->get();
+        
+        return view('admin.approved-articles.edit', compact('approvedArticle', 'categories', 'images'));
     }
 
     /**
@@ -176,6 +177,7 @@ class ApprovedArticleController extends Controller
             'category_id' => 'required|exists:categories,id',
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:255',
+            'featured_image_id' => 'nullable|exists:media,id',
             'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'status' => 'required|in:published,unpublished',
         ]);
@@ -192,43 +194,40 @@ class ApprovedArticleController extends Controller
                 // Lấy file ảnh từ request
                 $image = $request->file('featured_image');
                 
-                // Tạo tên file duy nhất
-                $filename = Str::random(20) . '.' . $image->getClientOriginalExtension();
+                // Upload as a Media object
+                $fileName = time() . '_' . Str::slug(pathinfo($image->getClientOriginalName(), PATHINFO_FILENAME)) . '.' . $image->getClientOriginalExtension();
+                $path = 'images/' . date('Y/m');
+                $filePath = $image->storeAs($path, $fileName, 'public');
                 
-                // Lưu ảnh vào thư mục public/articles
-                $imagePath = $image->storeAs('articles', $filename, 'public');
-                
-                // Nếu đã có ảnh cũ, xóa ảnh cũ
-                if ($approvedArticle->featured_image) {
-                    // Xóa file cũ nếu nó tồn tại trong storage
-                    if (Storage::disk('public')->exists($approvedArticle->featured_image)) {
-                        Storage::disk('public')->delete($approvedArticle->featured_image);
-                    }
-                }
-                
-                // Ensure we store only the path without 'public/' prefix
-                $validated['featured_image'] = $imagePath;
-                
-                Log::info('Đã cập nhật ảnh mới cho bài viết', [
-                    'article_id' => $approvedArticle->id,
-                    'old_image' => $approvedArticle->featured_image,
-                    'new_image' => $imagePath,
-                    'filename' => $filename
+                $media = Media::create([
+                    'name' => $request->title,
+                    'file_name' => $fileName,
+                    'file_path' => $filePath,
+                    'mime_type' => $image->getMimeType(),
+                    'size' => $image->getSize(),
+                    'type' => 'image',
+                    'user_id' => Auth::id(),
                 ]);
-            } else {
-                // Nếu không có ảnh mới, giữ nguyên ảnh cũ
-                $validated['featured_image'] = $approvedArticle->featured_image;
+                
+                $validated['featured_image_id'] = $media->id;
+                
+                Log::info('New media created from article update', [
+                    'media_id' => $media->id,
+                    'path' => $filePath,
+                ]);
             }
 
-            // Update published_at if status changed
+            // Update publish status and date
             if ($validated['status'] === 'published' && $approvedArticle->status !== 'published') {
                 $validated['published_at'] = now();
-            } elseif ($validated['status'] === 'unpublished' && $approvedArticle->status === 'published') {
+            } elseif ($validated['status'] === 'unpublished') {
                 $validated['published_at'] = null;
             }
 
-            // Cập nhật bài viết
             $approvedArticle->update($validated);
+            
+            // Process article media entities from content
+            $this->processArticleMedia($approvedArticle, $request->input('content_media_ids', []));
             
             // Commit transaction
             DB::commit();
@@ -240,7 +239,6 @@ class ApprovedArticleController extends Controller
             DB::rollBack();
             
             Log::error('Lỗi khi cập nhật bài viết: ' . $e->getMessage(), [
-                'article_id' => $approvedArticle->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
@@ -256,6 +254,7 @@ class ApprovedArticleController extends Controller
      */
     public function show(ApprovedArticle $approvedArticle)
     {
+        $approvedArticle->load('featuredImage', 'media');
         return view('admin.approved-articles.show', compact('approvedArticle'));
     }
 
@@ -293,74 +292,54 @@ class ApprovedArticleController extends Controller
     public function destroy(ApprovedArticle $approvedArticle)
     {
         try {
-            // Lưu thông tin bài viết trước khi xóa để log
-            $articleInfo = [
-                'id' => $approvedArticle->id,
-                'title' => $approvedArticle->title,
-                'status' => $approvedArticle->status,
-                'published_at' => $approvedArticle->published_at,
-                'featured_image' => $approvedArticle->featured_image
-            ];
+            DB::beginTransaction();
             
-            // Delete the featured image if exists
-            if ($approvedArticle->featured_image) {
-                $imagePath = $approvedArticle->featured_image;
-                if (Storage::disk('public')->exists($imagePath)) {
-                    try {
-                        Storage::disk('public')->delete($imagePath);
-                        Log::info('Đã xóa ảnh đại diện của bài viết', [
-                            'article_id' => $approvedArticle->id,
-                            'image_path' => $imagePath
-                        ]);
-                    } catch (\Exception $e) {
-                        Log::error('Lỗi khi xóa file ảnh đại diện: ' . $e->getMessage(), [
-                            'article_id' => $approvedArticle->id,
-                            'image_path' => $imagePath
-                        ]);
-                    }
-                } else {
-                    Log::warning('Không tìm thấy file ảnh đại diện để xóa', [
-                        'article_id' => $approvedArticle->id,
-                        'image_path' => $imagePath
-                    ]);
-                }
-            }
+            $approvedArticle->delete();
             
-            // Xóa triệt để
-            $approvedArticle->forceDelete();
-            
-            // Kiểm tra xem bài viết đã thực sự bị xóa chưa
-            $checkArticle = ApprovedArticle::withTrashed()->find($articleInfo['id']);
-            if ($checkArticle) {
-                Log::warning('Bài viết vẫn tồn tại sau khi forceDelete trong destroy()', [
-                    'article_id' => $articleInfo['id'],
-                    'is_trashed' => $checkArticle->trashed(),
-                    'status' => $checkArticle->status
-                ]);
-                
-                // Thử xóa một lần nữa bằng query builder
-                DB::table('approved_articles')->where('id', $articleInfo['id'])->delete();
-                
-                // Kiểm tra lại lần nữa
-                $checkAgain = ApprovedArticle::withTrashed()->find($articleInfo['id']);
-                if ($checkAgain) {
-                    Log::error('Không thể xóa hoàn toàn bài viết sau nhiều lần thử', [
-                        'article_id' => $articleInfo['id']
-                    ]);
-                }
-            }
-            
-            Log::info('Đã xóa bài viết hoàn toàn', $articleInfo);
+            DB::commit();
             
             return redirect()->route('admin.approved-articles.index')
-                ->with('success', 'Bài viết đã được xóa hoàn toàn.');
+                ->with('success', 'Bài viết đã được xóa thành công.');
         } catch (\Exception $e) {
+            DB::rollBack();
+            
             Log::error('Lỗi khi xóa bài viết: ' . $e->getMessage(), [
-                'article_id' => $approvedArticle->id
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             
-            return redirect()->route('admin.approved-articles.index')
-                ->with('error', 'Lỗi khi xóa bài viết: ' . $e->getMessage());
+            return redirect()->back()
+                ->with('error', 'Có lỗi xảy ra khi xóa bài viết: ' . $e->getMessage());
         }
+    }
+    
+    /**
+     * Process and associate media with the article
+     */
+    private function processArticleMedia($article, $mediaIds)
+    {
+        if (empty($mediaIds)) {
+            return;
+        }
+        
+        // Convert to array if it's a string
+        if (is_string($mediaIds)) {
+            $mediaIds = explode(',', $mediaIds);
+        }
+        
+        // Filter out any non-numeric values and convert to integers
+        $mediaIds = array_filter(array_map('intval', $mediaIds));
+        
+        if (empty($mediaIds)) {
+            return;
+        }
+        
+        // Sync media with the article
+        $article->media()->sync($mediaIds);
+        
+        Log::info('Associated media with article', [
+            'article_id' => $article->id,
+            'media_ids' => $mediaIds
+        ]);
     }
 } 

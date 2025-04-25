@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\Admin\ApprovedArticleController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\Admin\KeywordRewriteController;
 use App\Http\Controllers\Api\Admin\FacebookRewriteController;
+use App\Http\Controllers\Api\Admin\MediaController;
 use App\Http\Controllers\Api\ArticleController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
@@ -61,6 +62,13 @@ Route::middleware(['auth:sanctum', 'admin'])->prefix('admin')->group(function ()
     Route::put('/users/{id}', [UserController::class, 'update']);
     Route::delete('/users/{id}', [UserController::class, 'destroy']);
     Route::patch('/users/{id}/status', [UserController::class, 'updateStatus']);
+
+    // Media Management
+    Route::get('/media', [MediaController::class, 'index']);
+    Route::post('/media', [MediaController::class, 'store']);
+    Route::get('/media/select', [MediaController::class, 'select'])->name('api.media.select');
+    Route::get('/media/{media}', [MediaController::class, 'show']);
+    Route::delete('/media/{media}', [MediaController::class, 'destroy']);
 
     // Rewritten Articles Management
     Route::get('/articles/rewritten', [RewrittenArticleController::class, 'index']);

@@ -24,7 +24,8 @@ class Article extends Model
         'meta_data',
         'is_processed',
         'is_ai_rewritten',
-        'ai_rewritten_content'
+        'ai_rewritten_content',
+        'featured_image_id'
     ];
 
     protected $casts = [
@@ -68,6 +69,23 @@ class Article extends Model
     public function rewrittenArticles()
     {
         return $this->hasMany(RewrittenArticle::class, 'original_article_id');
+    }
+
+    /**
+     * Get the featured image for the article
+     */
+    public function featuredImage()
+    {
+        return $this->belongsTo(Media::class, 'featured_image_id');
+    }
+
+    /**
+     * Get the article-related media
+     */
+    public function media()
+    {
+        return $this->belongsToMany(Media::class, 'article_media', 'article_id', 'media_id')
+                    ->withTimestamps();
     }
 
     public function scopeProcessed($query)

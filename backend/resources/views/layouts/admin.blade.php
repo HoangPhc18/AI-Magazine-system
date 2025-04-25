@@ -20,6 +20,11 @@
         // Configure Axios
         window.axios = axios;
         window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+        window.axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        window.axios.defaults.withCredentials = true;
+        
+        // Store session info
+        window.SESSION_USER = @json(Auth::user());
         
         document.addEventListener('alpine:init', () => {
             // Alpine.js global configuration
@@ -113,6 +118,58 @@
             background-color: #f9fafb;
             min-height: calc(100vh - 4rem);
         }
+        
+        /* Media selector modal styling */
+        .aspect-w-1,
+        .aspect-w-2,
+        .aspect-w-3,
+        .aspect-w-4,
+        .aspect-w-5,
+        .aspect-w-6,
+        .aspect-w-7,
+        .aspect-w-8,
+        .aspect-w-9,
+        .aspect-w-10,
+        .aspect-w-11,
+        .aspect-w-12,
+        .aspect-w-13,
+        .aspect-w-14,
+        .aspect-w-15,
+        .aspect-w-16 {
+            position: relative;
+        }
+
+        .aspect-w-1 > *,
+        .aspect-w-2 > *,
+        .aspect-w-3 > *,
+        .aspect-w-4 > *,
+        .aspect-w-5 > *,
+        .aspect-w-6 > *,
+        .aspect-w-7 > *,
+        .aspect-w-8 > *,
+        .aspect-w-9 > *,
+        .aspect-w-10 > *,
+        .aspect-w-11 > *,
+        .aspect-w-12 > *,
+        .aspect-w-13 > *,
+        .aspect-w-14 > *,
+        .aspect-w-15 > *,
+        .aspect-w-16 > * {
+            position: absolute;
+            height: 100%;
+            width: 100%;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+        }
+
+        .aspect-w-1 {
+            padding-bottom: calc(1 / 1 * 100%);
+        }
+        .aspect-h-1 {
+            padding-bottom: calc(1 / 1 * 100%);
+        }
     </style>
 </head>
 <body class="font-sans antialiased bg-gray-50">
@@ -125,6 +182,9 @@
             </main>
         </div>
     </div>
+    
+    <!-- Base scripts -->
+    <script src="{{ asset('js/media-selector.js') }}"></script>
     
     <!-- Scripts stacked from views -->
     @stack('scripts')

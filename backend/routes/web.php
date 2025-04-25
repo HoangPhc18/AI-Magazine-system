@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\ApprovedArticleController;
 use App\Http\Controllers\Admin\KeywordRewriteController;
 use App\Http\Controllers\Admin\FacebookPostController;
 use App\Http\Controllers\Admin\WebsiteConfigController;
+use App\Http\Controllers\Admin\MediaController;
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Controllers\UserProfileController;
 use Illuminate\Support\Facades\Route;
@@ -54,6 +55,10 @@ Route::middleware(['auth', AdminMiddleware::class])->prefix('admin')->name('admi
     
     // Article management
     Route::resource('articles', ArticleController::class);
+    
+    // Media management
+    Route::resource('media', MediaController::class)->except(['edit', 'update']);
+    Route::get('media/select', [MediaController::class, 'select'])->name('media.select');
     
     // Rewritten Article routes
     Route::resource('rewritten-articles', RewrittenArticleController::class)->except(['create', 'store']);

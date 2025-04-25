@@ -75,6 +75,14 @@
                             </div>
                         </div>
 
+                        <a href="{{ route('admin.media.index') }}" 
+                            class="{{ request()->routeIs('admin.media.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200">
+                            <svg class="mr-3 h-5 w-5 text-white {{ request()->routeIs('admin.media.*') ? 'opacity-100' : 'opacity-75 group-hover:opacity-100' }} transition-opacity" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            Quản lý Media
+                        </a>
+
                         <a href="{{ route('admin.keyword-rewrites.index') }}" 
                             class="{{ request()->routeIs('admin.keyword-rewrites.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200">
                             <svg class="mr-3 h-5 w-5 text-white {{ request()->routeIs('admin.keyword-rewrites.*') ? 'opacity-100' : 'opacity-75 group-hover:opacity-100' }} transition-opacity" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -255,26 +263,28 @@
                         </div>
                     </div>
                     
-                    <a href="{{ route('admin.keyword-rewrites.index') }}" class="block px-3 py-2 rounded-md text-base font-medium {{ request()->routeIs('admin.keyword-rewrites.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} transition-all duration-150">Tạo bài từ từ khóa</a>
+                    <a href="{{ route('admin.media.index') }}" class="block px-3 py-2 rounded-md text-base font-medium {{ request()->routeIs('admin.media.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} transition-all duration-150">Media</a>
                     
-                    <a href="{{ route('admin.facebook-posts.index') }}" class="block px-3 py-2 rounded-md text-base font-medium {{ request()->routeIs('admin.facebook-posts.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} transition-all duration-150">Bài viết Facebook</a>
+                    <a href="{{ route('admin.keyword-rewrites.index') }}" class="block px-3 py-2 rounded-md text-base font-medium {{ request()->routeIs('admin.keyword-rewrites.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} transition-all duration-150">Từ khóa</a>
+                    
+                    <a href="{{ route('admin.facebook-posts.index') }}" class="block px-3 py-2 rounded-md text-base font-medium {{ request()->routeIs('admin.facebook-posts.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} transition-all duration-150">Facebook</a>
                     
                     <a href="{{ route('admin.categories.index') }}" class="block px-3 py-2 rounded-md text-base font-medium {{ request()->routeIs('admin.categories.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} transition-all duration-150">Danh mục</a>
                     
                     <a href="{{ route('admin.ai-settings.index') }}" class="block px-3 py-2 rounded-md text-base font-medium {{ request()->routeIs('admin.ai-settings.*') ? 'bg-primary-600 text-white' : 'text-white text-opacity-80 hover:bg-primary-600 hover:text-white' }} transition-all duration-150">Cài đặt AI</a>
                     
                     <!-- Mobile Website Config Dropdown -->
-                    <div x-data="{ mobileWebsiteConfigOpen: {{ request()->routeIs('admin.website-config.*') ? 'true' : 'false' }} }">
-                        <button @click="mobileWebsiteConfigOpen = !mobileWebsiteConfigOpen" class="w-full text-left px-3 py-2 rounded-md text-base font-medium text-white text-opacity-80 hover:bg-primary-600 hover:text-white transition-all duration-150 flex justify-between items-center">
+                    <div x-data="{ mobileConfigOpen: {{ request()->routeIs('admin.website-config.*') ? 'true' : 'false' }} }">
+                        <button @click="mobileConfigOpen = !mobileConfigOpen" class="w-full text-left px-3 py-2 rounded-md text-base font-medium text-white text-opacity-80 hover:bg-primary-600 hover:text-white transition-all duration-150 flex justify-between items-center">
                             <span>Cấu hình website</span>
                             <svg class="h-5 w-5 transform transition-transform duration-200" 
-                                :class="{'rotate-180': mobileWebsiteConfigOpen}" 
+                                :class="{'rotate-180': mobileConfigOpen}" 
                                 xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                             </svg>
                         </button>
                         
-                        <div x-show="mobileWebsiteConfigOpen" 
+                        <div x-show="mobileConfigOpen" 
                             x-transition:enter="transition ease-out duration-100"
                             x-transition:enter-start="transform -translate-y-2 opacity-0"
                             x-transition:enter-end="transform translate-y-0 opacity-100"

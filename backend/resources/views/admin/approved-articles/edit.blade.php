@@ -18,7 +18,7 @@
                     <div class="mb-4 rounded-md bg-green-50 p-4">
                         <div class="flex">
                             <div class="flex-shrink-0">
-                                <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <svg class="h-5 w-5 text-green-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                                 </svg>
                             </div>
@@ -33,7 +33,7 @@
                     <div class="mb-4 rounded-md bg-red-50 p-4">
                         <div class="flex">
                             <div class="flex-shrink-0">
-                                <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                                 </svg>
                             </div>
@@ -94,11 +94,21 @@
                             <div class="sm:col-span-6">
                                 <label for="content" class="block text-sm font-medium text-gray-700">Nội dung</label>
                                 <div class="mt-1">
-                                    <textarea id="content" name="content" rows="20" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md">{{ old('content', $approvedArticle->content) }}</textarea>
+                                    <textarea id="content" name="content" rows="20" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md editor-content">{{ old('content', $approvedArticle->content) }}</textarea>
                                 </div>
                                 @error('content')
                                     <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
                                 @enderror
+                                <input type="hidden" name="content_media_ids" id="content_media_ids" value="">
+                                <div class="flex justify-end mt-2">
+                                    <button type="button" id="insert-media-btn" 
+                                        class="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-5 font-medium rounded-md text-white bg-green-600 hover:bg-green-500 focus:outline-none focus:border-green-700 focus:shadow-outline-green active:bg-green-700 transition ease-in-out duration-150">
+                                        <svg class="mr-1.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        Chèn hình ảnh
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -108,12 +118,32 @@
                         
                         <div class="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                             <div class="sm:col-span-6">
-                                @if($approvedArticle->featured_image)
+                                @if($approvedArticle->featuredImage)
+                                    <div class="mb-4">
+                                        <p class="mb-2 text-sm text-gray-500">Ảnh hiện tại:</p>
+                                        <img src="{{ $approvedArticle->featuredImage->url }}" alt="{{ $approvedArticle->title }}" class="max-w-xs h-auto rounded-lg shadow">
+                                        <p class="mt-1 text-sm text-gray-500">{{ $approvedArticle->featuredImage->name }}</p>
+                                    </div>
+                                @elseif($approvedArticle->featured_image)
                                     <div class="mb-4">
                                         <p class="mb-2 text-sm text-gray-500">Ảnh hiện tại:</p>
                                         <img src="{{ $approvedArticle->featured_image_url }}" alt="{{ $approvedArticle->title }}" class="max-w-xs h-auto rounded-lg shadow">
                                     </div>
                                 @endif
+                                
+                                <input type="hidden" name="featured_image_id" id="featured_image_id" value="{{ old('featured_image_id', $approvedArticle->featured_image_id) }}">
+                                
+                                <div class="flex space-x-4 mb-4">
+                                    <button type="button" id="select-featured-image-btn" 
+                                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                        <svg class="mr-2 -ml-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        Chọn từ thư viện
+                                    </button>
+                                    
+                                    <span class="text-gray-500 self-center">hoặc</span>
+                                </div>
                                 
                                 <label for="featured_image" class="block text-sm font-medium text-gray-700">
                                     Tải lên ảnh mới
@@ -185,4 +215,90 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize media selector for content
+        const contentMediaSelector = new MediaSelector({
+            type: 'image',
+            insertCallback: function(media) {
+                const editor = document.getElementById('content');
+                const mediaHtml = `<img src="${media.url}" alt="${media.name}" class="img-fluid">`;
+                
+                // Insert at cursor position or append
+                if (typeof editor.setRangeText === 'function') {
+                    editor.setRangeText(mediaHtml);
+                } else {
+                    editor.value += mediaHtml;
+                }
+                
+                // Add media ID to the list of used media
+                const contentMediaIdsInput = document.getElementById('content_media_ids');
+                let mediaIds = contentMediaIdsInput.value ? contentMediaIdsInput.value.split(',') : [];
+                if (!mediaIds.includes(media.id.toString())) {
+                    mediaIds.push(media.id);
+                }
+                contentMediaIdsInput.value = mediaIds.join(',');
+            }
+        });
+        
+        // Initialize media selector for featured image
+        const featuredImageSelector = new MediaSelector({
+            type: 'image',
+            insertCallback: function(media) {
+                document.getElementById('featured_image_id').value = media.id;
+                
+                // Update displayed image if it exists
+                const imageContainer = document.getElementById('select-featured-image-btn').parentNode.parentNode;
+                const existingImageInfo = imageContainer.querySelector('div');
+                
+                if (existingImageInfo) {
+                    // Update existing image
+                    const img = existingImageInfo.querySelector('img');
+                    img.src = media.url;
+                    img.alt = media.name;
+                    
+                    const nameEl = existingImageInfo.querySelector('p:last-child');
+                    if (nameEl) {
+                        nameEl.textContent = media.name;
+                    } else {
+                        const newNameEl = document.createElement('p');
+                        newNameEl.className = 'mt-1 text-sm text-gray-500';
+                        newNameEl.textContent = media.name;
+                        existingImageInfo.appendChild(newNameEl);
+                    }
+                } else {
+                    // Create new image display
+                    const newImageInfo = document.createElement('div');
+                    newImageInfo.className = 'mb-4';
+                    newImageInfo.innerHTML = `
+                        <p class="mb-2 text-sm text-gray-500">Ảnh hiện tại:</p>
+                        <img src="${media.url}" alt="${media.name}" class="max-w-xs h-auto rounded-lg shadow">
+                        <p class="mt-1 text-sm text-gray-500">${media.name}</p>
+                    `;
+                    
+                    // Insert before the buttons container
+                    imageContainer.insertBefore(newImageInfo, document.getElementById('select-featured-image-btn').parentNode);
+                }
+            }
+        });
+        
+        // Bind buttons
+        document.getElementById('insert-media-btn').addEventListener('click', function() {
+            contentMediaSelector.open();
+        });
+        
+        document.getElementById('select-featured-image-btn').addEventListener('click', function() {
+            featuredImageSelector.open();
+        });
+        
+        // Extract media IDs from content on form submit
+        document.querySelector('form').addEventListener('submit', function() {
+            // You could implement a regex to extract all image src attributes that match your media URLs
+            // For simplicity, we'll rely on the tracked IDs from the insertCallback
+        });
+    });
+</script>
+@endpush
 @endsection 

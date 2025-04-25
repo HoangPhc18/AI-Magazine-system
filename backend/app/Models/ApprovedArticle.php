@@ -17,6 +17,7 @@ class ApprovedArticle extends Model
         'meta_title',
         'meta_description',
         'featured_image',
+        'featured_image_id',
         'user_id',
         'category_id',
         'original_article_id',
@@ -43,6 +44,23 @@ class ApprovedArticle extends Model
     public function originalArticle()
     {
         return $this->belongsTo(RewrittenArticle::class, 'original_article_id');
+    }
+    
+    /**
+     * Get the featured image media object
+     */
+    public function featuredImage()
+    {
+        return $this->belongsTo(Media::class, 'featured_image_id');
+    }
+    
+    /**
+     * Get the article-related media
+     */
+    public function media()
+    {
+        return $this->belongsToMany(Media::class, 'article_media', 'article_id', 'media_id')
+                    ->withTimestamps();
     }
 
     public function getStatusBadgeClassAttribute()
@@ -85,6 +103,12 @@ class ApprovedArticle extends Model
      */
     public function getFeaturedImageUrlAttribute()
     {
+        // First check if we have a media relationship
+        if ($this->featuredImage) {
+            return $this->featuredImage->url;
+        }
+        
+        // Fallback to the old implementation for backward compatibility
         if (!$this->featured_image) {
             return null;
         }
