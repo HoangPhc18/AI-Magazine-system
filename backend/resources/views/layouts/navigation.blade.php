@@ -4,12 +4,33 @@
             <div class="flex">
                 <div class="flex-shrink-0 flex items-center">
                     <a href="{{ route('home') }}" class="flex items-center transition-all hover:opacity-80">
-                        <div class="bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-bold rounded-lg p-2 mr-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-                            </svg>
-                        </div>
-                        <span class="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">Magazine AI</span>
+                        @if(isset($generalConfig['logo']) && !empty($generalConfig['logo']))
+                            @php
+                                $logoUrl = $generalConfig['logo'];
+                                // Nếu URL không bắt đầu với http hoặc / thì thêm APP_URL vào đầu
+                                if (!str_starts_with($logoUrl, 'http') && !str_starts_with($logoUrl, '/')) {
+                                    $logoUrl = '/' . $logoUrl;
+                                }
+                                
+                                // Nếu URL bắt đầu với /storage nhưng không có file thì thử format khác
+                                if (str_starts_with($logoUrl, '/storage/') && !file_exists(public_path(substr($logoUrl, 1)))) {
+                                    // Thử loại bỏ public/ hoặc storage/ từ đường dẫn
+                                    $alternateUrl = str_replace('/storage/public/', '/storage/', $logoUrl);
+                                    $logoUrl = $alternateUrl;
+                                }
+                            @endphp
+                            <img src="{{ $logoUrl }}" alt="{{ $generalConfig['site_name'] ?? 'Magazine AI' }}" class="h-8 w-auto object-contain mr-2">
+                            <span class="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">
+                                {{ $generalConfig['site_name'] ?? 'Magazine AI' }}
+                            </span>
+                        @else
+                            <div class="bg-gradient-to-r from-blue-500 to-cyan-400 text-white font-bold rounded-lg p-2 mr-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                                </svg>
+                            </div>
+                            <span class="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">Magazine AI</span>
+                        @endif
                     </a>
                 </div>
 
@@ -124,4 +145,23 @@
             </div>
         </div>
     </div>
-</nav> 
+</nav>
+
+@if(auth()->check() && auth()->user()->role === 'admin')
+    <div class="bg-yellow-100 p-2 text-xs text-yellow-800 hidden">
+        <strong>Debug Logo:</strong>
+        @if(isset($generalConfig['logo']) && !empty($generalConfig['logo']))
+            Logo URL: {{ $generalConfig['logo'] }}
+        @else
+            No logo URL set in configuration
+        @endif
+        
+        @if(isset($generalConfig['logo_media_id']) && !empty($generalConfig['logo_media_id']))
+            <br>Logo Media ID: {{ $generalConfig['logo_media_id'] }}
+        @else
+            <br>No logo_media_id set in configuration
+        @endif
+        
+        <button class="bg-yellow-200 hover:bg-yellow-300 px-2 py-1 rounded ml-2" onclick="this.parentElement.classList.toggle('hidden')">Toggle Debug</button>
+    </div>
+@endif 

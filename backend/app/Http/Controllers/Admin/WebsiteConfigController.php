@@ -46,25 +46,65 @@ class WebsiteConfigController extends Controller
             'site_address' => 'required|string|max:500',
             'logo' => 'nullable|image|max:2048',
             'favicon' => 'nullable|image|max:1024',
+            'logo_media_id' => 'nullable|numeric',
+            'favicon_media_id' => 'nullable|numeric',
         ]);
 
-        // Process uploads if present
-        if ($request->hasFile('logo')) {
-            $logoPath = $request->file('logo')->store('public/uploads/website');
-            $validated['logo'] = Storage::url($logoPath);
+        // Get current settings to preserve existing values if not updated
+        $currentSettings = $this->configService->getByGroup(WebsiteConfigService::GROUP_GENERAL);
+        
+        // Process logo - prioritize media selector over direct upload
+        if (!empty($request->input('logo_media_id'))) {
+            // Use Media record from library
+            $mediaId = $request->input('logo_media_id');
+            $media = \App\Models\Media::find($mediaId);
+            
+            if ($media) {
+                // Đảm bảo URL là absolute và không bị lỗi
+                $validated['logo'] = $media->getUrlAttribute();  // Sử dụng accessor để đảm bảo URL được tạo chính xác
+                $validated['logo_media_id'] = $mediaId;
+            }
+        } elseif ($request->hasFile('logo')) {
+            // Direct upload path as fallback
+            try {
+                $logoPath = $request->file('logo')->store('public/uploads/website');
+                // Tạo URL đầy đủ không sử dụng Storage::url() để tránh lỗi đường dẫn
+                $validated['logo'] = '/storage/' . str_replace('public/', '', $logoPath);
+                $validated['logo_media_id'] = null; // Clear media ID since we're using direct upload
+            } catch (\Exception $e) {
+                return redirect()->back()->with('error', 'Không thể tải lên logo: ' . $e->getMessage());
+            }
         } else {
             // Keep existing logo if no new upload
-            $currentSettings = $this->configService->getByGroup(WebsiteConfigService::GROUP_GENERAL);
             $validated['logo'] = $currentSettings['logo'] ?? null;
+            $validated['logo_media_id'] = $currentSettings['logo_media_id'] ?? null;
         }
 
-        if ($request->hasFile('favicon')) {
-            $faviconPath = $request->file('favicon')->store('public/uploads/website');
-            $validated['favicon'] = Storage::url($faviconPath);
+        // Process favicon - prioritize media selector over direct upload
+        if (!empty($request->input('favicon_media_id'))) {
+            // Use Media record from library
+            $mediaId = $request->input('favicon_media_id');
+            $media = \App\Models\Media::find($mediaId);
+            
+            if ($media) {
+                // Đảm bảo URL là absolute và không bị lỗi
+                $validated['favicon'] = $media->getUrlAttribute(); // Sử dụng accessor để đảm bảo URL được tạo chính xác
+                $validated['favicon_media_id'] = $mediaId;
+            }
+        } elseif ($request->hasFile('favicon')) {
+            // Direct upload path as fallback
+            try {
+                $faviconPath = $request->file('favicon')->store('public/uploads/website');
+                // Tạo URL đầy đủ không sử dụng Storage::url() để tránh lỗi đường dẫn
+                $validated['favicon'] = '/storage/' . str_replace('public/', '', $faviconPath);
+                $validated['favicon_media_id'] = null; // Clear media ID since we're using direct upload
+            } catch (\Exception $e) {
+                return redirect()->back()->with('error', 'Không thể tải lên favicon: ' . $e->getMessage());
+            }
         } else {
             // Keep existing favicon if no new upload
-            $currentSettings = $this->configService->getByGroup(WebsiteConfigService::GROUP_GENERAL);
             $validated['favicon'] = $currentSettings['favicon'] ?? null;
+            $validated['favicon_media_id'] = $currentSettings['favicon_media_id'] ?? null;
         }
 
         $this->configService->updateGroup(
@@ -262,8 +302,13 @@ class WebsiteConfigController extends Controller
 
         // Process uploads if present
         if ($request->hasFile('default_og_image')) {
-            $imagePath = $request->file('default_og_image')->store('public/uploads/website');
-            $validated['default_og_image'] = Storage::url($imagePath);
+            try {
+                $imagePath = $request->file('default_og_image')->store('public/uploads/website');
+                // Tạo URL đầy đủ không sử dụng Storage::url() để tránh lỗi đường dẫn
+                $validated['default_og_image'] = '/storage/' . str_replace('public/', '', $imagePath);
+            } catch (\Exception $e) {
+                return redirect()->back()->with('error', 'Không thể tải lên ảnh OG: ' . $e->getMessage());
+            }
         } else {
             // Keep existing image if no new upload
             $currentSettings = $this->configService->getByGroup(WebsiteConfigService::GROUP_METADATA);

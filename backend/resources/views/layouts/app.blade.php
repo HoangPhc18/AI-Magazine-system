@@ -58,9 +58,23 @@
 
     <!-- Favicon -->
     @if(isset($generalConfig['favicon']) && !empty($generalConfig['favicon']))
-    <link rel="icon" href="{{ $generalConfig['favicon'] }}">
-    <link rel="shortcut icon" href="{{ $generalConfig['favicon'] }}">
-    <link rel="apple-touch-icon" href="{{ $generalConfig['favicon'] }}">
+    @php
+        $faviconUrl = $generalConfig['favicon'];
+        // Nếu URL không bắt đầu với http hoặc / thì thêm APP_URL vào đầu
+        if (!str_starts_with($faviconUrl, 'http') && !str_starts_with($faviconUrl, '/')) {
+            $faviconUrl = '/' . $faviconUrl;
+        }
+        
+        // Nếu URL bắt đầu với /storage nhưng không có file thì thử format khác
+        if (str_starts_with($faviconUrl, '/storage/') && !file_exists(public_path(substr($faviconUrl, 1)))) {
+            // Thử loại bỏ public/ hoặc storage/ từ đường dẫn
+            $alternateUrl = str_replace('/storage/public/', '/storage/', $faviconUrl);
+            $faviconUrl = $alternateUrl;
+        }
+    @endphp
+    <link rel="icon" href="{{ $faviconUrl }}">
+    <link rel="shortcut icon" href="{{ $faviconUrl }}">
+    <link rel="apple-touch-icon" href="{{ $faviconUrl }}">
     @endif
 
     <!-- Thẻ meta tùy chỉnh -->

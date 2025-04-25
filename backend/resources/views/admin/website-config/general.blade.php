@@ -14,9 +14,15 @@
     </div>
 
     <div class="mt-6 bg-white shadow-sm rounded-lg">
-        @if (session('status'))
+        @if (session('success'))
         <div class="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg" role="alert">
-            {{ session('status') }}
+            {{ session('success') }}
+        </div>
+        @endif
+
+        @if (session('error'))
+        <div class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
+            {{ session('error') }}
         </div>
         @endif
 
@@ -84,12 +90,33 @@
                     <!-- Logo and Favicon -->
                     <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                         <div>
-                            <label for="logo" class="block text-sm font-medium text-gray-700">Logo</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Logo</label>
+                            
+                            <!-- Logo preview -->
                             @if (!empty($settings['logo']))
                                 <div class="mt-2 mb-4">
-                                    <img src="{{ $settings['logo'] }}" alt="Current Logo" class="h-20 w-auto object-contain">
+                                    <img src="{{ $settings['logo'] }}" alt="Current Logo" class="h-20 w-auto object-contain mb-2">
                                 </div>
                             @endif
+                            
+                            <!-- Hidden field for logo media ID -->
+                            <input type="hidden" name="logo_media_id" id="logo_media_id" value="{{ old('logo_media_id', $settings['logo_media_id'] ?? '') }}">
+                            
+                            <div class="flex space-x-4 mb-4">
+                                <button type="button" id="select-logo-btn" 
+                                    class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                    <svg class="mr-2 -ml-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    Chọn từ thư viện
+                                </button>
+                                
+                                <span class="text-gray-500 self-center">hoặc</span>
+                            </div>
+                            
+                            <label for="logo" class="block text-sm font-medium text-gray-700">
+                                Tải lên logo mới
+                            </label>
                             <input type="file" name="logo" id="logo" 
                                    class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4
                                    file:rounded-md file:border-0 file:text-sm file:font-semibold
@@ -101,12 +128,33 @@
                         </div>
 
                         <div>
-                            <label for="favicon" class="block text-sm font-medium text-gray-700">Favicon</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Favicon</label>
+                            
+                            <!-- Favicon preview -->
                             @if (!empty($settings['favicon']))
                                 <div class="mt-2 mb-4">
-                                    <img src="{{ $settings['favicon'] }}" alt="Current Favicon" class="h-10 w-auto object-contain">
+                                    <img src="{{ $settings['favicon'] }}" alt="Current Favicon" class="h-10 w-auto object-contain mb-2">
                                 </div>
                             @endif
+                            
+                            <!-- Hidden field for favicon media ID -->
+                            <input type="hidden" name="favicon_media_id" id="favicon_media_id" value="{{ old('favicon_media_id', $settings['favicon_media_id'] ?? '') }}">
+                            
+                            <div class="flex space-x-4 mb-4">
+                                <button type="button" id="select-favicon-btn" 
+                                    class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                    <svg class="mr-2 -ml-1 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    Chọn từ thư viện
+                                </button>
+                                
+                                <span class="text-gray-500 self-center">hoặc</span>
+                            </div>
+                            
+                            <label for="favicon" class="block text-sm font-medium text-gray-700">
+                                Tải lên favicon mới
+                            </label>
                             <input type="file" name="favicon" id="favicon" 
                                    class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4
                                    file:rounded-md file:border-0 file:text-sm file:font-semibold
@@ -129,4 +177,75 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize MediaSelector for logo
+        const logoMediaSelector = new MediaSelector({
+            type: 'image',
+            insertCallback: function(media) {
+                // Lưu ID vào input hidden
+                document.getElementById('logo_media_id').value = media.id;
+                
+                // Hiển thị preview
+                let logoContainer = document.getElementById('select-logo-btn').parentNode.parentNode;
+                let previewContainer = logoContainer.querySelector('div');
+                
+                if (previewContainer) {
+                    // Cập nhật hình ảnh hiện tại
+                    previewContainer.innerHTML = `
+                        <img src="${media.url}" alt="${media.name}" class="h-20 w-auto object-contain mb-2">
+                    `;
+                } else {
+                    // Tạo mới container preview
+                    previewContainer = document.createElement('div');
+                    previewContainer.className = 'mt-2 mb-4';
+                    previewContainer.innerHTML = `
+                        <img src="${media.url}" alt="${media.name}" class="h-20 w-auto object-contain mb-2">
+                    `;
+                    logoContainer.insertBefore(previewContainer, document.getElementById('logo_media_id').nextSibling);
+                }
+            }
+        });
+        
+        // Initialize MediaSelector for favicon
+        const faviconMediaSelector = new MediaSelector({
+            type: 'image',
+            insertCallback: function(media) {
+                // Lưu ID vào input hidden
+                document.getElementById('favicon_media_id').value = media.id;
+                
+                // Hiển thị preview
+                let faviconContainer = document.getElementById('select-favicon-btn').parentNode.parentNode;
+                let previewContainer = faviconContainer.querySelector('div');
+                
+                if (previewContainer) {
+                    // Cập nhật hình ảnh hiện tại
+                    previewContainer.innerHTML = `
+                        <img src="${media.url}" alt="${media.name}" class="h-10 w-auto object-contain mb-2">
+                    `;
+                } else {
+                    // Tạo mới container preview
+                    previewContainer = document.createElement('div');
+                    previewContainer.className = 'mt-2 mb-4';
+                    previewContainer.innerHTML = `
+                        <img src="${media.url}" alt="${media.name}" class="h-10 w-auto object-contain mb-2">
+                    `;
+                    faviconContainer.insertBefore(previewContainer, document.getElementById('favicon_media_id').nextSibling);
+                }
+            }
+        });
+        
+        // Bind buttons
+        document.getElementById('select-logo-btn').addEventListener('click', function() {
+            logoMediaSelector.open();
+        });
+        
+        document.getElementById('select-favicon-btn').addEventListener('click', function() {
+            faviconMediaSelector.open();
+        });
+    });
+</script>
+@endpush
 @endsection 
