@@ -94,6 +94,89 @@
                             <div class="sm:col-span-6">
                                 <label for="content" class="block text-sm font-medium text-gray-700">Nội dung</label>
                                 <div class="mt-1">
+                                    <div class="editor-toolbar mb-2 flex flex-wrap gap-1 border border-gray-300 rounded-md p-1.5 bg-gray-50">
+                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="bold" title="In đậm">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path></svg>
+                                        </button>
+                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="italic" title="In nghiêng">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"></line><line x1="14" y1="20" x2="5" y2="20"></line><line x1="15" y1="4" x2="9" y2="20"></line></svg>
+                                        </button>
+                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="underline" title="Gạch dưới">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"></path><line x1="4" y1="21" x2="20" y2="21"></line></svg>
+                                        </button>
+                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="strikethrough" title="Gạch ngang">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><path d="M16 6c-.5-1.2-1.8-2-3.5-2-2.2 0-4 1.3-4 3 0 1.8 1.2 2.6 3.5 3.5"></path><path d="M8.5 15c.5 1.2 1.8 2 3.5 2 2.2 0 4-1.3 4-3 0-1.8-1.2-2.6-3.5-3.5"></path></svg>
+                                        </button>
+                                        <span class="border-r border-gray-300 mx-1"></span>
+                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="h2" title="Tiêu đề H2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h8"></path><path d="M4 18V6"></path><path d="M12 18V6"></path><path d="M17 12a2 2 0 1 0 4 0 2 2 0 1 0-4 0z"></path></svg>
+                                        </button>
+                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="h3" title="Tiêu đề H3">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h8"></path><path d="M4 18V6"></path><path d="M12 18V6"></path><path d="M17 9v6"></path><path d="M21 9v6"></path><path d="M17 12h4"></path></svg>
+                                        </button>
+                                        <span class="border-r border-gray-300 mx-1"></span>
+                                        <div class="relative">
+                                            <button type="button" class="format-btn p-1 rounded hover:bg-gray-200 text-color-btn" title="Màu chữ">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7h6l2 10H7l2-10Z"></path><path d="M4 17h16"></path></svg>
+                                            </button>
+                                            <div class="color-picker absolute z-10 left-0 top-full mt-1 p-2 bg-white shadow-lg rounded-md border border-gray-200 grid grid-cols-5 gap-1 hidden">
+                                                <button type="button" class="w-6 h-6 bg-red-500 rounded" data-color="#ef4444" title="Đỏ"></button>
+                                                <button type="button" class="w-6 h-6 bg-blue-500 rounded" data-color="#3b82f6" title="Xanh dương"></button>
+                                                <button type="button" class="w-6 h-6 bg-green-500 rounded" data-color="#22c55e" title="Xanh lá"></button>
+                                                <button type="button" class="w-6 h-6 bg-yellow-500 rounded" data-color="#eab308" title="Vàng"></button>
+                                                <button type="button" class="w-6 h-6 bg-purple-500 rounded" data-color="#a855f7" title="Tím"></button>
+                                                <button type="button" class="w-6 h-6 bg-pink-500 rounded" data-color="#ec4899" title="Hồng"></button>
+                                                <button type="button" class="w-6 h-6 bg-indigo-500 rounded" data-color="#6366f1" title="Chàm"></button>
+                                                <button type="button" class="w-6 h-6 bg-gray-700 rounded" data-color="#374151" title="Đen"></button>
+                                                <button type="button" class="w-6 h-6 bg-gray-500 rounded" data-color="#6b7280" title="Xám"></button>
+                                                <button type="button" class="w-6 h-6 bg-white rounded border border-gray-200" data-color="#ffffff" title="Trắng"></button>
+                                            </div>
+                                        </div>
+                                        <div class="relative">
+                                            <button type="button" class="format-btn p-1 rounded hover:bg-gray-200 font-size-btn" title="Cỡ chữ">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                                            </button>
+                                            <div class="font-size-picker absolute z-10 left-0 top-full mt-1 p-2 bg-white shadow-lg rounded-md border border-gray-200 w-32 hidden">
+                                                <button type="button" class="block w-full text-left px-2 py-1 hover:bg-gray-100 rounded text-xs" data-size="small">Nhỏ</button>
+                                                <button type="button" class="block w-full text-left px-2 py-1 hover:bg-gray-100 rounded text-sm" data-size="normal">Thường</button>
+                                                <button type="button" class="block w-full text-left px-2 py-1 hover:bg-gray-100 rounded text-base" data-size="large">Lớn</button>
+                                                <button type="button" class="block w-full text-left px-2 py-1 hover:bg-gray-100 rounded text-lg" data-size="xlarge">Rất lớn</button>
+                                            </div>
+                                        </div>
+                                        <span class="border-r border-gray-300 mx-1"></span>
+                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="alignLeft" title="Căn trái">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="3" y2="6"></line><line x1="15" y1="12" x2="3" y2="12"></line><line x1="17" y1="18" x2="3" y2="18"></line></svg>
+                                        </button>
+                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="alignCenter" title="Căn giữa">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="3" y2="6"></line><line x1="18" y1="12" x2="6" y2="12"></line><line x1="21" y1="18" x2="3" y2="18"></line></svg>
+                                        </button>
+                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="alignRight" title="Căn phải">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="12" x2="9" y2="12"></line><line x1="21" y1="18" x2="7" y2="18"></line></svg>
+                                        </button>
+                                        <span class="border-r border-gray-300 mx-1"></span>
+                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="ul" title="Danh sách dấu đầu dòng">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                                        </button>
+                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="ol" title="Danh sách có thứ tự">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="6" x2="21" y2="6"></line><line x1="10" y1="12" x2="21" y2="12"></line><line x1="10" y1="18" x2="21" y2="18"></line><path d="M4 6h1v4"></path><path d="M4 10h2"></path><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"></path></svg>
+                                        </button>
+                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="blockquote" title="Trích dẫn">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                                        </button>
+                                        <span class="border-r border-gray-300 mx-1"></span>
+                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="superscript" title="Chỉ số trên">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9l8 10V9"></path><path d="M21 9h-4c0-1 1-2 2.5-2s2.5 1 2.5 2c0 1-1 2-2.5 2"></path></svg>
+                                        </button>
+                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="subscript" title="Chỉ số dưới">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9l8 10V9"></path><path d="M21 19h-4c0-1 1-2 2.5-2s2.5 1 2.5 2c0 1-1 2-2.5 2"></path></svg>
+                                        </button>
+                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="paragraph" title="Thêm đoạn văn">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="17" y1="18" x2="3" y2="18"></line></svg>
+                                        </button>
+                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="link" title="Thêm liên kết">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                                        </button>
+                                    </div>
                                     <textarea id="content" name="content" rows="20" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md editor-content">{{ old('content', $approvedArticle->content) }}</textarea>
                                 </div>
                                 @error('content')
@@ -219,10 +302,135 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Flag to track media operations
+        let lastOperation = null;
+        let contentMediaIds = [];
+        
+        // Get existing content media IDs
+        const contentMediaIdsInput = document.getElementById('content_media_ids');
+        if (contentMediaIdsInput.value) {
+            contentMediaIds = contentMediaIdsInput.value.split(',');
+        }
+
+        // Initialize format buttons
+        const formatButtons = document.querySelectorAll('.format-btn');
+        const editor = document.getElementById('content');
+        
+        formatButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const format = this.getAttribute('data-format');
+                const selection = {
+                    start: editor.selectionStart,
+                    end: editor.selectionEnd,
+                    text: editor.value.substring(editor.selectionStart, editor.selectionEnd)
+                };
+                
+                let formattedText = '';
+                let cursorOffset = 0;
+                
+                switch(format) {
+                    case 'bold':
+                        formattedText = `<strong>${selection.text}</strong>`;
+                        cursorOffset = 9; // Length of "<strong></strong>"
+                        break;
+                    case 'italic':
+                        formattedText = `<em>${selection.text}</em>`;
+                        cursorOffset = 5; // Length of "<em></em>"
+                        break;
+                    case 'underline':
+                        formattedText = `<u>${selection.text}</u>`;
+                        cursorOffset = 3; // Length of "<u></u>"
+                        break;
+                    case 'strikethrough':
+                        formattedText = `<s>${selection.text}</s>`;
+                        cursorOffset = 3; // Length of "<s></s>"
+                        break;
+                    case 'h2':
+                        formattedText = `\n<h2>${selection.text}</h2>\n`;
+                        cursorOffset = 6; // Length of "<h2></h2>"
+                        break;
+                    case 'h3':
+                        formattedText = `\n<h3>${selection.text}</h3>\n`;
+                        cursorOffset = 6; // Length of "<h3></h3>"
+                        break;
+                    case 'alignLeft':
+                        formattedText = `<div style="text-align:left">${selection.text}</div>`;
+                        cursorOffset = 31; // Length of div tags with style
+                        break;
+                    case 'alignCenter':
+                        formattedText = `<div style="text-align:center">${selection.text}</div>`;
+                        cursorOffset = 33; // Length of div tags with style
+                        break;
+                    case 'alignRight':
+                        formattedText = `<div style="text-align:right">${selection.text}</div>`;
+                        cursorOffset = 32; // Length of div tags with style
+                        break;
+                    case 'superscript':
+                        formattedText = `<sup>${selection.text}</sup>`;
+                        cursorOffset = 6; // Length of "<sup></sup>"
+                        break;
+                    case 'subscript':
+                        formattedText = `<sub>${selection.text}</sub>`;
+                        cursorOffset = 6; // Length of "<sub></sub>"
+                        break;
+                    case 'ul':
+                        if (selection.text) {
+                            const lines = selection.text.split('\n');
+                            formattedText = '\n<ul>\n' + lines.map(line => `    <li>${line.trim()}</li>`).join('\n') + '\n</ul>\n';
+                        } else {
+                            formattedText = '\n<ul>\n    <li></li>\n</ul>\n';
+                        }
+                        cursorOffset = 0;
+                        break;
+                    case 'ol':
+                        if (selection.text) {
+                            const lines = selection.text.split('\n');
+                            formattedText = '\n<ol>\n' + lines.map(line => `    <li>${line.trim()}</li>`).join('\n') + '\n</ol>\n';
+                        } else {
+                            formattedText = '\n<ol>\n    <li></li>\n</ol>\n';
+                        }
+                        cursorOffset = 0;
+                        break;
+                    case 'blockquote':
+                        formattedText = `\n<blockquote>${selection.text}</blockquote>\n`;
+                        cursorOffset = 13; // Length of "<blockquote></blockquote>"
+                        break;
+                    case 'paragraph':
+                        formattedText = `\n<p>${selection.text}</p>\n`;
+                        cursorOffset = 4; // Length of "<p></p>"
+                        break;
+                    case 'link':
+                        const url = prompt('Nhập địa chỉ URL:', 'https://');
+                        if (url) {
+                            formattedText = `<a href="${url}" target="_blank">${selection.text || url}</a>`;
+                            cursorOffset = 0;
+                        } else {
+                            return; // Don't proceed if no URL provided
+                        }
+                        break;
+                }
+                
+                if (formattedText) {
+                    // Insert the formatted text
+                    editor.setRangeText(formattedText, selection.start, selection.end, 'end');
+                    
+                    // Set focus back to the textarea
+                    editor.focus();
+                    
+                    // If nothing was selected, place cursor inside the tags
+                    if (selection.start === selection.end && cursorOffset > 0) {
+                        const cursorPos = selection.start + formattedText.length - cursorOffset;
+                        editor.setSelectionRange(cursorPos, cursorPos);
+                    }
+                }
+            });
+        });
+
         // Initialize media selector for content
         const contentMediaSelector = new MediaSelector({
             type: 'image',
             insertCallback: function(media) {
+                lastOperation = 'content';
                 const editor = document.getElementById('content');
                 const mediaHtml = `<img src="${media.url}" alt="${media.name}" class="img-fluid">`;
                 
@@ -234,12 +442,10 @@
                 }
                 
                 // Add media ID to the list of used media
-                const contentMediaIdsInput = document.getElementById('content_media_ids');
-                let mediaIds = contentMediaIdsInput.value ? contentMediaIdsInput.value.split(',') : [];
-                if (!mediaIds.includes(media.id.toString())) {
-                    mediaIds.push(media.id);
+                if (!contentMediaIds.includes(media.id.toString())) {
+                    contentMediaIds.push(media.id);
                 }
-                contentMediaIdsInput.value = mediaIds.join(',');
+                contentMediaIdsInput.value = contentMediaIds.join(',');
             }
         });
         
@@ -247,6 +453,7 @@
         const featuredImageSelector = new MediaSelector({
             type: 'image',
             insertCallback: function(media) {
+                lastOperation = 'featured';
                 console.log('Featured image callback with media:', media);
                 // Đặt giá trị ID vào input hidden
                 document.getElementById('featured_image_id').value = media.id;
@@ -297,6 +504,17 @@
             }
         });
         
+        // Close MediaSelector modal when any modal is closed
+        const modalCloseHandler = function(e) {
+            if (e.target.closest('.media-cancel')) {
+                // After closing the modal, reset the operation flag
+                setTimeout(() => {
+                    lastOperation = null;
+                }, 100);
+            }
+        };
+        document.addEventListener('click', modalCloseHandler);
+        
         // Bind buttons
         document.getElementById('insert-media-btn').addEventListener('click', function() {
             contentMediaSelector.open();
@@ -306,10 +524,81 @@
             featuredImageSelector.open();
         });
         
-        // Extract media IDs from content on form submit
-        document.querySelector('form').addEventListener('submit', function() {
-            // You could implement a regex to extract all image src attributes that match your media URLs
-            // For simplicity, we'll rely on the tracked IDs from the insertCallback
+        // When form is submitted, ensure all content media IDs are included
+        document.querySelector('form').addEventListener('submit', function(e) {
+            // Set the content media IDs
+            document.getElementById('content_media_ids').value = contentMediaIds.join(',');
+        });
+
+        // Initialize color picker functionality
+        const colorBtn = document.querySelector('.text-color-btn');
+        const colorPicker = document.querySelector('.color-picker');
+        
+        colorBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            colorPicker.classList.toggle('hidden');
+            fontSizePicker.classList.add('hidden'); // Hide other dropdown
+        });
+        
+        // Color buttons
+        colorPicker.querySelectorAll('button').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const color = this.getAttribute('data-color');
+                const selection = {
+                    start: editor.selectionStart,
+                    end: editor.selectionEnd,
+                    text: editor.value.substring(editor.selectionStart, editor.selectionEnd)
+                };
+                
+                const formattedText = `<span style="color:${color}">${selection.text}</span>`;
+                editor.setRangeText(formattedText, selection.start, selection.end, 'end');
+                editor.focus();
+                colorPicker.classList.add('hidden');
+            });
+        });
+        
+        // Initialize font size picker
+        const fontSizeBtn = document.querySelector('.font-size-btn');
+        const fontSizePicker = document.querySelector('.font-size-picker');
+        
+        fontSizeBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            fontSizePicker.classList.toggle('hidden');
+            colorPicker.classList.add('hidden'); // Hide other dropdown
+        });
+        
+        // Font size buttons
+        fontSizePicker.querySelectorAll('button').forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const size = this.getAttribute('data-size');
+                const selection = {
+                    start: editor.selectionStart,
+                    end: editor.selectionEnd,
+                    text: editor.value.substring(editor.selectionStart, editor.selectionEnd)
+                };
+                
+                let fontSize;
+                switch(size) {
+                    case 'small': fontSize = '0.875rem'; break; // 14px
+                    case 'normal': fontSize = '1rem'; break;    // 16px
+                    case 'large': fontSize = '1.25rem'; break;  // 20px
+                    case 'xlarge': fontSize = '1.5rem'; break;  // 24px
+                    default: fontSize = '1rem';
+                }
+                
+                const formattedText = `<span style="font-size:${fontSize}">${selection.text}</span>`;
+                editor.setRangeText(formattedText, selection.start, selection.end, 'end');
+                editor.focus();
+                fontSizePicker.classList.add('hidden');
+            });
+        });
+        
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function() {
+            colorPicker.classList.add('hidden');
+            fontSizePicker.classList.add('hidden');
         });
     });
 </script>

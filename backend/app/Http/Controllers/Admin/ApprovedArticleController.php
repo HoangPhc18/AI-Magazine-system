@@ -320,32 +320,344 @@ class ApprovedArticleController extends Controller
     }
     
     /**
-     * Process and associate media with the article
+     * Process article media entities from content
      */
     private function processArticleMedia($article, $mediaIds)
     {
+        // If no media IDs were provided, no processing is needed
         if (empty($mediaIds)) {
             return;
         }
         
-        // Convert to array if it's a string
+        // Convert string to array if needed
         if (is_string($mediaIds)) {
             $mediaIds = explode(',', $mediaIds);
         }
         
-        // Filter out any non-numeric values and convert to integers
-        $mediaIds = array_filter(array_map('intval', $mediaIds));
+        // Filter out empty values
+        $mediaIds = array_filter($mediaIds);
         
         if (empty($mediaIds)) {
             return;
         }
         
-        // Sync media with the article
-        $article->media()->sync($mediaIds);
-        
-        Log::info('Associated media with article', [
+        Log::info('Processing article media', [
             'article_id' => $article->id,
             'media_ids' => $mediaIds
+        ]);
+        
+        try {
+            // Get the media items
+            $mediaItems = Media::whereIn('id', $mediaIds)->get();
+            
+            if ($mediaItems->isEmpty()) {
+                Log::warning('No media items found for IDs', ['media_ids' => $mediaIds]);
+                return;
+            }
+            
+            // Attach media to article (synchronize rather than attach to avoid duplicates)
+            $article->media()->syncWithoutDetaching($mediaIds);
+            
+            Log::info('Media attached to article successfully', [
+                'article_id' => $article->id,
+                'media_count' => $mediaItems->count()
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error processing article media', [
+                'article_id' => $article->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    /**
+     * Run the scraper to fetch and process news articles
+     */
+    public function runScraper()
+    {
+        try {
+            // Chạy lệnh docker trong nền (background) để tránh timeout
+            $command = 'docker exec thp_214476_scraper python main.py --all > ' . storage_path('logs/scraper_output.log') . ' 2>&1 &';
+            
+            if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+                // Trên Windows, sử dụng 'start /B' để chạy trong nền
+                $command = 'start /B ' . $command;
+                // Thực thi lệnh và không đợi kết quả
+                pclose(popen($command, 'r'));
+            } else {
+                // Trên Linux/Unix
+                exec($command);
+            }
+            
+            // Ghi log thông báo đã kích hoạt scraper
+            \Log::info('Scraper triggered in background');
+            
+            // Tạo mảng output mẫu để hiển thị
+            $output = [
+                'Scraper đã được kích hoạt và đang chạy trong nền.',
+                'Quá trình sẽ tiếp tục chạy ngay cả khi bạn rời khỏi trang này.',
+                'Bài viết sẽ được tự động thu thập và import vào hệ thống.',
+                'Vui lòng quay lại danh sách bài viết sau vài phút để xem kết quả.'
+            ];
+            
+            // Lưu output mẫu vào session
+            session(['scraper_output' => $output]);
+            
+            return redirect()->route('admin.approved-articles.scraper-results')
+                ->with('success', 'Đã kích hoạt scraper thành công. Quá trình đang chạy trong nền.');
+                
+        } catch (\Exception $e) {
+            \Log::error('Error triggering scraper', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()->route('admin.approved-articles.index')
+                ->with('error', 'Đã xảy ra lỗi khi kích hoạt scraper: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Display the results of the scraper execution
+     */
+    public function scraperResults()
+    {
+        $output = session('scraper_output', []);
+        // Đảm bảo luôn có dữ liệu để hiển thị
+        if (empty($output)) {
+            $output = [
+                'Không có dữ liệu output từ lần chạy gần nhất của scraper.',
+                'Bạn có thể chạy scraper bằng cách nhấn nút "Chạy lại Scraper" bên dưới.'
+            ];
+        }
+        
+        // Kiểm tra xem có log output không
+        $log_output = $this->getScraperLogOutput();
+        if (!empty($log_output)) {
+            $output = array_merge($output, ['---', 'Log output từ file:'], $log_output);
+        }
+        
+        return view('admin.approved-articles.scraper-results', compact('output'));
+    }
+    
+    /**
+     * Check scraper status and return log output
+     */
+    private function getScraperLogOutput()
+    {
+        $log_file = storage_path('logs/scraper_output.log');
+        if (file_exists($log_file)) {
+            // Đọc 50 dòng cuối cùng của file log
+            $lines = [];
+            $fp = fopen($log_file, 'r');
+            if ($fp) {
+                // Đọc file vào mảng và lấy tối đa 50 dòng cuối
+                $position = -1;
+                $line_count = 0;
+                $max_lines = 50;
+                
+                while ($line_count < $max_lines && fseek($fp, $position, SEEK_END) >= 0) {
+                    $char = fgetc($fp);
+                    if ($char === "\n") {
+                        $line_count++;
+                    }
+                    $position--;
+                }
+                
+                // Nếu đã đọc đủ số dòng hoặc đã đọc hết file
+                if ($line_count < $max_lines || fseek($fp, $position, SEEK_END) < 0) {
+                    rewind($fp); // Quay về đầu file
+                }
+                
+                // Đọc các dòng
+                while (!feof($fp) && count($lines) < $max_lines) {
+                    $line = fgets($fp);
+                    if ($line !== false) {
+                        $lines[] = trim($line);
+                    }
+                }
+                fclose($fp);
+            }
+            return $lines;
+        }
+        return [];
+    }
+
+    /**
+     * Check the status of running scraper job (AJAX endpoint)
+     */
+    public function checkScraperStatus()
+    {
+        $log_output = $this->getScraperLogOutput();
+        $is_running = false;
+        
+        // Kiểm tra xem scraper có đang chạy không bằng cách kiểm tra process
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            // Windows: kiểm tra bằng tasklist
+            $output = [];
+            exec('tasklist /FI "IMAGENAME eq python.exe" /NH', $output);
+            $is_running = count($output) > 0 && strpos(implode(' ', $output), 'python.exe') !== false;
+        } else {
+            // Linux/Unix: kiểm tra bằng ps
+            $output = [];
+            exec('ps aux | grep "[p]ython main.py --all"', $output);
+            $is_running = count($output) > 0;
+        }
+        
+        return response()->json([
+            'is_running' => $is_running,
+            'log_output' => $log_output,
+            'last_updated' => now()->format('H:i:s - d/m/Y')
+        ]);
+    }
+
+    /**
+     * Run the article rewriter to process articles
+     */
+    public function runRewriter(Request $request)
+    {
+        try {
+            // Chạy lệnh docker trong nền (background) để tránh timeout
+            $command = 'docker exec thp_214476_rewrite python rewrite_from_db.py > ' . storage_path('logs/rewriter_output.log') . ' 2>&1 &';
+            
+            if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+                // Trên Windows, sử dụng 'start /B' để chạy trong nền
+                $command = 'start /B ' . $command;
+                // Thực thi lệnh và không đợi kết quả
+                pclose(popen($command, 'r'));
+            } else {
+                // Trên Linux/Unix
+                exec($command);
+            }
+            
+            // Ghi log thông báo đã kích hoạt rewriter
+            \Log::info('Article rewriter triggered in background');
+            
+            // Tạo mảng output mẫu để hiển thị
+            $output = [
+                'Module rewriter đã được kích hoạt và đang chạy trong nền.',
+                'Quá trình sẽ tiếp tục chạy ngay cả khi bạn rời khỏi trang này.',
+                'Các bài viết sẽ được tự động viết lại và import vào hệ thống.',
+                'Vui lòng kiểm tra danh sách bài viết đã viết lại sau vài phút.'
+            ];
+            
+            // Lưu output mẫu vào session
+            session(['rewriter_output' => $output]);
+            
+            return redirect()->route('admin.approved-articles.rewriter-results')
+                ->with('success', 'Đã kích hoạt module rewriter thành công. Quá trình đang chạy trong nền.');
+                
+        } catch (\Exception $e) {
+            \Log::error('Error triggering rewriter', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return redirect()->route('admin.approved-articles.index')
+                ->with('error', 'Đã xảy ra lỗi khi kích hoạt rewriter: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Display the results of the rewriter execution
+     */
+    public function rewriterResults()
+    {
+        $output = session('rewriter_output', []);
+        // Đảm bảo luôn có dữ liệu để hiển thị
+        if (empty($output)) {
+            $output = [
+                'Không có dữ liệu output từ lần chạy gần nhất của rewriter.',
+                'Bạn có thể chạy rewriter bằng cách nhấn nút "Chạy Rewriter" bên dưới.'
+            ];
+        }
+        
+        // Kiểm tra xem có log output không
+        $log_output = $this->getRewriterLogOutput();
+        if (!empty($log_output)) {
+            $output = array_merge($output, ['---', 'Log output từ file:'], $log_output);
+            
+            // Kiểm tra nếu có thông báo thành công trong log
+            $log_text = implode(' ', $log_output);
+            if (strpos($log_text, 'Successfully rewritten and saved') !== false || 
+                strpos($log_text, 'Saved rewritten article') !== false) {
+                session()->flash('success', 'Quá trình viết lại bài viết đã hoàn thành thành công!');
+            }
+        }
+        
+        return view('admin.approved-articles.rewriter-results', compact('output'));
+    }
+    
+    /**
+     * Check rewriter status and return log output
+     */
+    private function getRewriterLogOutput()
+    {
+        $log_file = storage_path('logs/rewriter_output.log');
+        if (file_exists($log_file)) {
+            // Đọc 50 dòng cuối cùng của file log
+            $lines = [];
+            $fp = fopen($log_file, 'r');
+            if ($fp) {
+                // Đọc file vào mảng và lấy tối đa 50 dòng cuối
+                $position = -1;
+                $line_count = 0;
+                $max_lines = 50;
+                
+                while ($line_count < $max_lines && fseek($fp, $position, SEEK_END) >= 0) {
+                    $char = fgetc($fp);
+                    if ($char === "\n") {
+                        $line_count++;
+                    }
+                    $position--;
+                }
+                
+                // Nếu đã đọc đủ số dòng hoặc đã đọc hết file
+                if ($line_count < $max_lines || fseek($fp, $position, SEEK_END) < 0) {
+                    rewind($fp); // Quay về đầu file
+                }
+                
+                // Đọc các dòng
+                while (!feof($fp) && count($lines) < $max_lines) {
+                    $line = fgets($fp);
+                    if ($line !== false) {
+                        $lines[] = trim($line);
+                    }
+                }
+                fclose($fp);
+            }
+            return $lines;
+        }
+        return [];
+    }
+    
+    /**
+     * Check the status of running rewriter job (AJAX endpoint)
+     */
+    public function checkRewriterStatus()
+    {
+        $log_output = $this->getRewriterLogOutput();
+        $is_running = false;
+        
+        // Kiểm tra xem rewriter có đang chạy không bằng cách kiểm tra process trong Docker
+        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+            // Windows: kiểm tra bằng Docker
+            $output = [];
+            exec('docker exec thp_214476_rewrite ps aux | grep "[p]ython rewrite_from_db.py"', $output);
+            $is_running = count($output) > 0;
+        } else {
+            // Linux/Unix: kiểm tra bằng Docker
+            $output = [];
+            exec('docker exec thp_214476_rewrite ps aux | grep "[p]ython rewrite_from_db.py"', $output);
+            $is_running = count($output) > 0;
+        }
+        
+        return response()->json([
+            'is_running' => $is_running,
+            'log_output' => $log_output,
+            'last_updated' => now()->format('H:i:s - d/m/Y')
         ]);
     }
 } 

@@ -33,6 +33,8 @@
                 <div class="md:w-1/3 h-48 md:h-auto">
                     @if($article->featuredImage)
                         <img src="{{ $article->featuredImage->url }}" alt="{{ $article->title }}" class="w-full h-full object-cover">
+                    @elseif($article->featured_image_url)
+                        <img src="{{ $article->featured_image_url }}" alt="{{ $article->title }}" class="w-full h-full object-cover">
                     @elseif($article->featured_image)
                         <img src="{{ asset('storage/' . $article->featured_image) }}" alt="{{ $article->title }}" class="w-full h-full object-cover">
                     @else

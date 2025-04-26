@@ -85,6 +85,15 @@ Route::middleware(['auth', AdminMiddleware::class])->prefix('admin')->name('admi
     Route::post('/ai-settings/reset', [AISettingsController::class, 'reset'])->name('ai-settings.reset');
 
     // Approved Articles routes
+    Route::get('approved-articles/scraper-results', [ApprovedArticleController::class, 'scraperResults'])->name('approved-articles.scraper-results');
+    Route::post('approved-articles/run-scraper', [ApprovedArticleController::class, 'runScraper'])->name('approved-articles.run-scraper');
+    Route::get('approved-articles/check-scraper-status', [ApprovedArticleController::class, 'checkScraperStatus'])->name('approved-articles.check-scraper-status');
+    
+    // Rewriter routes
+    Route::get('approved-articles/rewriter-results', [ApprovedArticleController::class, 'rewriterResults'])->name('approved-articles.rewriter-results');
+    Route::post('approved-articles/run-rewriter', [ApprovedArticleController::class, 'runRewriter'])->name('approved-articles.run-rewriter');
+    Route::get('approved-articles/check-rewriter-status', [ApprovedArticleController::class, 'checkRewriterStatus'])->name('approved-articles.check-rewriter-status');
+    
     Route::resource('approved-articles', ApprovedArticleController::class)->except(['create']);
     Route::patch('approved-articles/{approvedArticle}/publish', [ApprovedArticleController::class, 'publish'])->name('approved-articles.publish');
     Route::patch('approved-articles/{approvedArticle}/unpublish', [ApprovedArticleController::class, 'unpublish'])->name('approved-articles.unpublish');
@@ -117,4 +126,9 @@ Route::get('/debug-images', [App\Http\Controllers\Admin\HomeController::class, '
 // Serve API Documentation
 Route::get('/docs', function () {
     return view('docs.index');
+});
+
+// Test route for scraper results
+Route::get('/test-scraper-results', function () {
+    return view('admin.approved-articles.scraper-results', ['output' => ['Đây là trang kiểm tra scraper results.', 'Nếu bạn thấy trang này, tức là view đã hoạt động đúng.']]);
 });

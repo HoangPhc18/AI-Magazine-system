@@ -11,6 +11,11 @@
                 <img src="{{ $article->featuredImage->url }}" alt="{{ $article->title }}" class="w-full h-full object-cover">
                 <div class="absolute bottom-0 left-0 w-full h-1/4 bg-gradient-to-t from-black/50 to-transparent"></div>
             </div>
+        @elseif($article->featured_image_url)
+            <div class="relative aspect-video overflow-hidden">
+                <img src="{{ $article->featured_image_url }}" alt="{{ $article->title }}" class="w-full h-full object-cover">
+                <div class="absolute bottom-0 left-0 w-full h-1/4 bg-gradient-to-t from-black/50 to-transparent"></div>
+            </div>
         @elseif($article->featured_image)
             <div class="relative aspect-video overflow-hidden">
                 <img src="{{ asset('storage/' . $article->featured_image) }}" alt="{{ $article->title }}" class="w-full h-full object-cover">
@@ -94,6 +99,8 @@
                 <div class="h-40 overflow-hidden">
                     @if($related->featuredImage)
                         <img src="{{ $related->featuredImage->url }}" alt="{{ $related->title }}" class="w-full h-full object-cover transform group-hover:scale-105 transition-all duration-500">
+                    @elseif($related->featured_image_url)
+                        <img src="{{ $related->featured_image_url }}" alt="{{ $related->title }}" class="w-full h-full object-cover transform group-hover:scale-105 transition-all duration-500">
                     @elseif($related->featured_image)
                         <img src="{{ asset('storage/' . $related->featured_image) }}" alt="{{ $related->title }}" class="w-full h-full object-cover transform group-hover:scale-105 transition-all duration-500">
                     @else
