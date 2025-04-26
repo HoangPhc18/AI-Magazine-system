@@ -101,6 +101,52 @@ class ApprovedArticle extends Model
         // Loại bỏ các thuộc tính width/height cứng có thể gây vỡ layout
         $content = preg_replace('/(width|height)=["\']\d+["\']/i', '', $content);
         
+        // Tải thông tin của tất cả media đã liên kết với bài viết
+        // Tạo mảng associative với url được tính thủ công
+        $mediaItems = $this->media()->get();
+        \Log::info('Processing content with media for article ' . $this->id, [
+            'media_count' => $mediaItems->count(),
+            'media_ids' => $mediaItems->pluck('id')->toArray(),
+        ]);
+        
+        $mediaMap = [];
+        
+        foreach ($mediaItems as $media) {
+            $mediaMap[$media->id] = [
+                'id' => $media->id,
+                'name' => $media->name,
+                'file_path' => $media->file_path,
+                'url' => asset('storage/' . $media->file_path),
+            ];
+        }
+        
+        // Debug để kiểm tra thông tin media
+        \Log::debug('Media items for article ' . $this->id . ':', $mediaMap);
+        
+        // Đảm bảo các thẻ img có data-media-id đều có src chính xác
+        if (count($mediaMap) > 0) {
+            // Xử lý bằng regex để thay thế các thẻ img có data-media-id
+            // với url chính xác từ media đã liên kết
+            $content = preg_replace_callback(
+                '/<img([^>]*)data-media-id=["\'](\d+)["\']([^>]*)>/i',
+                function($matches) use ($mediaMap) {
+                    $mediaId = $matches[2];
+                    if (isset($mediaMap[$mediaId])) {
+                        // Đảm bảo src luôn được cập nhật đúng
+                        $url = $mediaMap[$mediaId]['url'];
+                        // Loại bỏ src cũ nếu có
+                        $attributes = preg_replace('/src=["\'][^"\']*["\']/i', '', $matches[1] . $matches[3]);
+                        // Thêm src mới
+                        return "<img{$attributes} data-media-id=\"{$mediaId}\" src=\"{$url}\" alt=\"{$mediaMap[$mediaId]['name']}\">";
+                    }
+                    // Trả về nguyên bản nếu không tìm thấy media
+                    \Log::warning('Media ID ' . $mediaId . ' not found for article ' . $this->id);
+                    return $matches[0];
+                },
+                $content
+            );
+        }
+        
         // Bọc hình ảnh trong thẻ div khi chúng nằm trong một thẻ p
         $content = preg_replace('/<p>\s*<img(.*?)>\s*<\/p>/i', '<div class="image-wrapper full-width"><img$1></div>', $content);
         
@@ -142,6 +188,15 @@ class ApprovedArticle extends Model
                     $img->setAttribute('class', 'full-width');
                 }
                 
+                // Kiểm tra nếu img có data-media-id nhưng không có src hoặc src không đúng
+                if ($img->hasAttribute('data-media-id') && (!$img->hasAttribute('src') || $img->getAttribute('src') === '')) {
+                    $mediaId = $img->getAttribute('data-media-id');
+                    if (isset($mediaMap[$mediaId])) {
+                        $img->setAttribute('src', $mediaMap[$mediaId]['url']);
+                        $img->setAttribute('alt', $mediaMap[$mediaId]['name']);
+                    }
+                }
+                
                 // Nếu img không nằm trong p hoặc div, bọc nó lại
                 if ($parent->nodeName !== 'p' && $parent->nodeName !== 'div' && $parent->nodeName !== 'figure') {
                     $imagesToWrap[] = $img;
@@ -170,8 +225,8 @@ class ApprovedArticle extends Model
             $content = preg_replace('/<html><body>|<\/body><\/html>/', '', $content);
         }
         
-        // Đảm bảo các hình ảnh không vượt quá width
-        $content = str_replace('<img ', '<img style="max-width:100%; width:100%; height:400px; object-fit:cover;" ', $content);
+        // Đảm bảo các hình ảnh không vượt quá width và có style đầy đủ
+        $content = preg_replace('/<img([^>]+)>/', '<img$1 style="max-width:100%; width:100%; height:auto; object-fit:cover;">', $content);
         
         return $content;
     }

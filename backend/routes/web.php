@@ -97,6 +97,8 @@ Route::middleware(['auth', AdminMiddleware::class])->prefix('admin')->name('admi
     Route::resource('approved-articles', ApprovedArticleController::class)->except(['create']);
     Route::patch('approved-articles/{approvedArticle}/publish', [ApprovedArticleController::class, 'publish'])->name('approved-articles.publish');
     Route::patch('approved-articles/{approvedArticle}/unpublish', [ApprovedArticleController::class, 'unpublish'])->name('approved-articles.unpublish');
+    Route::post('approved-articles/{approvedArticle}/update-media', [ApprovedArticleController::class, 'updateMedia'])->name('approved-articles.update-media');
+    Route::post('approved-articles/{approvedArticle}/update-featured-image', [ApprovedArticleController::class, 'updateFeaturedImage'])->name('approved-articles.update-featured-image');
 
     // Facebook Posts routes
     Route::resource('facebook-posts', FacebookPostController::class)->except(['edit', 'update']);
@@ -118,6 +120,16 @@ Route::middleware(['auth', AdminMiddleware::class])->prefix('admin')->name('admi
     Route::post('/website-config/ui', [WebsiteConfigController::class, 'updateUi'])->name('website-config.ui.update');
     Route::get('/website-config/metadata', [WebsiteConfigController::class, 'showMetadataForm'])->name('website-config.metadata');
     Route::post('/website-config/metadata', [WebsiteConfigController::class, 'updateMetadata'])->name('website-config.metadata.update');
+
+    // Approved articles
+    Route::get('/approved-articles', [App\Http\Controllers\Admin\ApprovedArticleController::class, 'index'])->name('approved-articles.index');
+    Route::get('/approved-articles/create', [App\Http\Controllers\Admin\ApprovedArticleController::class, 'create'])->name('approved-articles.create');
+    Route::post('/approved-articles', [App\Http\Controllers\Admin\ApprovedArticleController::class, 'store'])->name('approved-articles.store');
+    Route::get('/approved-articles/{approvedArticle}', [App\Http\Controllers\Admin\ApprovedArticleController::class, 'show'])->name('approved-articles.show');
+    Route::get('/approved-articles/{approvedArticle}/edit', [App\Http\Controllers\Admin\ApprovedArticleController::class, 'edit'])->name('approved-articles.edit');
+    Route::put('/approved-articles/{approvedArticle}', [App\Http\Controllers\Admin\ApprovedArticleController::class, 'update'])->name('approved-articles.update');
+    Route::delete('/approved-articles/{approvedArticle}', [App\Http\Controllers\Admin\ApprovedArticleController::class, 'destroy'])->name('approved-articles.destroy');
+    Route::post('/approved-articles/{approvedArticle}/update-media', [App\Http\Controllers\Admin\ApprovedArticleController::class, 'updateMedia'])->name('approved-articles.update-media');
 });
 
 // Test route for image debugging

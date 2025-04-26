@@ -16,6 +16,7 @@ class MediaSelector {
             type: '', // 'image' or 'document' or empty for all
             multiple: false,
             selectedIds: [], // IDs of items to pre-select
+            isFeaturedImage: false, // Whether this is for selecting a featured image
         }, options);
 
         this.page = 1;
@@ -26,11 +27,42 @@ class MediaSelector {
         
         console.log('MediaSelector initialized with options:', this.options);
         
+        // Kiểm tra tính tương thích của trình duyệt
+        this.checkBrowserCompatibility();
+        
         // Initialize the modal if not exists
         this.initModal();
         
         // Bind events
         this.bindEvents();
+    }
+    
+    /**
+     * Kiểm tra tính tương thích của trình duyệt với các tính năng cần thiết
+     * và ghi log thông tin
+     */
+    checkBrowserCompatibility() {
+        // Kiểm tra tính tương thích của setRangeText
+        const textarea = document.createElement('textarea');
+        const hasSetRangeText = typeof textarea.setRangeText === 'function';
+        console.log('Browser supports setRangeText:', hasSetRangeText);
+        
+        // Kiểm tra tính tương thích của Selection API
+        const hasSelectionAPI = typeof window.getSelection === 'function';
+        console.log('Browser supports Selection API:', hasSelectionAPI);
+        
+        // Kiểm tra tính tương thích của Range API
+        const hasRangeAPI = typeof document.createRange === 'function';
+        console.log('Browser supports Range API:', hasRangeAPI);
+        
+        // Lưu thông tin để sử dụng sau này
+        this.compatibility = {
+            hasSetRangeText,
+            hasSelectionAPI,
+            hasRangeAPI
+        };
+        
+        return this.compatibility;
     }
     
     /**
@@ -689,11 +721,26 @@ class MediaSelector {
                 // Xử lý các item trong mảng
                 const safeItems = mediaToInsert.map(item => {
                     // Đảm bảo item có id, url, và name
-                    return {
+                    const safeItem = {
                         id: item && item.id ? item.id : 0,
-                        url: item && item.url ? item.url : (item && item.thumbnail ? item.thumbnail : '/storage/images/placeholder.png'),
-                        name: item && item.name ? item.name : 'Unknown'
+                        url: '',
+                        name: item && item.name ? item.name : 'Unknown',
+                        file_path: item && item.file_path ? item.file_path : ''
                     };
+                    
+                    // Đảm bảo url được tạo đúng cách
+                    if (item && item.url) {
+                        safeItem.url = item.url;
+                    } else if (item && item.file_path) {
+                        // Nếu không có URL nhưng có file_path, tạo URL từ file_path
+                        safeItem.url = '/storage/' + item.file_path;
+                    } else if (item && item.thumbnail) {
+                        safeItem.url = item.thumbnail;
+                    } else {
+                        safeItem.url = '/storage/images/placeholder.png';
+                    }
+                    
+                    return safeItem;
                 });
                 console.log('Calling insertCallback with safe items:', safeItems);
                 this.options.insertCallback(safeItems);
@@ -701,11 +748,33 @@ class MediaSelector {
                 // Xử lý item đơn lẻ
                 const safeItem = {
                     id: mediaToInsert && mediaToInsert.id ? mediaToInsert.id : 0,
-                    url: mediaToInsert && mediaToInsert.url ? mediaToInsert.url : (mediaToInsert && mediaToInsert.thumbnail ? mediaToInsert.thumbnail : '/storage/images/placeholder.png'),
-                    name: mediaToInsert && mediaToInsert.name ? mediaToInsert.name : 'Unknown'
+                    url: '',
+                    name: mediaToInsert && mediaToInsert.name ? mediaToInsert.name : 'Unknown',
+                    file_path: mediaToInsert && mediaToInsert.file_path ? mediaToInsert.file_path : ''
                 };
+                
+                // Đảm bảo url được tạo đúng cách
+                if (mediaToInsert && mediaToInsert.url) {
+                    safeItem.url = mediaToInsert.url;
+                } else if (mediaToInsert && mediaToInsert.file_path) {
+                    // Nếu không có URL nhưng có file_path, tạo URL từ file_path
+                    safeItem.url = '/storage/' + mediaToInsert.file_path;
+                } else if (mediaToInsert && mediaToInsert.thumbnail) {
+                    safeItem.url = mediaToInsert.thumbnail;
+                } else {
+                    safeItem.url = '/storage/images/placeholder.png';
+                }
+                
                 console.log('Calling insertCallback with safe item:', safeItem);
-                this.options.insertCallback(safeItem);
+                
+                // Đảm bảo rằng callback được gọi với trường thông tin đầy đủ và chính xác
+                try {
+                    this.options.insertCallback(safeItem);
+                } catch (e) {
+                    console.error('Error in insertCallback:', e);
+                    // Fallback nếu callback gặp lỗi
+                    alert('Đã xảy ra lỗi khi chèn media. Vui lòng thử lại.');
+                }
             }
         } else {
             console.warn('No insertCallback provided');
@@ -714,44 +783,127 @@ class MediaSelector {
         this.close();
     }
 
+    /**
+     * Insert selected media items
+     */
     insertMedia() {
-        let selectedMedia = null;
-        
-        // Ensure we have selectedItems and it's an array
-        if (!Array.isArray(this.selectedItems) || this.selectedItems.length === 0) {
-            console.warn('No media selected or selectedItems is not an array');
+        // Check if we have something selected
+        if (this.selectedItems.length === 0) {
+            this.showMessage('Vui lòng chọn ít nhất một mục', 'error');
             return;
         }
         
         // Get the first selected item
-        selectedMedia = this.selectedItems[0];
+        const mediaItem = this.selectedItems[0];
         
-        // Validate that the media object has the required properties
-        if (!selectedMedia || typeof selectedMedia !== 'object') {
-            console.error('Selected media is not a valid object:', selectedMedia);
+        console.log('Inserting media item:', mediaItem);
+        
+        // If a callback function is provided, call it with the selected item
+        if (typeof this.options.insertCallback === 'function') {
+            try {
+                this.options.insertCallback(mediaItem);
+                console.log('Insert callback executed successfully');
+                
+                // Ensure media IDs are stored for later reference
+                // Only store in content_media_ids if NOT a featured image
+                if (mediaItem.id && !this.options.isFeaturedImage) {
+                    // Try to find and update the hidden input for media IDs
+                    const mediaIdsInput = document.getElementById('content_media_ids');
+                    if (mediaIdsInput) {
+                        let currentIds = mediaIdsInput.value.split(',').filter(id => id.trim() !== '');
+                        if (!currentIds.includes(mediaItem.id.toString())) {
+                            currentIds.push(mediaItem.id.toString());
+                            mediaIdsInput.value = currentIds.join(',');
+                            console.log('Updated content_media_ids input with:', mediaIdsInput.value);
+                        }
+                    }
+                }
+                
+                // Close the modal
+                this.close();
+                
+                // If this is a featured image selection, try to send an AJAX update
+                if (mediaItem.id && this.options.isFeaturedImage) {
+                    this.updateFeaturedImage(mediaItem);
+                }
+            } catch (error) {
+                console.error('Error in insert callback:', error);
+                this.showMessage('Có lỗi xảy ra khi chèn media: ' + error.message, 'error');
+            }
+        } else {
+            console.warn('No insert callback provided');
+            this.showMessage('Không có xử lý cho việc chèn media này', 'error');
+        }
+    }
+    
+    /**
+     * Update featured image via AJAX
+     * 
+     * @param {Object} mediaItem - The selected media item
+     */
+    updateFeaturedImage(mediaItem) {
+        // Get the article ID from the URL
+        const urlParts = window.location.pathname.split('/');
+        let articleId = null;
+        
+        // Find the article ID in the URL
+        for (let i = 0; i < urlParts.length; i++) {
+            if (urlParts[i] === 'approved-articles' && i < urlParts.length - 1) {
+                // Check if the next part is edit or a number
+                if (urlParts[i+1] !== 'create' && urlParts[i+1] !== 'edit') {
+                    articleId = urlParts[i+1];
+                    break;
+                } else if (urlParts[i+1] === 'edit' && i >= 1) {
+                    // The article ID should be before 'edit'
+                    articleId = urlParts[i-1];
+                    break;
+                }
+            }
+        }
+        
+        if (!articleId) {
+            console.warn('Could not determine article ID from URL');
             return;
         }
         
-        // Make sure it has id, url and name properties
-        if (!selectedMedia.id || !selectedMedia.url) {
-            console.error('Selected media missing required properties:', selectedMedia);
-            return;
-        }
+        // Prepare and send the AJAX request
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
         
-        // Ensure name property exists
-        if (!selectedMedia.name) {
-            selectedMedia.name = 'Unnamed media';
-        }
+        // Create the form data
+        const formData = new FormData();
+        formData.append('featured_image_id', mediaItem.id);
         
-        console.log('Inserting media:', selectedMedia);
-        
-        // Call the insertCallback with the selected media
-        if (this.options.insertCallback && typeof this.options.insertCallback === 'function') {
-            this.options.insertCallback(selectedMedia);
-        }
-        
-        // Close the modal
-        this.close();
+        // Send the request
+        fetch(`/admin/approved-articles/${articleId}/update-featured-image`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Featured image updated successfully', data);
+                
+                // Show a success message
+                const successMessage = document.createElement('div');
+                successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50 fade-out';
+                successMessage.innerText = 'Ảnh đại diện đã được cập nhật';
+                document.body.appendChild(successMessage);
+                
+                // Remove the message after 3 seconds
+                setTimeout(() => {
+                    successMessage.remove();
+                }, 3000);
+            } else {
+                console.error('Error updating featured image:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('AJAX error updating featured image:', error);
+        });
     }
 }
 

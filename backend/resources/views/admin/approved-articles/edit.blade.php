@@ -92,105 +92,95 @@
                             </div>
 
                             <div class="sm:col-span-6">
-                                <label for="content" class="block text-sm font-medium text-gray-700">Nội dung</label>
-                                <div class="mt-1">
-                                    <div class="editor-toolbar mb-2 flex flex-wrap gap-1 border border-gray-300 rounded-md p-1.5 bg-gray-50">
-                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="bold" title="In đậm">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path></svg>
-                                        </button>
-                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="italic" title="In nghiêng">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"></line><line x1="14" y1="20" x2="5" y2="20"></line><line x1="15" y1="4" x2="9" y2="20"></line></svg>
-                                        </button>
-                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="underline" title="Gạch dưới">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"></path><line x1="4" y1="21" x2="20" y2="21"></line></svg>
-                                        </button>
-                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="strikethrough" title="Gạch ngang">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><path d="M16 6c-.5-1.2-1.8-2-3.5-2-2.2 0-4 1.3-4 3 0 1.8 1.2 2.6 3.5 3.5"></path><path d="M8.5 15c.5 1.2 1.8 2 3.5 2 2.2 0 4-1.3 4-3 0-1.8-1.2-2.6-3.5-3.5"></path></svg>
-                                        </button>
-                                        <span class="border-r border-gray-300 mx-1"></span>
-                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="h2" title="Tiêu đề H2">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h8"></path><path d="M4 18V6"></path><path d="M12 18V6"></path><path d="M17 12a2 2 0 1 0 4 0 2 2 0 1 0-4 0z"></path></svg>
-                                        </button>
-                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="h3" title="Tiêu đề H3">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h8"></path><path d="M4 18V6"></path><path d="M12 18V6"></path><path d="M17 9v6"></path><path d="M21 9v6"></path><path d="M17 12h4"></path></svg>
-                                        </button>
-                                        <span class="border-r border-gray-300 mx-1"></span>
-                                        <div class="relative">
-                                            <button type="button" class="format-btn p-1 rounded hover:bg-gray-200 text-color-btn" title="Màu chữ">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7h6l2 10H7l2-10Z"></path><path d="M4 17h16"></path></svg>
+                                <div class="mb-4 relative" x-data="{ showOptions: false }">
+                                    <input type="hidden" name="content_media_ids" id="content_media_ids" 
+                                        value="{{ $approvedArticle->media->pluck('id')->implode(',') }}">
+                                    <label for="content" class="block text-sm font-medium text-gray-700 mb-1">
+                                        Nội dung bài viết
+                                    </label>
+                                    <div class="mt-1">
+                                        <div class="editor-toolbar mb-2 flex flex-wrap gap-1 border border-gray-300 rounded-md p-1.5 bg-gray-50">
+                                            <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="bold" title="In đậm">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"></path></svg>
                                             </button>
-                                            <div class="color-picker absolute z-10 left-0 top-full mt-1 p-2 bg-white shadow-lg rounded-md border border-gray-200 grid grid-cols-5 gap-1 hidden">
-                                                <button type="button" class="w-6 h-6 bg-red-500 rounded" data-color="#ef4444" title="Đỏ"></button>
-                                                <button type="button" class="w-6 h-6 bg-blue-500 rounded" data-color="#3b82f6" title="Xanh dương"></button>
-                                                <button type="button" class="w-6 h-6 bg-green-500 rounded" data-color="#22c55e" title="Xanh lá"></button>
-                                                <button type="button" class="w-6 h-6 bg-yellow-500 rounded" data-color="#eab308" title="Vàng"></button>
-                                                <button type="button" class="w-6 h-6 bg-purple-500 rounded" data-color="#a855f7" title="Tím"></button>
-                                                <button type="button" class="w-6 h-6 bg-pink-500 rounded" data-color="#ec4899" title="Hồng"></button>
-                                                <button type="button" class="w-6 h-6 bg-indigo-500 rounded" data-color="#6366f1" title="Chàm"></button>
-                                                <button type="button" class="w-6 h-6 bg-gray-700 rounded" data-color="#374151" title="Đen"></button>
-                                                <button type="button" class="w-6 h-6 bg-gray-500 rounded" data-color="#6b7280" title="Xám"></button>
-                                                <button type="button" class="w-6 h-6 bg-white rounded border border-gray-200" data-color="#ffffff" title="Trắng"></button>
-                                            </div>
-                                        </div>
-                                        <div class="relative">
-                                            <button type="button" class="format-btn p-1 rounded hover:bg-gray-200 font-size-btn" title="Cỡ chữ">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                                            <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="italic" title="In nghiêng">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="4" x2="10" y2="4"></line><line x1="14" y1="20" x2="5" y2="20"></line><line x1="15" y1="4" x2="9" y2="20"></line></svg>
                                             </button>
-                                            <div class="font-size-picker absolute z-10 left-0 top-full mt-1 p-2 bg-white shadow-lg rounded-md border border-gray-200 w-32 hidden">
-                                                <button type="button" class="block w-full text-left px-2 py-1 hover:bg-gray-100 rounded text-xs" data-size="small">Nhỏ</button>
-                                                <button type="button" class="block w-full text-left px-2 py-1 hover:bg-gray-100 rounded text-sm" data-size="normal">Thường</button>
-                                                <button type="button" class="block w-full text-left px-2 py-1 hover:bg-gray-100 rounded text-base" data-size="large">Lớn</button>
-                                                <button type="button" class="block w-full text-left px-2 py-1 hover:bg-gray-100 rounded text-lg" data-size="xlarge">Rất lớn</button>
+                                            <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="underline" title="Gạch dưới">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3"></path><line x1="4" y1="21" x2="20" y2="21"></line></svg>
+                                            </button>
+                                            <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="strikethrough" title="Gạch ngang">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><path d="M16 6c-.5-1.2-1.8-2-3.5-2-2.2 0-4 1.3-4 3 0 1.8 1.2 2.6 3.5 3.5"></path><path d="M8.5 15c.5 1.2 1.8 2 3.5 2 2.2 0 4-1.3 4-3 0-1.8-1.2-2.6-3.5-3.5"></path></svg>
+                                            </button>
+                                            <span class="border-r border-gray-300 mx-1"></span>
+                                            <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="h2" title="Tiêu đề H2">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h8"></path><path d="M4 18V6"></path><path d="M12 18V6"></path><path d="M17 12a2 2 0 1 0 4 0 2 2 0 1 0-4 0z"></path></svg>
+                                            </button>
+                                            <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="h3" title="Tiêu đề H3">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h8"></path><path d="M4 18V6"></path><path d="M12 18V6"></path><path d="M17 9v6"></path><path d="M21 9v6"></path><path d="M17 12h4"></path></svg>
+                                            </button>
+                                            <span class="border-r border-gray-300 mx-1"></span>
+                                            <div class="relative">
+                                                <button type="button" class="format-btn p-1 rounded hover:bg-gray-200 text-color-btn" title="Màu chữ">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7h6l2 10H7l2-10Z"></path><path d="M4 17h16"></path></svg>
+                                                </button>
+                                                <div class="color-picker absolute z-10 left-0 top-full mt-1 p-2 bg-white shadow-lg rounded-md border border-gray-200 grid grid-cols-5 gap-1 hidden">
+                                                    <button type="button" class="w-6 h-6 bg-red-500 rounded" data-color="#ef4444" title="Đỏ"></button>
+                                                    <button type="button" class="w-6 h-6 bg-blue-500 rounded" data-color="#3b82f6" title="Xanh dương"></button>
+                                                    <button type="button" class="w-6 h-6 bg-green-500 rounded" data-color="#22c55e" title="Xanh lá"></button>
+                                                    <button type="button" class="w-6 h-6 bg-yellow-500 rounded" data-color="#eab308" title="Vàng"></button>
+                                                    <button type="button" class="w-6 h-6 bg-purple-500 rounded" data-color="#a855f7" title="Tím"></button>
+                                                    <button type="button" class="w-6 h-6 bg-pink-500 rounded" data-color="#ec4899" title="Hồng"></button>
+                                                    <button type="button" class="w-6 h-6 bg-indigo-500 rounded" data-color="#6366f1" title="Chàm"></button>
+                                                    <button type="button" class="w-6 h-6 bg-gray-700 rounded" data-color="#374151" title="Đen"></button>
+                                                    <button type="button" class="w-6 h-6 bg-gray-500 rounded" data-color="#6b7280" title="Xám"></button>
+                                                    <button type="button" class="w-6 h-6 bg-white rounded border border-gray-200" data-color="#ffffff" title="Trắng"></button>
+                                                </div>
                                             </div>
+                                            <div class="relative">
+                                                <button type="button" class="format-btn p-1 rounded hover:bg-gray-200 font-size-btn" title="Cỡ chữ">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                                                </button>
+                                                <div class="font-size-picker absolute z-10 left-0 top-full mt-1 p-2 bg-white shadow-lg rounded-md border border-gray-200 w-32 hidden">
+                                                    <button type="button" class="block w-full text-left px-2 py-1 hover:bg-gray-100 rounded text-xs" data-size="small">Nhỏ</button>
+                                                    <button type="button" class="block w-full text-left px-2 py-1 hover:bg-gray-100 rounded text-sm" data-size="normal">Thường</button>
+                                                    <button type="button" class="block w-full text-left px-2 py-1 hover:bg-gray-100 rounded text-base" data-size="large">Lớn</button>
+                                                    <button type="button" class="block w-full text-left px-2 py-1 hover:bg-gray-100 rounded text-lg" data-size="xlarge">Rất lớn</button>
+                                                </div>
+                                            </div>
+                                            <span class="border-r border-gray-300 mx-1"></span>
+                                            <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="alignLeft" title="Căn trái">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="3" y2="6"></line><line x1="15" y1="12" x2="3" y2="12"></line><line x1="17" y1="18" x2="3" y2="18"></line></svg>
+                                            </button>
+                                            <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="alignCenter" title="Căn giữa">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="3" y2="6"></line><line x1="18" y1="12" x2="6" y2="12"></line><line x1="21" y1="18" x2="3" y2="18"></line></svg>
+                                            </button>
+                                            <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="alignRight" title="Căn phải">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="12" x2="9" y2="12"></line><line x1="21" y1="18" x2="7" y2="18"></line></svg>
+                                            </button>
+                                            <span class="border-r border-gray-300 mx-1"></span>
+                                            <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="ul" title="Danh sách dấu đầu dòng">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                                            </button>
+                                            <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="ol" title="Danh sách có thứ tự">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="6" x2="21" y2="6"></line><line x1="10" y1="12" x2="21" y2="12"></line><line x1="10" y1="18" x2="21" y2="18"></line><path d="M4 6h1v4"></path><path d="M4 10h2"></path><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"></path></svg>
+                                            </button>
+                                            <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="blockquote" title="Trích dẫn">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V20c0 1 0 1 1 1z"></path><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3c0 1 0 1 1 1z"></path></svg>
+                                            </button>
+                                            <span class="border-r border-gray-300 mx-1"></span>
+                                            <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="link" title="Chèn liên kết">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                                            </button>
+                                            <button type="button" id="insert-media-btn" class="p-1 rounded hover:bg-gray-200" title="Chèn hình ảnh">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                            </button>
                                         </div>
-                                        <span class="border-r border-gray-300 mx-1"></span>
-                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="alignLeft" title="Căn trái">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="3" y2="6"></line><line x1="15" y1="12" x2="3" y2="12"></line><line x1="17" y1="18" x2="3" y2="18"></line></svg>
-                                        </button>
-                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="alignCenter" title="Căn giữa">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="3" y2="6"></line><line x1="18" y1="12" x2="6" y2="12"></line><line x1="21" y1="18" x2="3" y2="18"></line></svg>
-                                        </button>
-                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="alignRight" title="Căn phải">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="12" x2="9" y2="12"></line><line x1="21" y1="18" x2="7" y2="18"></line></svg>
-                                        </button>
-                                        <span class="border-r border-gray-300 mx-1"></span>
-                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="ul" title="Danh sách dấu đầu dòng">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-                                        </button>
-                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="ol" title="Danh sách có thứ tự">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" y1="6" x2="21" y2="6"></line><line x1="10" y1="12" x2="21" y2="12"></line><line x1="10" y1="18" x2="21" y2="18"></line><path d="M4 6h1v4"></path><path d="M4 10h2"></path><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1"></path></svg>
-                                        </button>
-                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="blockquote" title="Trích dẫn">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
-                                        </button>
-                                        <span class="border-r border-gray-300 mx-1"></span>
-                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="superscript" title="Chỉ số trên">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9l8 10V9"></path><path d="M21 9h-4c0-1 1-2 2.5-2s2.5 1 2.5 2c0 1-1 2-2.5 2"></path></svg>
-                                        </button>
-                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="subscript" title="Chỉ số dưới">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9l8 10V9"></path><path d="M21 19h-4c0-1 1-2 2.5-2s2.5 1 2.5 2c0 1-1 2-2.5 2"></path></svg>
-                                        </button>
-                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="paragraph" title="Thêm đoạn văn">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="10" x2="3" y2="10"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="14" x2="3" y2="14"></line><line x1="17" y1="18" x2="3" y2="18"></line></svg>
-                                        </button>
-                                        <button type="button" class="format-btn p-1 rounded hover:bg-gray-200" data-format="link" title="Thêm liên kết">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                                        </button>
+                                        <textarea id="content" name="content" rows="20" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 mt-1 block w-full sm:text-sm border border-gray-300 rounded-md">{{ old('content', $approvedArticle->content) }}</textarea>
                                     </div>
-                                    <textarea id="content" name="content" rows="20" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md editor-content">{{ old('content', $approvedArticle->content) }}</textarea>
-                                </div>
-                                @error('content')
-                                    <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
-                                @enderror
-                                <input type="hidden" name="content_media_ids" id="content_media_ids" value="">
-                                <div class="flex justify-end mt-2">
-                                    <button type="button" id="insert-media-btn" 
-                                        class="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-5 font-medium rounded-md text-white bg-green-600 hover:bg-green-500 focus:outline-none focus:border-green-700 focus:shadow-outline-green active:bg-green-700 transition ease-in-out duration-150">
-                                        <svg class="mr-1.5 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                        Chèn hình ảnh
-                                    </button>
+                                    @error('content')
+                                        <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                                    @enderror
                                 </div>
                             </div>
                         </div>
@@ -214,7 +204,7 @@
                                     </div>
                                 @endif
                                 
-                                <input type="hidden" name="featured_image_id" id="featured_image_id" value="{{ old('featured_image_id', $approvedArticle->featured_image_id) }}">
+                                <input type="hidden" name="featured_image_id" id="featured_image_id" value="{{ $approvedArticle->featured_image_id }}">
                                 
                                 <div class="flex space-x-4 mb-4">
                                     <button type="button" id="select-featured-image-btn" 
@@ -302,6 +292,9 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Initialize article ID for AJAX operations
+        const articleId = {{ $approvedArticle->id }};
+        
         // Flag to track media operations
         let lastOperation = null;
         let contentMediaIds = [];
@@ -432,68 +425,132 @@
             insertCallback: function(media) {
                 lastOperation = 'content';
                 const editor = document.getElementById('content');
-                const mediaHtml = `<img src="${media.url}" alt="${media.name}" class="img-fluid">`;
                 
-                // Insert at cursor position or append
+                // Kiểm tra và log thông tin media
+                console.log('Media được chọn:', media);
+                
+                // Đảm bảo rằng media có thuộc tính url
+                if (!media.url) {
+                    console.error('Media không có URL:', media);
+                    alert('Lỗi: Media không có URL. Vui lòng thử lại.');
+                    return;
+                }
+                
+                // Create a properly formatted HTML for the image
+                const mediaHtml = `<img src="${media.url}" alt="${media.name}" class="img-fluid" data-media-id="${media.id}">`;
+                
+                // Log HTML sẽ được chèn
+                console.log('HTML sẽ được chèn:', mediaHtml);
+                
+                // Cải thiện cách chèn ảnh
                 if (typeof editor.setRangeText === 'function') {
+                    // Sử dụng setRangeText nếu được hỗ trợ
                     editor.setRangeText(mediaHtml);
+                    
+                    // Trigger sự kiện input để cập nhật bất kỳ listeners nào
+                    editor.dispatchEvent(new Event('input', { bubbles: true }));
                 } else {
-                    editor.value += mediaHtml;
+                    // Fallback cho các trình duyệt không hỗ trợ setRangeText
+                    // Lưu vị trí con trỏ hiện tại
+                    const startPos = editor.selectionStart || 0;
+                    const endPos = editor.selectionEnd || 0;
+                    
+                    // Lấy nội dung trước và sau vị trí con trỏ
+                    const before = editor.value.substring(0, startPos);
+                    const after = editor.value.substring(endPos);
+                    
+                    // Cập nhật nội dung
+                    editor.value = before + mediaHtml + after;
+                    
+                    // Di chuyển con trỏ đến sau media vừa chèn
+                    const newCursorPos = startPos + mediaHtml.length;
+                    editor.setSelectionRange(newCursorPos, newCursorPos);
+                    
+                    // Trigger sự kiện input để cập nhật bất kỳ listeners nào
+                    editor.dispatchEvent(new Event('input', { bubbles: true }));
                 }
                 
                 // Add media ID to the list of used media
                 if (!contentMediaIds.includes(media.id.toString())) {
                     contentMediaIds.push(media.id);
                 }
-                contentMediaIdsInput.value = contentMediaIds.join(',');
+                document.getElementById('content_media_ids').value = contentMediaIds.join(',');
+                
+                // Log ra danh sách media IDs sau khi cập nhật
+                console.log('Content media IDs sau khi chèn:', contentMediaIds);
+                
+                // For existing articles, send an AJAX request to update media IDs
+                updateContentMediaViaAjax();
             }
         });
         
+        /**
+         * Update content media IDs via AJAX
+         */
+        function updateContentMediaViaAjax() {
+            // Only send AJAX if we have an article ID
+            if (typeof articleId === 'undefined' || !articleId) {
+                console.log('No article ID available for AJAX update');
+                return;
+            }
+            
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            const formData = new FormData();
+            
+            // Add content media IDs to the form
+            formData.append('content_media_ids', contentMediaIds.join(','));
+            
+            // Send the AJAX request
+            fetch(`/admin/approved-articles/${articleId}/update-media`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json'
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('Media IDs updated via AJAX:', data);
+                } else {
+                    console.error('Error updating media IDs:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('AJAX error updating media IDs:', error);
+            });
+        }
+
         // Initialize media selector for featured image
         const featuredImageSelector = new MediaSelector({
             type: 'image',
+            isFeaturedImage: true,
             insertCallback: function(media) {
                 lastOperation = 'featured';
                 console.log('Featured image callback with media:', media);
-                // Đặt giá trị ID vào input hidden
+                // Set the ID in the hidden input
                 document.getElementById('featured_image_id').value = media.id;
                 
-                // Update displayed image if it exists
+                // Update the UI to show the selected image
                 const imageContainer = document.getElementById('select-featured-image-btn').parentNode.parentNode;
-                const existingImageInfo = imageContainer.querySelector('div');
+                
+                // Create or update the image display
+                let existingImageInfo = imageContainer.querySelector('div.mb-4');
                 
                 if (existingImageInfo) {
-                    // Update existing image
-                    const img = existingImageInfo.querySelector('img');
-                    
-                    if (img) {
-                        // Cập nhật hình ảnh hiện tại nếu tồn tại
-                        img.src = media.url;
-                        img.alt = media.name;
-                        
-                        const nameEl = existingImageInfo.querySelector('p:last-child');
-                        if (nameEl) {
-                            nameEl.textContent = media.name;
-                        } else {
-                            const newNameEl = document.createElement('p');
-                            newNameEl.className = 'mt-1 text-sm text-gray-500';
-                            newNameEl.textContent = media.name;
-                            existingImageInfo.appendChild(newNameEl);
-                        }
-                    } else {
-                        // Nếu img không tồn tại, tạo mới toàn bộ phần tử hiển thị
-                        existingImageInfo.innerHTML = `
-                            <p class="mb-2 text-sm text-gray-500">Ảnh hiện tại:</p>
-                            <img src="${media.url}" alt="${media.name}" class="max-w-xs h-auto rounded-lg shadow">
-                            <p class="mt-1 text-sm text-gray-500">${media.name}</p>
-                        `;
-                    }
+                    // Update existing image display
+                    existingImageInfo.innerHTML = `
+                        <p class="mb-2 text-sm text-gray-500">Ảnh đã chọn:</p>
+                        <img src="${media.url}" alt="${media.name}" class="max-w-xs h-auto rounded-lg shadow">
+                        <p class="mt-1 text-sm text-gray-500">${media.name}</p>
+                    `;
                 } else {
                     // Create new image display
                     const newImageInfo = document.createElement('div');
                     newImageInfo.className = 'mb-4';
                     newImageInfo.innerHTML = `
-                        <p class="mb-2 text-sm text-gray-500">Ảnh hiện tại:</p>
+                        <p class="mb-2 text-sm text-gray-500">Ảnh đã chọn:</p>
                         <img src="${media.url}" alt="${media.name}" class="max-w-xs h-auto rounded-lg shadow">
                         <p class="mt-1 text-sm text-gray-500">${media.name}</p>
                     `;
@@ -524,12 +581,16 @@
             featuredImageSelector.open();
         });
         
-        // When form is submitted, ensure all content media IDs are included
-        document.querySelector('form').addEventListener('submit', function(e) {
-            // Set the content media IDs
-            document.getElementById('content_media_ids').value = contentMediaIds.join(',');
-        });
-
+        // Add form submit handler to ensure media IDs are saved
+        const formSubmitBtn = document.querySelector('button[type="submit"]');
+        if (formSubmitBtn) {
+            formSubmitBtn.addEventListener('click', function(e) {
+                // Force sync media IDs before form submission
+                updateContentMediaViaAjax();
+                // Continue with normal form submission (no need to prevent default)
+            });
+        }
+        
         // Initialize color picker functionality
         const colorBtn = document.querySelector('.text-color-btn');
         const colorPicker = document.querySelector('.color-picker');
