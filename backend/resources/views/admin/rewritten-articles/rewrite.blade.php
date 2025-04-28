@@ -41,6 +41,66 @@
                         </div>
                     </div>
 
+                    @if($selectedArticle && ($selectedArticle->source_url || $selectedArticle->source_name))
+                    <div class="sm:col-span-6">
+                        <div class="mt-2 p-3 bg-gray-50 rounded-md border border-gray-200">
+                            <h4 class="text-sm font-medium text-gray-700 mb-1">Thông tin nguồn bài viết gốc</h4>
+                            @if($selectedArticle->source_name)
+                            <p class="text-sm text-gray-600">
+                                <span class="font-medium">Nguồn:</span> {{ $selectedArticle->source_name }}
+                            </p>
+                            @endif
+                            
+                            @if($selectedArticle->source_url)
+                            <div class="flex items-center mt-2">
+                                <span class="text-sm text-gray-600 mr-2">Nguồn gốc:</span>
+                                <a href="{{ $selectedArticle->source_url }}" 
+                                   class="text-green-600 hover:text-green-900"
+                                   target="_blank" rel="noopener noreferrer" title="Xem nguồn gốc bài viết">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                    </svg>
+                                </a>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    @else
+                    @php
+                        // Tìm thông tin nguồn gốc từ bài viết gốc (nếu có)
+                        $originalArticle = null;
+                        if ($selectedArticle && $selectedArticle->original_article_id) {
+                            $originalArticle = \App\Models\Article::find($selectedArticle->original_article_id);
+                        }
+                    @endphp
+                    
+                    @if($originalArticle && ($originalArticle->source_url || $originalArticle->source_name))
+                    <div class="sm:col-span-6">
+                        <div class="mt-2 p-3 bg-gray-50 rounded-md border border-gray-200">
+                            <h4 class="text-sm font-medium text-gray-700 mb-1">Thông tin nguồn bài viết gốc</h4>
+                            @if($originalArticle->source_name)
+                            <p class="text-sm text-gray-600">
+                                <span class="font-medium">Nguồn:</span> {{ $originalArticle->source_name }}
+                            </p>
+                            @endif
+                            
+                            @if($originalArticle->source_url)
+                            <div class="flex items-center mt-2">
+                                <span class="text-sm text-gray-600 mr-2">Nguồn gốc:</span>
+                                <a href="{{ $originalArticle->source_url }}" 
+                                   class="text-green-600 hover:text-green-900"
+                                   target="_blank" rel="noopener noreferrer" title="Xem nguồn gốc bài viết">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                    </svg>
+                                </a>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
+                    @endif
+
                     <div class="sm:col-span-3">
                         <label for="category_id" class="block text-sm font-medium text-gray-700">
                             Danh mục
@@ -132,15 +192,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const originalArticleSelect = document.getElementById('original_article_id');
     
     originalArticleSelect.addEventListener('change', function() {
-        // You could add AJAX here to fetch the original article's category and pre-select it
         const articleId = this.value;
         if (articleId) {
-            // Example of fetching article data (would need to implement endpoint)
-            // fetch(`/admin/articles/${articleId}/data`)
-            //     .then(response => response.json())
-            //     .then(data => {
-            //         document.getElementById('category_id').value = data.category_id;
-            //     });
+            // Redirect to the same page with article_id parameter
+            window.location.href = "{{ route('admin.rewritten-articles.rewrite-form') }}/" + articleId;
         }
     });
 });

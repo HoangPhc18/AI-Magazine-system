@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\ApprovedArticle;
 use App\Models\Category;
 use App\Models\Media;
+use App\Models\ArticleFeaturedImage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
@@ -130,7 +131,22 @@ class ApprovedArticleController extends Controller
                 $validated['published_at'] = now();
             }
 
+            // Create article
             $approvedArticle = ApprovedArticle::create($validated);
+            
+            // Process article media entities from content immediately after creation
+            $contentMediaIds = $request->input('content_media_ids', '');
+            if (!empty($contentMediaIds)) {
+                Log::info('Processing content media IDs during article creation', [
+                    'article_id' => $approvedArticle->id,
+                    'content_media_ids' => $contentMediaIds
+                ]);
+                
+                $this->processArticleMedia($approvedArticle, $contentMediaIds);
+                
+                // Refresh article to ensure we have updated content
+                $approvedArticle->refresh();
+            }
             
             // Process featured image (if provided)
             if (isset($validated['featured_image_id']) && $validated['featured_image_id'] > 0) {
@@ -138,12 +154,19 @@ class ApprovedArticleController extends Controller
                     'article_id' => $approvedArticle->id,
                     'featured_image_id' => $validated['featured_image_id']
                 ]);
-            }
-            
-            // Process article media entities from content (separately from featured image)
-            $contentMediaIds = $request->input('content_media_ids', '');
-            if (!empty($contentMediaIds)) {
-                $this->processArticleMedia($approvedArticle, $contentMediaIds);
+                
+                // Tạo mới bản ghi trong bảng article_featured_images
+                $media = Media::find($validated['featured_image_id']);
+                
+                if ($media) {
+                    ArticleFeaturedImage::create([
+                        'article_id' => $approvedArticle->id,
+                        'media_id' => $media->id,
+                        'position' => 'featured',
+                        'is_main' => true,
+                        'alt_text' => $media->name,
+                    ]);
+                }
             }
             
             // Commit transaction
@@ -232,6 +255,50 @@ class ApprovedArticleController extends Controller
                     'media_id' => $media->id,
                     'path' => $filePath,
                 ]);
+                
+                // Cập nhật hoặc tạo mới featured image trong bảng article_featured_images
+                $existingMainImage = $approvedArticle->mainFeaturedImage;
+                
+                if ($existingMainImage) {
+                    // Cập nhật featured image hiện có
+                    $existingMainImage->update([
+                        'media_id' => $media->id,
+                        'alt_text' => $media->name,
+                    ]);
+                } else {
+                    // Tạo mới featured image
+                    ArticleFeaturedImage::create([
+                        'article_id' => $approvedArticle->id,
+                        'media_id' => $media->id,
+                        'position' => 'featured',
+                        'is_main' => true,
+                        'alt_text' => $media->name,
+                    ]);
+                }
+            } else if (isset($validated['featured_image_id']) && $validated['featured_image_id']) {
+                // Nếu featured_image_id được cung cấp (qua thư viện ảnh), cập nhật trong bảng mới
+                $media = Media::find($validated['featured_image_id']);
+                
+                if ($media) {
+                    $existingMainImage = $approvedArticle->mainFeaturedImage;
+                    
+                    if ($existingMainImage) {
+                        // Cập nhật featured image hiện có
+                        $existingMainImage->update([
+                            'media_id' => $media->id,
+                            'alt_text' => $media->name,
+                        ]);
+                    } else {
+                        // Tạo mới featured image
+                        ArticleFeaturedImage::create([
+                            'article_id' => $approvedArticle->id,
+                            'media_id' => $media->id,
+                            'position' => 'featured',
+                            'is_main' => true,
+                            'alt_text' => $media->name,
+                        ]);
+                    }
+                }
             }
 
             // Update publish status and date
@@ -241,12 +308,20 @@ class ApprovedArticleController extends Controller
                 $validated['published_at'] = null;
             }
 
+            // Update article with validated data
             $approvedArticle->update($validated);
             
             // Process article media entities from content
             // Make sure to process even if only content media has changed and no other fields
-            $contentMediaIds = $request->input('content_media_ids', []);
+            $contentMediaIds = $request->input('content_media_ids', '');
+            
+            // Luôn xử lý media IDs nếu có, bất kể có thay đổi ảnh đại diện hay không
             if (!empty($contentMediaIds)) {
+                Log::info('Processing content media IDs during article update', [
+                    'article_id' => $approvedArticle->id,
+                    'content_media_ids' => $contentMediaIds
+                ]);
+                
                 $this->processArticleMedia($approvedArticle, $contentMediaIds);
             }
             
@@ -352,10 +427,10 @@ class ApprovedArticleController extends Controller
         if (is_string($mediaIds)) {
             $mediaIds = explode(',', $mediaIds);
         }
-        
+
         // Filter out empty values and ensure all IDs are integers
         $mediaIds = array_filter(array_map('intval', array_filter($mediaIds)));
-        
+
         // If no valid media IDs remain after filtering, log and return
         if (empty($mediaIds)) {
             Log::info('No valid media IDs to process for article content', [
@@ -363,16 +438,16 @@ class ApprovedArticleController extends Controller
             ]);
             return;
         }
-        
+
         Log::info('Processing content media for article', [
             'article_id' => $article->id,
             'media_ids' => $mediaIds
         ]);
-        
+
         try {
             // Get the media items
             $mediaItems = Media::whereIn('id', $mediaIds)->get();
-            
+
             if ($mediaItems->isEmpty()) {
                 Log::warning('No media items found for IDs', [
                     'article_id' => $article->id,
@@ -380,14 +455,14 @@ class ApprovedArticleController extends Controller
                 ]);
                 return;
             }
-            
+
             // Get IDs of media items that actually exist
             $validMediaIds = $mediaItems->pluck('id')->toArray();
-            
-            // Attach media to article (synchronize rather than attach to avoid duplicates)
-            // Note that syncWithoutDetaching keeps existing relations while adding new ones
-            $article->media()->syncWithoutDetaching($validMediaIds);
-            
+
+            // Attach media to article using sync to ensure we have exactly the media items
+            // that were submitted (not using syncWithoutDetaching to avoid accumulating old references)
+            $article->media()->sync($validMediaIds);
+
             // Log the found vs requested media items for debugging
             Log::info('Content media attached to article', [
                 'article_id' => $article->id,
@@ -395,46 +470,32 @@ class ApprovedArticleController extends Controller
                 'found_ids' => $validMediaIds,
                 'media_count' => $mediaItems->count()
             ]);
-            
-            // Đảm bảo nội dung bài viết có src URLs chính xác của media
+
+            // Ensure article content has correct media src URLs
             $content = $article->content;
-            
-            // Log để kiểm tra nội dung trước khi thay thế
-            Log::debug('Content before media processing', [
-                'article_id' => $article->id,
-                'content_excerpt' => substr($content, 0, 200) . '...'
-            ]);
-            
-            // Track if any changes were made to the content
-            $contentChanged = false;
-            
+
             // Create a map of media items for quick lookup
             $mediaMap = [];
             foreach ($mediaItems as $media) {
-                $mediaMap[$media->id] = $media;
+                $mediaMap[$media->id] = [
+                    'id' => $media->id,
+                    'name' => $media->name,
+                    'file_path' => $media->file_path,
+                    'url' => asset('storage/' . $media->file_path),
+                ];
             }
-            
-            // First pass: Process all img tags with data-media-id attribute
+
+            // Process all img tags with data-media-id attribute
             $content = preg_replace_callback(
                 '/<img([^>]*)data-media-id=["\'](\d+)["\']([^>]*)>/i',
-                function($matches) use ($mediaMap, &$contentChanged) {
+                function($matches) use ($mediaMap, $article) {
                     $mediaId = (int)$matches[2];
                     if (isset($mediaMap[$mediaId])) {
-                        $media = $mediaMap[$mediaId];
-                        $storageUrl = asset('storage/' . $media->file_path);
-                        
+                        $url = $mediaMap[$mediaId]['url'];
                         // Remove existing src attribute if present
-                        $attributes = $matches[1] . $matches[3];
-                        $attributes = preg_replace('/src=["\'][^"\']*["\']/i', '', $attributes);
-                        
-                        // Add alt attribute if not present
-                        if (!preg_match('/alt=["\'][^"\']*["\']/i', $attributes)) {
-                            $attributes .= ' alt="' . htmlspecialchars($media->name) . '"';
-                        }
-                        
-                        // Create the new img tag with correct src
-                        $contentChanged = true;
-                        return "<img{$attributes} data-media-id=\"{$mediaId}\" src=\"{$storageUrl}\">";
+                        $attributes = preg_replace('/src=["\'][^"\']*["\']/i', '', $matches[1] . $matches[3]);
+                        // Add the new src attribute with correct URL
+                        return "<img{$attributes} data-media-id=\"{$mediaId}\" src=\"{$url}\" alt=\"{$mediaMap[$mediaId]['name']}\">";
                     }
                     
                     // If media not found, leave tag as is
@@ -443,48 +504,21 @@ class ApprovedArticleController extends Controller
                 },
                 $content
             );
+
+            // Update article content with the processed version
+            $article->update(['content' => $content]);
             
-            // Second pass: Look for img tags that have matching URLs but no data-media-id
-            foreach ($mediaItems as $media) {
-                $fileName = basename($media->file_path);
-                $pattern = '/<img([^>]*)src=["\']([^"\']*' . preg_quote($fileName, '/') . ')["\']([^>]*(?!data-media-id))[^>]*>/i';
-                
-                $storageUrl = asset('storage/' . $media->file_path);
-                $content = preg_replace_callback(
-                    $pattern,
-                    function($matches) use ($media, $storageUrl, &$contentChanged) {
-                        // Add data-media-id attribute
-                        $contentChanged = true;
-                        return "<img{$matches[1]}src=\"{$storageUrl}\"{$matches[3]} data-media-id=\"{$media->id}\">";
-                    },
-                    $content
-                );
-            }
-            
-            // Log để kiểm tra nội dung sau khi thay thế
-            Log::debug('Content after media processing' . ($contentChanged ? ' (CHANGED)' : ' (NO CHANGE)'), [
-                'article_id' => $article->id,
-                'content_excerpt' => substr($content, 0, 200) . '...'
+            Log::info('Updated article content with media URLs', [
+                'article_id' => $article->id
             ]);
-            
-            // Cập nhật nội dung bài viết nếu có thay đổi
-            if ($contentChanged) {
-                $article->update(['content' => $content]);
-                Log::info('Updated article content with correct media URLs', [
-                    'article_id' => $article->id
-                ]);
-            } else {
-                Log::info('No changes needed to article content', [
-                    'article_id' => $article->id
-                ]);
-            }
-            
+
         } catch (\Exception $e) {
             Log::error('Error processing article media', [
                 'article_id' => $article->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
+            throw $e; // Rethrow to allow proper handling upstream
         }
     }
 
@@ -778,7 +812,7 @@ class ApprovedArticleController extends Controller
     }
 
     /**
-     * Update media IDs for a given article (AJAX)
+     * Update article media (AJAX)
      *
      * @param \Illuminate\Http\Request $request
      * @param \App\Models\ApprovedArticle $approvedArticle
@@ -793,7 +827,7 @@ class ApprovedArticleController extends Controller
 
         try {
             // Get media IDs from the request
-            $mediaIds = $request->input('content_media_ids', []);
+            $mediaIds = $request->input('content_media_ids', '');
             
             if (empty($mediaIds)) {
                 Log::warning('No media IDs provided for update', [
@@ -808,10 +842,14 @@ class ApprovedArticleController extends Controller
             // Process the article media relationship
             $this->processArticleMedia($approvedArticle, $mediaIds);
             
+            // Refresh the article from database to make sure we have the latest content
+            $approvedArticle->refresh();
+            
             return response()->json([
                 'success' => true,
                 'message' => 'Media IDs updated successfully',
-                'media_count' => is_array($mediaIds) ? count($mediaIds) : 1
+                'media_count' => is_array($mediaIds) ? count($mediaIds) : count(explode(',', $mediaIds)),
+                'article_id' => $approvedArticle->id
             ]);
         } catch (\Exception $e) {
             Log::error('Error updating media for article', [
@@ -867,26 +905,60 @@ class ApprovedArticleController extends Controller
                 ]);
             }
             
-            // Update the featured image
-            $approvedArticle->featured_image_id = $featuredImageId;
-            $approvedArticle->save();
+            // Begin transaction
+            DB::beginTransaction();
             
-            Log::info('Featured image updated successfully', [
-                'article_id' => $approvedArticle->id,
-                'featured_image_id' => $featuredImageId,
-                'image_url' => $media->url
-            ]);
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Featured image updated successfully',
-                'featured_image' => [
-                    'id' => $media->id,
-                    'name' => $media->name,
-                    'url' => $media->url
-                ]
-            ]);
-            
+            try {
+                // Update using article_featured_images table (new approach)
+                // First, check if there's already a main featured image
+                $existingMainImage = $approvedArticle->mainFeaturedImage;
+                
+                if ($existingMainImage) {
+                    // Update existing main featured image
+                    $existingMainImage->update([
+                        'media_id' => $featuredImageId,
+                        'alt_text' => $media->name,
+                    ]);
+                    
+                    $featuredImage = $existingMainImage;
+                } else {
+                    // Create new main featured image
+                    $featuredImage = ArticleFeaturedImage::create([
+                        'article_id' => $approvedArticle->id,
+                        'media_id' => $featuredImageId,
+                        'position' => 'featured',
+                        'is_main' => true,
+                        'alt_text' => $media->name,
+                        'caption' => '',
+                    ]);
+                }
+                
+                // For backward compatibility, also update the featured_image_id field
+                $approvedArticle->featured_image_id = $featuredImageId;
+                $approvedArticle->save();
+                
+                DB::commit();
+                
+                Log::info('Featured image updated successfully', [
+                    'article_id' => $approvedArticle->id,
+                    'featured_image_id' => $featuredImageId,
+                    'article_featured_image_id' => $featuredImage->id,
+                    'image_url' => $media->url
+                ]);
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Featured image updated successfully',
+                    'featured_image' => [
+                        'id' => $media->id,
+                        'name' => $media->name,
+                        'url' => $media->url
+                    ]
+                ]);
+            } catch (\Exception $e) {
+                DB::rollBack();
+                throw $e;
+            }
         } catch (\Exception $e) {
             Log::error('Error updating featured image for article', [
                 'article_id' => $approvedArticle->id,

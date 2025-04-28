@@ -1,0 +1,290 @@
+2025-04-27 07:17:45,828 - INFO - Starting Keyword Rewrite API on 0.0.0.0:5003 (debug: False)
+2025-04-27 07:17:45,835 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5003
+ * Running on http://172.18.0.2:5003
+2025-04-27 07:17:45,835 - INFO - [33mPress CTRL+C to quit[0m
+2025-04-27 07:23:34,908 - INFO - 172.18.0.1 - - [27/Apr/2025 07:23:34] "GET /health HTTP/1.1" 200 -
+2025-04-27 07:23:35,302 - INFO - Starting keyword rewrite task for: 30/4 (ID: 1)
+2025-04-27 07:23:35,302 - INFO - 172.18.0.1 - - [27/Apr/2025 07:23:35] "POST /api/keyword_rewrite/process HTTP/1.1" 200 -
+2025-04-27 07:23:35,303 - INFO - Modified callback URL: http://localhost:8000/api/keyword-rewrites/callback
+2025-04-27 07:23:35,304 - INFO - Searching Google News for: 30/4
+2025-04-27 07:23:35,307 - INFO - Searching for keyword: '30/4' and non-accented version: '30/4' (skip: 0)
+2025-04-27 07:23:35,308 - INFO - Trying to search with keyword: '30/4'
+2025-04-27 07:23:35,308 - INFO - Using HTTP request method for: '30/4'
+2025-04-27 07:23:35,309 - INFO - Sending request to Google News: https://news.google.com/search?q=30%2F4&hl=vi&gl=VN&ceid=VN:vi
+2025-04-27 07:23:36,769 - WARNING - No valid article URLs found in Google News
+2025-04-27 07:23:36,770 - INFO - Trying direct Google Search as it's more reliable
+2025-04-27 07:23:36,771 - INFO - Searching with Google Search: https://www.google.com/search?q=30%2F4&tbm=nws
+2025-04-27 07:23:37,403 - INFO - Saved Google Search response to google_search_response.html
+2025-04-27 07:23:37,429 - INFO - Found 0 results with selector 'div.g a'
+2025-04-27 07:23:37,437 - INFO - Found 25 results with selector 'a[href^="https://"]'
+2025-04-27 07:23:37,441 - INFO - Found valid article URL: https://www.bbc.com/vietnamese/articles/cx2v42kzm86o.amp
+2025-04-27 07:23:37,443 - INFO - Found valid article URL: https://vnexpress.net/nhieu-lanh-dao-dai-bieu-quoc-te-se-du-le-ky-niem-30-4-4878251.html
+2025-04-27 07:23:37,443 - INFO - Found valid article URL: https://tuoitre.vn/viet-nam-noi-gi-ve-tin-my-khuyen-cao-quan-chuc-khong-du-ky-niem-30-4-2025042416260926.htm
+2025-04-27 07:23:37,444 - INFO - Found valid article URL: https://www.sggp.org.vn/tphcm-cam-xe-vao-trung-tam-de-tong-duyet-le-30-4-cap-nha-nuoc-post792474.html
+2025-04-27 07:23:37,444 - INFO - Found valid article URL: https://tienphong.vn/chao-mung-dai-le-304-bao-tang-da-nang-lan-dau-trinh-chieu-phim-3d-mapping-post1737376.tpo
+2025-04-27 07:23:37,444 - INFO - Found valid article URL: https://tuoitre.vn/video/truc-tiep-tong-duyet-dieu-binh-dieu-hanh-cap-nha-nuoc-mung-dai-le-30-4-tai-tphcm-179141.htm
+2025-04-27 07:23:37,445 - INFO - Found valid article URL: https://dantri.com.vn/xa-hoi/ron-rang-theo-nhip-chan-chien-si-dieu-binh-chuan-bi-dai-le-304-20250427074605176.htm
+2025-04-27 07:23:37,445 - INFO - Found valid article URL: https://vnexpress.net/tong-duyet-dieu-binh-dai-le-30-4-4879140.html
+2025-04-27 07:23:37,445 - INFO - Found valid article URL: https://dantri.com.vn/xa-hoi/thoi-tiet-ca-nuoc-dip-nghi-le-304-15-20250425212232419.htm
+2025-04-27 07:23:37,445 - INFO - Found valid article URL: https://vtv.vn/xa-hoi/cap-nhat-du-bao-thoi-tiet-dip-30-4-1-5-trung-trung-bo-va-nam-trung-bo-nang-nong-cuc-bo-20250426194605616.htm
+2025-04-27 07:23:37,446 - INFO - Found valid article URL: https://vov.vn/xa-hoi/thoi-tiet-dip-le-304-va-15-se-nhu-the-nao-post1195092.vov
+2025-04-27 07:23:37,446 - INFO - Found valid article URL: https://www.vietnamplus.vn/gan-800-phong-vien-trong-va-ngoai-nuoc-tham-gia-tac-nghiep-tai-dai-le-304-post1035337.amp
+2025-04-27 07:23:37,446 - INFO - Found valid article URL: https://amp.cand.com.vn/su-kien-binh-luan-thoi-su/khai-truong-trung-tam-bao-chi-phuc-vu-dai-le-30-4-i766587/
+2025-04-27 07:23:37,446 - INFO - Found valid article URL: https://nld.com.vn/180-phong-vien-nuoc-ngoai-dang-ky-tac-nghiep-tai-dai-le-30-4-196250424204028126.htm
+2025-04-27 07:23:37,447 - INFO - Found valid article URL: https://kinhtedothi.vn/khach-di-may-bay-dip-nghi-le-30-4-1-5-can-luu-y-gi.686961.html
+2025-04-27 07:23:37,447 - INFO - Found valid article URL: https://nld.com.vn/noi-bai-tap-nap-truoc-cao-diem-le-30-4-1-5-196250426161245854.htm
+2025-04-27 07:23:37,447 - INFO - Found valid article URL: https://m.anninhthudo.vn/duong-sat-hang-khong-chay-ve-dip-nghi-le-30-4-post610167.amp
+2025-04-27 07:23:37,448 - INFO - Found valid article URL: https://baotintuc.vn/video/ngay-3041975-non-song-lien-mot-dai-20250427090333514.htm
+2025-04-27 07:23:37,448 - INFO - Found valid article URL: https://www.24h.com.vn/tin-tuc-trong-ngay/thong-tin-can-luu-y-ve-dai-le-tai-tp-hcm-tu-ngay-25-4-den-30-4-c46a1659436.html
+2025-04-27 07:23:37,448 - INFO - Found valid article URL: https://www.grab.com/vn/blog/driver/2banh-thuongle30thang4-hcm/
+2025-04-27 07:23:37,448 - INFO - Found 20 valid article URLs from Google Search
+2025-04-27 07:23:37,449 - INFO - Found article URL: https://www.bbc.com/vietnamese/articles/cx2v42kzm86o.amp
+2025-04-27 07:23:37,449 - INFO - Extracting content from URL (attempt 1/3): https://www.bbc.com/vietnamese/articles/cx2v42kzm86o.amp
+2025-04-27 07:23:37,450 - INFO - Extracting content from URL (attempt 1/3): https://www.bbc.com/vietnamese/articles/cx2v42kzm86o.amp
+2025-04-27 07:23:37,450 - INFO - Extracting from domain: www.bbc.com
+2025-04-27 07:23:37,461 - ERROR - Request error: HTTPSConnectionPool(host='www.bbc.com', port=443): Max retries exceeded with url: /vietnamese/articles/cx2v42kzm86o.amp (Caused by NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x7f95d4097850>: Failed to establish a new connection: [Errno 111] Connection refused'))
+2025-04-27 07:23:37,462 - ERROR - Failed to extract content from https://www.bbc.com/vietnamese/articles/cx2v42kzm86o.amp - article_data is None
+2025-04-27 07:23:37,462 - WARNING - Failed to extract content on attempt 1, trying another URL
+2025-04-27 07:23:37,463 - INFO - Searching for keyword: '30/4' and non-accented version: '30/4' (skip: 1)
+2025-04-27 07:23:37,463 - INFO - Trying to search with keyword: '30/4'
+2025-04-27 07:23:37,463 - INFO - Using HTTP request method for: '30/4'
+2025-04-27 07:23:37,464 - INFO - Sending request to Google News: https://news.google.com/search?q=30%2F4&hl=vi&gl=VN&ceid=VN:vi
+2025-04-27 07:23:39,146 - WARNING - No valid article URLs found in Google News
+2025-04-27 07:23:39,148 - INFO - Trying direct Google Search as it's more reliable
+2025-04-27 07:23:39,149 - INFO - Searching with Google Search: https://www.google.com/search?q=30%2F4&tbm=nws
+2025-04-27 07:23:39,799 - INFO - Saved Google Search response to google_search_response.html
+2025-04-27 07:23:39,832 - INFO - Found 0 results with selector 'div.g a'
+2025-04-27 07:23:39,838 - INFO - Found 32 results with selector 'a[href^="https://"]'
+2025-04-27 07:23:39,839 - INFO - Found valid article URL: https://tuoitre.vn/video/truc-tiep-tong-duyet-dieu-binh-dieu-hanh-cap-nha-nuoc-mung-dai-le-30-4-tai-tphcm-179141.htm
+2025-04-27 07:23:39,839 - INFO - Found valid article URL: https://plo.vn/truc-tiep-tong-duyet-dieu-binh-dieu-hanh-cap-nha-nuoc-chao-mung-dai-le-30-4-o-tphcm-post846817.html
+2025-04-27 07:23:39,839 - INFO - Found valid article URL: https://vnexpress.net/tong-duyet-dieu-binh-dai-le-30-4-4879140.html
+2025-04-27 07:23:39,840 - INFO - Found valid article URL: https://vietnamnet.vn/nhung-dieu-nguoi-dan-dac-biet-luu-y-khi-xem-dieu-binh-dieu-hanh-dip-dai-le-30-4-2395110.html
+2025-04-27 07:23:39,840 - INFO - Found valid article URL: https://www.bbc.com/vietnamese/articles/cx2v42kzm86o
+2025-04-27 07:23:39,840 - INFO - Found valid article URL: https://vnexpress.net/nhieu-lanh-dao-dai-bieu-quoc-te-se-du-le-ky-niem-30-4-4878251.html
+2025-04-27 07:23:39,841 - INFO - Found valid article URL: https://plo.vn/chien-si-dieu-binh-ky-niem-30-4-trong-vong-tay-nhan-dan-post846655.html
+2025-04-27 07:23:39,841 - INFO - Found valid article URL: https://tuoitre.vn/viet-nam-noi-gi-ve-tin-my-khuyen-cao-quan-chuc-khong-du-ky-niem-30-4-2025042416260926.htm
+2025-04-27 07:23:39,841 - INFO - Found valid article URL: https://tienphong.vn/chao-mung-dai-le-304-bao-tang-da-nang-lan-dau-trinh-chieu-phim-3d-mapping-post1737376.tpo
+2025-04-27 07:23:39,842 - INFO - Found valid article URL: https://tienphong.vn/thoi-tiet-ha-noi-dip-le-304-15-nhu-the-nao-post1737340.tpo
+2025-04-27 07:23:39,842 - INFO - Found valid article URL: https://dantri.com.vn/xa-hoi/thoi-tiet-ca-nuoc-dip-nghi-le-304-15-20250425212232419.htm
+2025-04-27 07:23:39,842 - INFO - Found valid article URL: https://nhandan.vn/du-bao-thoi-tiet-dip-nghi-le-304-va-15-bac-bo-mat-troi-nam-bo-nang-nong-post875495.html
+2025-04-27 07:23:39,842 - INFO - Found valid article URL: https://vov.vn/xa-hoi/thoi-tiet-dip-le-304-va-15-se-nhu-the-nao-post1195092.vov
+2025-04-27 07:23:39,843 - INFO - Found valid article URL: https://cand.com.vn/su-kien-binh-luan-thoi-su/khai-truong-trung-tam-bao-chi-phuc-vu-dai-le-30-4-i766587/
+2025-04-27 07:23:39,843 - INFO - Found valid article URL: https://www.24h.com.vn/tin-tuc-trong-ngay/thong-tin-can-luu-y-ve-dai-le-tai-tp-hcm-tu-ngay-25-4-den-30-4-c46a1659436.html
+2025-04-27 07:23:39,843 - INFO - Found valid article URL: https://baotintuc.vn/video/ngay-3041975-non-song-lien-mot-dai-20250427090333514.htm
+2025-04-27 07:23:39,843 - INFO - Found valid article URL: https://kinhtedothi.vn/khach-di-may-bay-dip-nghi-le-30-4-1-5-can-luu-y-gi.686961.html
+2025-04-27 07:23:39,844 - INFO - Found valid article URL: https://plo.vn/hon-5000-chuyen-bay-di-va-den-tphcm-dip-30-4-cac-hang-bay-lam-viec-ngay-dem-post846853.html
+2025-04-27 07:23:39,844 - INFO - Found valid article URL: https://www.anninhthudo.vn/duong-sat-hang-khong-chay-ve-dip-nghi-le-30-4-post610167.antd
+2025-04-27 07:23:39,844 - INFO - Found valid article URL: https://nld.com.vn/noi-bai-tap-nap-truoc-cao-diem-le-30-4-1-5-196250426161245854.htm
+2025-04-27 07:23:39,844 - INFO - Found valid article URL: https://www.grab.com/vn/blog/driver/2banh-thuongle30thang4-hcm/
+2025-04-27 07:23:39,845 - INFO - Found valid article URL: https://vnexpress.net/huy-ve-bo-ky-nghi-de-vao-tp-hcm-xem-dieu-binh-30-4-4877837.html
+2025-04-27 07:23:39,845 - INFO - Found valid article URL: https://tuoitre.vn/ha-noi-nhieu-hoat-dong-thu-vi-tu-noi-den-ngoai-thanh-dip-le-30-4-20250425213659383.htm
+2025-04-27 07:23:39,845 - INFO - Found valid article URL: https://chinhsachcuocsong.vnanet.vn/du-lich-tinh-nghe-an-san-sang-don-khach-dip-le-30-4-1-5/59968.html
+2025-04-27 07:23:39,845 - INFO - Found valid article URL: https://moitruong.net.vn/ha-noi-ron-rang-chao-don-ngay-30-4-82418.html
+2025-04-27 07:23:39,845 - INFO - Found 25 valid article URLs from Google Search
+2025-04-27 07:23:39,846 - INFO - Extracting content from URL (attempt 2/3): https://plo.vn/truc-tiep-tong-duyet-dieu-binh-dieu-hanh-cap-nha-nuoc-chao-mung-dai-le-30-4-o-tphcm-post846817.html
+2025-04-27 07:23:39,846 - INFO - Extracting content from URL (attempt 2/3): https://plo.vn/truc-tiep-tong-duyet-dieu-binh-dieu-hanh-cap-nha-nuoc-chao-mung-dai-le-30-4-o-tphcm-post846817.html
+2025-04-27 07:23:39,846 - INFO - Extracting from domain: plo.vn
+2025-04-27 07:23:40,011 - INFO - Successfully fetched content from https://plo.vn/truc-tiep-tong-duyet-dieu-binh-dieu-hanh-cap-nha-nuoc-chao-mung-dai-le-30-4-o-tphcm-post846817.html, content length: 216453
+2025-04-27 07:23:40,076 - INFO - Falling back to trafilatura for https://plo.vn/truc-tiep-tong-duyet-dieu-binh-dieu-hanh-cap-nha-nuoc-chao-mung-dai-le-30-4-o-tphcm-post846817.html
+2025-04-27 07:23:40,251 - ERROR - Trafilatura extraction failed: signal only works in main thread of the main interpreter
+2025-04-27 07:23:40,252 - INFO - Using fallback extraction method
+2025-04-27 07:23:40,254 - INFO - Fallback extraction: found 98 paragraphs, content length=14860
+2025-04-27 07:23:40,255 - INFO - Successfully extracted content from https://plo.vn/truc-tiep-tong-duyet-dieu-binh-dieu-hanh-cap-nha-nuoc-chao-mung-dai-le-30-4-o-tphcm-post846817.html
+2025-04-27 07:23:40,256 - INFO - Successfully extracted content - Title: Trực tiếp: Tổng duyệt diễu binh, diễu hành cấp Nhà nước chào mừng đại lễ 30-4 ở TP.HCM | Báo Pháp Luật TP. Hồ Chí Minh, Content length: 14860
+2025-04-27 07:23:40,256 - INFO - Rewriting content using Gemini (model: gemini-1.5-flash-latest)
+2025-04-27 07:23:40,257 - INFO - Rewriting content with title: Trực tiếp: Tổng duyệt diễu binh, diễu hành cấp Nhà nước chào mừng đại lễ 30-4 ở TP.HCM | Báo Pháp Luật TP. Hồ Chí Minh
+2025-04-27 07:23:40,258 - INFO - Using model: gemini-1.5-flash-latest, temperature: 0.7
+2025-04-27 07:23:40,258 - INFO - Initializing Gemini model: gemini-1.5-flash-latest
+2025-04-27 07:23:40,258 - INFO - Generating content with temperature: 0.7
+2025-04-27 07:23:47,615 - INFO - Successfully rewrote content using gemini-1.5-flash-latest in 7.36 seconds (Length: 3144)
+2025-04-27 07:23:47,616 - INFO - Successfully rewrote content. Rewritten length: 3144
+2025-04-27 07:23:47,616 - INFO - Using BACKEND_URL from environment: http://host.docker.internal/api/keyword-rewrites/callback
+2025-04-27 07:23:47,617 - INFO - Sending callback with Host: magazine.test to: http://host.docker.internal/api/keyword-rewrites/callback
+2025-04-27 07:23:47,886 - INFO - Callback successfully sent to http://host.docker.internal/api/keyword-rewrites/callback, status code: 200
+2025-04-27 07:23:47,887 - INFO - Keyword rewrite task completed for: 30/4 (ID: 1)
+2025-04-27 11:58:30,317 - INFO - Starting Keyword Rewrite API on 0.0.0.0:5003 (debug: False)
+2025-04-27 11:58:30,329 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5003
+ * Running on http://172.18.0.5:5003
+2025-04-27 11:58:30,330 - INFO - [33mPress CTRL+C to quit[0m
+2025-04-27 11:58:30,377 - INFO - 172.18.0.1 - - [27/Apr/2025 11:58:30] "GET /health HTTP/1.1" 200 -
+2025-04-27 11:58:30,756 - INFO - Starting keyword rewrite task for: 30/4 (ID: 1)
+2025-04-27 11:58:30,756 - INFO - 172.18.0.1 - - [27/Apr/2025 11:58:30] "POST /api/keyword_rewrite/process HTTP/1.1" 200 -
+2025-04-27 11:58:30,757 - INFO - Modified callback URL: http://localhost:8000/api/keyword-rewrites/callback
+2025-04-27 11:58:30,758 - INFO - Searching Google News for: 30/4
+2025-04-27 11:58:30,759 - INFO - Searching for keyword: '30/4' and non-accented version: '30/4' (skip: 0)
+2025-04-27 11:58:30,759 - INFO - Trying to search with keyword: '30/4'
+2025-04-27 11:58:30,760 - INFO - Using HTTP request method for: '30/4'
+2025-04-27 11:58:30,760 - INFO - Sending request to Google News: https://news.google.com/search?q=30%2F4&hl=vi&gl=VN&ceid=VN:vi
+2025-04-27 11:58:32,048 - WARNING - No valid article URLs found in Google News
+2025-04-27 11:58:32,049 - INFO - Trying direct Google Search as it's more reliable
+2025-04-27 11:58:32,050 - INFO - Searching with Google Search: https://www.google.com/search?q=30%2F4&tbm=nws
+2025-04-27 11:58:32,747 - INFO - Saved Google Search response to google_search_response.html
+2025-04-27 11:58:32,792 - INFO - Found 0 results with selector 'div.g a'
+2025-04-27 11:58:32,798 - INFO - Found 35 results with selector 'a[href^="https://"]'
+2025-04-27 11:58:32,799 - INFO - Found valid article URL: https://tuoitre.vn/nhung-dieu-can-biet-khi-di-xem-le-dieu-binh-dieu-hanh-ngay-30-4-20250427080302296.htm
+2025-04-27 11:58:32,799 - INFO - Found valid article URL: https://plo.vn/truc-tiep-tong-duyet-dieu-binh-dieu-hanh-cap-nha-nuoc-chao-mung-dai-le-30-4-o-tphcm-post846817.html
+2025-04-27 11:58:32,800 - INFO - Found valid article URL: https://vnexpress.net/tong-duyet-dieu-binh-dai-le-30-4-4879140.html
+2025-04-27 11:58:32,800 - INFO - Found valid article URL: https://www.sggp.org.vn/hoanh-trang-man-nhan-buoi-tong-duyet-dai-le-30-4-post792732.html
+2025-04-27 11:58:32,800 - INFO - Found valid article URL: https://vtcnews.vn/doan-hoa-ky-khang-dinh-tham-du-le-ky-niem-30-4-tai-viet-nam-ar939646.html
+2025-04-27 11:58:32,800 - INFO - Found valid article URL: https://vietnamnet.vn/phu-san-dac-biet-ky-niem-30-4-dua-lich-su-den-gan-cong-chung-2395732.html
+2025-04-27 11:58:32,800 - INFO - Found valid article URL: https://muctim.tuoitre.vn/tphcm-ruc-ro-voi-pano-poster-mung-dai-le-30-4-101250427164859222.htm
+2025-04-27 11:58:32,801 - INFO - Found valid article URL: https://dantri.com.vn/xa-hoi/thoi-tiet-ca-nuoc-dip-nghi-le-304-15-20250425212232419.htm
+2025-04-27 11:58:32,802 - INFO - Found valid article URL: https://vnexpress.net/mien-bac-va-trung-mua-giong-mien-nam-nang-nhe-dip-30-4-4879285.html
+2025-04-27 11:58:32,802 - INFO - Found valid article URL: https://tienphong.vn/thoi-tiet-ha-noi-dip-le-304-15-nhu-the-nao-post1737340.tpo
+2025-04-27 11:58:32,802 - INFO - Found valid article URL: https://nhandan.vn/du-bao-thoi-tiet-dip-nghi-le-304-va-15-bac-bo-mat-troi-nam-bo-nang-nong-post875495.html
+2025-04-27 11:58:32,803 - INFO - Found valid article URL: https://www.vietnamplus.vn/gan-800-phong-vien-trong-va-ngoai-nuoc-tham-gia-tac-nghiep-tai-dai-le-304-post1035337.vnp
+2025-04-27 11:58:32,803 - INFO - Found valid article URL: https://lifestyle.znews.vn/ra-mat-trung-tam-bao-chi-phuc-vu-dai-le-304-tai-tphcm-post1549264.html
+2025-04-27 11:58:32,803 - INFO - Found valid article URL: https://cand.com.vn/su-kien-binh-luan-thoi-su/khai-truong-trung-tam-bao-chi-phuc-vu-dai-le-30-4-i766587/
+2025-04-27 11:58:32,803 - INFO - Found valid article URL: https://nld.com.vn/180-phong-vien-nuoc-ngoai-dang-ky-tac-nghiep-tai-dai-le-30-4-196250424204028126.htm
+2025-04-27 11:58:32,803 - INFO - Found valid article URL: https://kinhtedothi.vn/khach-di-may-bay-dip-nghi-le-30-4-1-5-can-luu-y-gi.686961.html
+2025-04-27 11:58:32,804 - INFO - Found valid article URL: https://www.anninhthudo.vn/duong-sat-hang-khong-chay-ve-dip-nghi-le-30-4-post610167.antd
+2025-04-27 11:58:32,804 - INFO - Found valid article URL: https://nld.com.vn/noi-bai-tap-nap-truoc-cao-diem-le-30-4-1-5-196250426161245854.htm
+2025-04-27 11:58:32,805 - INFO - Found valid article URL: https://plo.vn/hon-5000-chuyen-bay-di-va-den-tphcm-dip-30-4-cac-hang-bay-lam-viec-ngay-dem-post846853.html
+2025-04-27 11:58:32,805 - INFO - Found valid article URL: https://vnexpress.net/huy-ve-bo-ky-nghi-de-vao-tp-hcm-xem-dieu-binh-30-4-4877837.html
+2025-04-27 11:58:32,805 - INFO - Found valid article URL: https://tuoitre.vn/ha-noi-nhieu-hoat-dong-thu-vi-tu-noi-den-ngoai-thanh-dip-le-30-4-20250425213659383.htm
+2025-04-27 11:58:32,806 - INFO - Found valid article URL: https://www.vietnamplus.vn/chuoi-hoat-dong-va-su-kien-dip-nghi-le-304-va-15-tai-ha-noi-post1035287.vnp
+2025-04-27 11:58:32,806 - INFO - Found valid article URL: https://vietnamnet.vn/3-dia-diem-cam-trai-o-ngoai-thanh-ha-noi-dip-30-4-vua-gan-vua-vui-2395626.html
+2025-04-27 11:58:32,806 - INFO - Found valid article URL: https://www.bbc.com/vietnamese/articles/cx2v42kzm86o
+2025-04-27 11:58:32,806 - INFO - Found valid article URL: https://www.24h.com.vn/tin-tuc-trong-ngay/phim-tai-lieu-hiem-ve-ngay-30-4-1975-lan-dau-duoc-cong-bo-tai-viet-nam-c46a1659810.html
+2025-04-27 11:58:32,806 - INFO - Found valid article URL: https://tuoitre.vn/thuy-dien-tang-viet-nam-phim-tai-lieu-chua-tung-duoc-cong-bo-ve-ngay-30-4-1975-20250425121928685.htm
+2025-04-27 11:58:32,807 - INFO - Found valid article URL: https://baotintuc.vn/video/ngay-3041975-non-song-lien-mot-dai-20250427090333514.htm
+2025-04-27 11:58:32,807 - INFO - Found valid article URL: https://vtcnews.vn/con-trai-anh-hung-hoang-dan-ba-toi-goi-30-4-1975-la-ngay-hoa-binh-ar939747.html
+2025-04-27 11:58:32,807 - INFO - Found 28 valid article URLs from Google Search
+2025-04-27 11:58:32,807 - INFO - Found article URL: https://tuoitre.vn/nhung-dieu-can-biet-khi-di-xem-le-dieu-binh-dieu-hanh-ngay-30-4-20250427080302296.htm
+2025-04-27 11:58:32,807 - INFO - Extracting content from URL (attempt 1/3): https://tuoitre.vn/nhung-dieu-can-biet-khi-di-xem-le-dieu-binh-dieu-hanh-ngay-30-4-20250427080302296.htm
+2025-04-27 11:58:32,808 - INFO - Extracting content from URL (attempt 1/3): https://tuoitre.vn/nhung-dieu-can-biet-khi-di-xem-le-dieu-binh-dieu-hanh-ngay-30-4-20250427080302296.htm
+2025-04-27 11:58:32,808 - INFO - Extracting from domain: tuoitre.vn
+2025-04-27 11:58:32,984 - INFO - Successfully fetched content from https://tuoitre.vn/nhung-dieu-can-biet-khi-di-xem-le-dieu-binh-dieu-hanh-ngay-30-4-20250427080302296.htm, content length: 283734
+2025-04-27 11:58:33,066 - INFO - Found title with length 64
+2025-04-27 11:58:33,073 - INFO - Falling back to trafilatura for https://tuoitre.vn/nhung-dieu-can-biet-khi-di-xem-le-dieu-binh-dieu-hanh-ngay-30-4-20250427080302296.htm
+2025-04-27 11:58:33,245 - ERROR - Trafilatura extraction failed: signal only works in main thread of the main interpreter
+2025-04-27 11:58:33,246 - INFO - Using fallback extraction method
+2025-04-27 11:58:33,249 - INFO - Fallback extraction: found 62 paragraphs, content length=9740
+2025-04-27 11:58:33,250 - INFO - Successfully extracted content from https://tuoitre.vn/nhung-dieu-can-biet-khi-di-xem-le-dieu-binh-dieu-hanh-ngay-30-4-20250427080302296.htm
+2025-04-27 11:58:33,250 - INFO - Successfully extracted content - Title: Những điều cần biết khi đi xem lễ diễu binh, diễu hành ngày 30-4, Content length: 9740
+2025-04-27 11:58:33,251 - INFO - Rewriting content using Gemini (model: gemini-1.5-flash-latest)
+2025-04-27 11:58:33,251 - INFO - Rewriting content with title: Những điều cần biết khi đi xem lễ diễu binh, diễu hành ngày 30-4
+2025-04-27 11:58:33,251 - INFO - Using model: gemini-1.5-flash-latest, temperature: 0.7
+2025-04-27 11:58:33,252 - INFO - Initializing Gemini model: gemini-1.5-flash-latest
+2025-04-27 11:58:33,252 - INFO - Generating content with temperature: 0.7
+2025-04-27 11:58:40,010 - INFO - Successfully rewrote content using gemini-1.5-flash-latest in 6.76 seconds (Length: 3023)
+2025-04-27 11:58:40,012 - INFO - Successfully rewrote content. Rewritten length: 3023
+2025-04-27 11:58:40,014 - INFO - Using BACKEND_URL from environment: http://host.docker.internal/api/keyword-rewrites/callback
+2025-04-27 11:58:40,019 - INFO - Sending callback with Host: magazine.test to: http://host.docker.internal/api/keyword-rewrites/callback
+2025-04-27 11:58:41,029 - INFO - Callback successfully sent to http://host.docker.internal/api/keyword-rewrites/callback, status code: 200
+2025-04-27 11:58:41,030 - INFO - Keyword rewrite task completed for: 30/4 (ID: 1)
+2025-04-27 12:44:50,960 - INFO - Starting Keyword Rewrite API on 0.0.0.0:5003 (debug: False)
+2025-04-27 12:44:50,968 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5003
+ * Running on http://172.18.0.3:5003
+2025-04-27 12:44:50,968 - INFO - [33mPress CTRL+C to quit[0m
+2025-04-27 13:06:52,145 - INFO - Starting Keyword Rewrite API on 0.0.0.0:5003 (debug: False)
+2025-04-27 13:06:52,162 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5003
+ * Running on http://172.18.0.4:5003
+2025-04-27 13:06:52,163 - INFO - [33mPress CTRL+C to quit[0m
+2025-04-27 13:07:35,852 - INFO - 172.18.0.1 - - [27/Apr/2025 13:07:35] "GET /health HTTP/1.1" 200 -
+2025-04-27 13:07:36,529 - INFO - Starting keyword rewrite task for: gia vang (ID: 2)
+2025-04-27 13:07:36,530 - INFO - 172.18.0.1 - - [27/Apr/2025 13:07:36] "POST /api/keyword_rewrite/process HTTP/1.1" 200 -
+2025-04-27 13:07:36,530 - INFO - Modified callback URL: http://localhost:8000/api/keyword-rewrites/callback
+2025-04-27 13:07:36,532 - INFO - Searching Google News for: gia vang
+2025-04-27 13:07:36,534 - INFO - Searching for keyword: 'gia vang' and non-accented version: 'gia vang' (skip: 0)
+2025-04-27 13:07:36,535 - INFO - Trying to search with keyword: 'gia vang'
+2025-04-27 13:07:36,535 - INFO - Using HTTP request method for: 'gia vang'
+2025-04-27 13:07:36,535 - INFO - Sending request to Google News: https://news.google.com/search?q=gia+vang&hl=vi&gl=VN&ceid=VN:vi
+2025-04-27 13:07:37,666 - WARNING - No valid article URLs found in Google News
+2025-04-27 13:07:37,667 - INFO - Trying direct Google Search as it's more reliable
+2025-04-27 13:07:37,668 - INFO - Searching with Google Search: https://www.google.com/search?q=gia+vang&tbm=nws
+2025-04-27 13:07:38,385 - INFO - Saved Google Search response to google_search_response.html
+2025-04-27 13:07:38,406 - INFO - Found 0 results with selector 'div.g a'
+2025-04-27 13:07:38,409 - INFO - Found 16 results with selector 'a[href^="https://"]'
+2025-04-27 13:07:38,409 - INFO - Found valid article URL: https://www.qdnd.vn/kinh-te/tin-tuc/gia-vang-hom-nay-27-4-gia-vang-trong-nuoc-tang-825859
+2025-04-27 13:07:38,410 - INFO - Found valid article URL: https://www.24h.com.vn/kinh-doanh/gia-vang-hom-nay-27-4-gia-vang-nhan-moi-noi-mot-kieu-c161a1660134.html
+2025-04-27 13:07:38,410 - WARNING - URL https://laodong.vn/tien-te-dau-tu/cap-nhat-gia-vang-sang-274-nhieu-du-bao-gia-vang-se-sut-giam-trong-tuan-toi-1497261.ldo is from blacklisted domain: laodong.vn
+2025-04-27 13:07:38,411 - INFO - Found valid article URL: https://tienphong.vn/gia-vang-tang-cao-vi-sao-nguoi-dan-khong-mang-ban-post1737235.tpo
+2025-04-27 13:07:38,411 - INFO - Found valid article URL: https://thanhnien.vn/gia-vang-hom-nay-2742025-tang-7-trieu-dong-trong-tuan-18525042706480737.htm
+2025-04-27 13:07:38,412 - INFO - Found valid article URL: https://baonghean.vn/gia-vang-hom-nay-27-4-2025-gia-vang-trong-nuoc-va-the-gioi-co-tuan-giam-dau-tien-trong-thang-4-10296041.html
+2025-04-27 13:07:38,412 - INFO - Found valid article URL: https://nld.com.vn/sang-26-4-gia-vang-trong-nuoc-giam-tro-lai-19625042609111203.htm
+2025-04-27 13:07:38,413 - INFO - Found valid article URL: https://www.vietnamplus.vn/gia-vang-ngay-264-bang-gia-vang-tai-cac-cong-ty-vang-bac-da-quy-post1035105.vnp
+2025-04-27 13:07:38,414 - INFO - Found valid article URL: https://vov.vn/thi-truong/gia-vang/gia-vang-hom-nay-274-vang-sjc-tang-500000-dongluong-post1195104.vov
+2025-04-27 13:07:38,414 - INFO - Found valid article URL: https://znews.vn/gia-vang-the-gioi-doi-mat-ap-luc-giam-post1549152.html
+2025-04-27 13:07:38,415 - INFO - Found 9 valid article URLs from Google Search
+2025-04-27 13:07:38,416 - INFO - Found article URL: https://www.qdnd.vn/kinh-te/tin-tuc/gia-vang-hom-nay-27-4-gia-vang-trong-nuoc-tang-825859
+2025-04-27 13:07:38,416 - INFO - Extracting content from URL (attempt 1/3): https://www.qdnd.vn/kinh-te/tin-tuc/gia-vang-hom-nay-27-4-gia-vang-trong-nuoc-tang-825859
+2025-04-27 13:07:38,417 - INFO - Extracting content from URL (attempt 1/3): https://www.qdnd.vn/kinh-te/tin-tuc/gia-vang-hom-nay-27-4-gia-vang-trong-nuoc-tang-825859
+2025-04-27 13:07:38,417 - INFO - Extracting from domain: www.qdnd.vn
+2025-04-27 13:07:39,025 - INFO - Successfully fetched content from https://www.qdnd.vn/kinh-te/tin-tuc/gia-vang-hom-nay-27-4-gia-vang-trong-nuoc-tang-825859, content length: 112674
+2025-04-27 13:07:39,077 - INFO - Falling back to trafilatura for https://www.qdnd.vn/kinh-te/tin-tuc/gia-vang-hom-nay-27-4-gia-vang-trong-nuoc-tang-825859
+2025-04-27 13:07:39,312 - INFO - Redirecting https://www.qdnd.vn/kinh-te/tin-tuc/gia-vang-hom-nay-27-4-gia-vang-trong-nuoc-tang-825859 -> https://www.qdnd.vn/kinh-te/tin-tuc/gia-vang-hom-nay-27-4-gia-vang-trong-nuoc-tang-825859
+2025-04-27 13:07:39,377 - INFO - Redirecting https://www.qdnd.vn/kinh-te/tin-tuc/gia-vang-hom-nay-27-4-gia-vang-trong-nuoc-tang-825859 -> https://www.qdnd.vn/kinh-te/tin-tuc/gia-vang-hom-nay-27-4-gia-vang-trong-nuoc-tang-825859
+2025-04-27 13:07:39,447 - INFO - Redirecting https://www.qdnd.vn/kinh-te/tin-tuc/gia-vang-hom-nay-27-4-gia-vang-trong-nuoc-tang-825859 -> https://www.qdnd.vn/kinh-te/tin-tuc/gia-vang-hom-nay-27-4-gia-vang-trong-nuoc-tang-825859
+2025-04-27 13:07:39,514 - ERROR - download error: https://www.qdnd.vn/kinh-te/tin-tuc/gia-vang-hom-nay-27-4-gia-vang-trong-nuoc-tang-825859 HTTPSConnectionPool(host='www.qdnd.vn', port=443): Max retries exceeded with url: https://www.qdnd.vn/kinh-te/tin-tuc/gia-vang-hom-nay-27-4-gia-vang-trong-nuoc-tang-825859 (Caused by ResponseError('too many redirects'))
+2025-04-27 13:07:39,515 - INFO - Using fallback extraction method
+2025-04-27 13:07:39,517 - INFO - Fallback extraction: found 26 paragraphs, content length=5984
+2025-04-27 13:07:39,534 - INFO - Successfully extracted content from https://www.qdnd.vn/kinh-te/tin-tuc/gia-vang-hom-nay-27-4-gia-vang-trong-nuoc-tang-825859
+2025-04-27 13:07:39,536 - INFO - Successfully extracted content - Title: Giá vàng hôm nay 27-4: Giá vàng trong nước tăng, Content length: 5984
+2025-04-27 13:07:39,537 - INFO - Rewriting content using Gemini (model: gemini-1.5-flash-latest)
+2025-04-27 13:07:39,537 - INFO - Rewriting content with title: Giá vàng hôm nay 27-4: Giá vàng trong nước tăng
+2025-04-27 13:07:39,537 - INFO - Using model: gemini-1.5-flash-latest, temperature: 0.7
+2025-04-27 13:07:39,538 - INFO - Initializing Gemini model: gemini-1.5-flash-latest
+2025-04-27 13:07:39,538 - INFO - Generating content with temperature: 0.7
+2025-04-27 13:07:45,372 - INFO - Successfully rewrote content using gemini-1.5-flash-latest in 5.83 seconds (Length: 2572)
+2025-04-27 13:07:45,372 - INFO - Successfully rewrote content. Rewritten length: 2572
+2025-04-27 13:07:45,373 - INFO - Using BACKEND_URL from environment: http://host.docker.internal/api/keyword-rewrites/callback
+2025-04-27 13:07:45,373 - INFO - Sending callback with Host: magazine.test to: http://host.docker.internal/api/keyword-rewrites/callback
+2025-04-27 13:07:45,831 - INFO - Callback successfully sent to http://host.docker.internal/api/keyword-rewrites/callback, status code: 200
+2025-04-27 13:07:45,832 - INFO - Keyword rewrite task completed for: gia vang (ID: 2)
+2025-04-27 13:26:02,504 - INFO - 172.18.0.1 - - [27/Apr/2025 13:26:02] "GET /health HTTP/1.1" 200 -
+2025-04-27 13:26:02,523 - INFO - Starting keyword rewrite task for: thùy tiên (ID: 1)
+2025-04-27 13:26:02,523 - INFO - 172.18.0.1 - - [27/Apr/2025 13:26:02] "POST /api/keyword_rewrite/process HTTP/1.1" 200 -
+2025-04-27 13:26:02,523 - INFO - Modified callback URL: http://localhost:8000/api/keyword-rewrites/callback
+2025-04-27 13:26:02,524 - INFO - Searching Google News for: thùy tiên
+2025-04-27 13:26:02,526 - INFO - Searching for keyword: 'thùy tiên' and non-accented version: 'thuy tien' (skip: 0)
+2025-04-27 13:26:02,526 - INFO - Trying to search with keyword: 'thùy tiên'
+2025-04-27 13:26:02,527 - INFO - Using HTTP request method for: 'thùy tiên'
+2025-04-27 13:26:02,528 - INFO - Sending request to Google News: https://news.google.com/search?q=th%C3%B9y+ti%C3%AAn&hl=vi&gl=VN&ceid=VN:vi
+2025-04-27 13:26:03,795 - WARNING - No valid article URLs found in Google News
+2025-04-27 13:26:03,796 - INFO - Trying direct Google Search as it's more reliable
+2025-04-27 13:26:03,796 - INFO - Searching with Google Search: https://www.google.com/search?q=th%C3%B9y+ti%C3%AAn&tbm=nws
+2025-04-27 13:26:04,573 - INFO - Saved Google Search response to google_search_response.html
+2025-04-27 13:26:04,593 - INFO - Found 0 results with selector 'div.g a'
+2025-04-27 13:26:04,596 - INFO - Found 15 results with selector 'a[href^="https://"]'
+2025-04-27 13:26:04,596 - INFO - Found valid article URL: https://nld.com.vn/hoa-hau-thuy-tien-tro-lai-thanh-cong-196250423105657606.htm
+2025-04-27 13:26:04,598 - INFO - Found valid article URL: https://www.saostar.vn/nguoi-mau-hoa-hau/nguoi-tien-nhiem-cua-hoa-hau-thuy-tien-bi-chi-trich-202504271935376025.html
+2025-04-27 13:26:04,598 - INFO - Found valid article URL: https://dantri.com.vn/giai-tri/hau-lum-xum-keo-rau-cu-dior-bat-ngo-cho-hien-thi-lai-anh-hoa-hau-thuy-tien-20250423025625990.htm
+2025-04-27 13:26:04,599 - INFO - Found valid article URL: https://tienphong.vn/dior-hien-thi-lai-anh-cua-thuy-tien-post1736154.tpo
+2025-04-27 13:26:04,599 - INFO - Found valid article URL: https://lifestyle.znews.vn/lan-truyen-hinh-anh-thuy-tien-ngoi-o-trung-tam-cuoc-hop-ve-keo-kera-post1543405.html
+2025-04-27 13:26:04,600 - INFO - Found valid article URL: https://tuoitre.vn/dior-hien-thi-lai-anh-hoa-hau-thuy-tien-huu-quoc-nho-nsnd-phung-ha-20250423094058313.htm
+2025-04-27 13:26:04,600 - INFO - Found valid article URL: https://www.24h.com.vn/giai-tri/dan-mang-day-song-voi-nguyen-vong-cua-thuy-tien-c731a1656030.html
+2025-04-27 13:26:04,601 - INFO - Found valid article URL: https://thanhnien.vn/showbiz-234-nhan-hang-co-dong-thai-lien-quan-thuy-tien-ha-phuong-vuong-tinh-tay-ba-185250424013003424.htm
+2025-04-27 13:26:04,601 - INFO - Found valid article URL: https://hanoionline.vn/video/hoa-hau-thuy-tien-hien-thi-tro-lai-tren-fanpage-cua-dior-324698.htm
+2025-04-27 13:26:04,602 - INFO - Found valid article URL: https://vtvgo.vn/video/play/gap-go-hoa-hau-thuy-tien-va-dao-dien-vo-thanh-hoa--chuyen-dong-24h-2,tMsNwVuMTt.html
+2025-04-27 13:26:04,602 - INFO - Found 10 valid article URLs from Google Search
+2025-04-27 13:26:04,603 - INFO - Found article URL: https://nld.com.vn/hoa-hau-thuy-tien-tro-lai-thanh-cong-196250423105657606.htm
+2025-04-27 13:26:04,603 - INFO - Extracting content from URL (attempt 1/3): https://nld.com.vn/hoa-hau-thuy-tien-tro-lai-thanh-cong-196250423105657606.htm
+2025-04-27 13:26:04,603 - INFO - Extracting content from URL (attempt 1/3): https://nld.com.vn/hoa-hau-thuy-tien-tro-lai-thanh-cong-196250423105657606.htm
+2025-04-27 13:26:04,604 - INFO - Extracting from domain: nld.com.vn
+2025-04-27 13:26:04,872 - INFO - Successfully fetched content from https://nld.com.vn/hoa-hau-thuy-tien-tro-lai-thanh-cong-196250423105657606.htm, content length: 281548
+2025-04-27 13:26:04,920 - INFO - Falling back to trafilatura for https://nld.com.vn/hoa-hau-thuy-tien-tro-lai-thanh-cong-196250423105657606.htm
+2025-04-27 13:26:05,267 - ERROR - Trafilatura extraction failed: signal only works in main thread of the main interpreter
+2025-04-27 13:26:05,268 - INFO - Using fallback extraction method
+2025-04-27 13:26:05,270 - INFO - Fallback extraction: found 34 paragraphs, content length=4165
+2025-04-27 13:26:05,271 - INFO - Successfully extracted content from https://nld.com.vn/hoa-hau-thuy-tien-tro-lai-thanh-cong-196250423105657606.htm
+2025-04-27 13:26:05,271 - INFO - Successfully extracted content - Title: Hoa hậu Thùy Tiên trở lại thành công?, Content length: 4165
+2025-04-27 13:26:05,272 - INFO - Rewriting content using Gemini (model: gemini-1.5-flash-latest)
+2025-04-27 13:26:05,272 - INFO - Rewriting content with title: Hoa hậu Thùy Tiên trở lại thành công?
+2025-04-27 13:26:05,273 - INFO - Using model: gemini-1.5-flash-latest, temperature: 0.7
+2025-04-27 13:26:05,273 - INFO - Initializing Gemini model: gemini-1.5-flash-latest
+2025-04-27 13:26:05,273 - INFO - Generating content with temperature: 0.7
+2025-04-27 13:26:09,407 - INFO - Successfully rewrote content using gemini-1.5-flash-latest in 4.13 seconds (Length: 1430)
+2025-04-27 13:26:09,407 - INFO - Successfully rewrote content. Rewritten length: 1430
+2025-04-27 13:26:09,408 - INFO - Using BACKEND_URL from environment: http://host.docker.internal/api/keyword-rewrites/callback
+2025-04-27 13:26:09,408 - INFO - Sending callback with Host: magazine.test to: http://host.docker.internal/api/keyword-rewrites/callback
+2025-04-27 13:26:09,588 - INFO - Callback successfully sent to http://host.docker.internal/api/keyword-rewrites/callback, status code: 200
+2025-04-27 13:26:09,589 - INFO - Keyword rewrite task completed for: thùy tiên (ID: 1)

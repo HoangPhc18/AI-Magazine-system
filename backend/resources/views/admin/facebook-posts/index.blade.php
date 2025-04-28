@@ -82,7 +82,12 @@
                             <td class="px-6 py-4 text-sm text-gray-500">
                                 <div class="font-medium">{{ $post->page_or_group_name ?: 'Không xác định' }}</div>
                                 <div class="text-xs text-blue-500 underline hover:text-blue-700">
-                                    <a href="{{ $post->source_url }}" target="_blank">Xem nguồn</a>
+                                    <a href="{{ $post->source_url }}" target="_blank" class="flex items-center">
+                                        <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                                        </svg>
+                                        Xem nguồn
+                                    </a>
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
@@ -101,7 +106,9 @@
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                 <div class="flex items-center justify-end space-x-2">
-                                    <a href="{{ route('admin.facebook-posts.show', $post) }}" class="text-blue-600 hover:text-blue-900 bg-blue-100 p-1.5 rounded-md" title="Xem chi tiết">
+                                    <a href="{{ route('admin.facebook-posts.show', $post->id) }}"
+                                        class="text-blue-600 hover:text-blue-900 bg-blue-100 p-1.5 rounded-md"
+                                        title="Xem chi tiết">
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />

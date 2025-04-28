@@ -47,11 +47,29 @@ class ApprovedArticle extends Model
     }
     
     /**
-     * Get the featured image media object
+     * Get the featured image media object (old relationship)
      */
     public function featuredImage()
     {
         return $this->belongsTo(Media::class, 'featured_image_id');
+    }
+    
+    /**
+     * Get the featured images for this article
+     */
+    public function featuredImages()
+    {
+        return $this->hasMany(ArticleFeaturedImage::class, 'article_id');
+    }
+    
+    /**
+     * Get the main featured image for this article
+     */
+    public function mainFeaturedImage()
+    {
+        return $this->hasOne(ArticleFeaturedImage::class, 'article_id')
+                    ->where('is_main', true)
+                    ->where('position', 'featured');
     }
     
     /**
@@ -188,8 +206,8 @@ class ApprovedArticle extends Model
                     $img->setAttribute('class', 'full-width');
                 }
                 
-                // Kiểm tra nếu img có data-media-id nhưng không có src hoặc src không đúng
-                if ($img->hasAttribute('data-media-id') && (!$img->hasAttribute('src') || $img->getAttribute('src') === '')) {
+                // Kiểm tra nếu img có data-media-id nhưng không có src hoặc src không đúng 
+                if ($img->hasAttribute('data-media-id')) {
                     $mediaId = $img->getAttribute('data-media-id');
                     if (isset($mediaMap[$mediaId])) {
                         $img->setAttribute('src', $mediaMap[$mediaId]['url']);
@@ -254,56 +272,24 @@ class ApprovedArticle extends Model
     }
 
     /**
-     * Trả về URL đầy đủ của ảnh đại diện
+     * Get URL for featured image
      */
     public function getFeaturedImageUrlAttribute()
     {
-        // First check if we have a media relationship
+        // Trước tiên, kiểm tra nếu có main featured image từ bảng article_featured_images
+        $mainImage = $this->mainFeaturedImage;
+        if ($mainImage && $mainImage->media) {
+            return $mainImage->url;
+        }
+        
+        // Fallback đến cách cũ
         if ($this->featuredImage) {
             return $this->featuredImage->url;
+        } elseif ($this->featured_image) {
+            return asset('storage/' . $this->featured_image);
         }
         
-        // Fallback to the old implementation for backward compatibility
-        if (!$this->featured_image) {
-            return null;
-        }
-        
-        // If it's already a full URL, return it
-        if (filter_var($this->featured_image, FILTER_VALIDATE_URL)) {
-            return $this->featured_image;
-        }
-        
-        // Remove any leading slash for consistency
-        $path = ltrim($this->featured_image, '/');
-        
-        // First check if the path starts with storage/
-        if (strpos($path, 'storage/') === 0) {
-            $publicPath = $path;
-            
-            // Check if file exists in public path
-            if (file_exists(public_path($publicPath))) {
-                return asset($publicPath);
-            }
-            
-            // If not, try using the path without 'storage/'
-            $storagePath = substr($path, 8); // Remove 'storage/'
-        } else {
-            // If path doesn't start with storage/, use as is for storage
-            $storagePath = $path;
-            $publicPath = 'storage/' . $path;
-            
-            // Check if file exists in public path
-            if (file_exists(public_path($publicPath))) {
-                return asset($publicPath);
-            }
-        }
-        
-        // Double check if file exists in storage
-        if (\Storage::disk('public')->exists($storagePath)) {
-            return asset('storage/' . $storagePath);
-        }
-        
-        // Default fallback (might not work, but it's our best guess)
-        return asset('storage/' . $path);
+        // Trả về ảnh mặc định nếu không có ảnh đại diện
+        return asset('images/default-article-image.jpg');
     }
 } 

@@ -810,12 +810,22 @@ class MediaSelector {
                     // Try to find and update the hidden input for media IDs
                     const mediaIdsInput = document.getElementById('content_media_ids');
                     if (mediaIdsInput) {
-                        let currentIds = mediaIdsInput.value.split(',').filter(id => id.trim() !== '');
+                        // Parse the current value as a comma-separated list
+                        let currentIds = mediaIdsInput.value ? mediaIdsInput.value.split(',').filter(id => id.trim() !== '') : [];
+                        
+                        // Check if this media ID is already in the list
                         if (!currentIds.includes(mediaItem.id.toString())) {
+                            // Add the new ID
                             currentIds.push(mediaItem.id.toString());
+                            // Update the input value
                             mediaIdsInput.value = currentIds.join(',');
                             console.log('Updated content_media_ids input with:', mediaIdsInput.value);
+                            
+                            // Trigger an AJAX update if on edit page and we have an article ID
+                            this.triggerContentMediaUpdate();
                         }
+                    } else {
+                        console.warn('Could not find content_media_ids input element');
                     }
                 }
                 
@@ -834,6 +844,83 @@ class MediaSelector {
             console.warn('No insert callback provided');
             this.showMessage('Không có xử lý cho việc chèn media này', 'error');
         }
+    }
+    
+    /**
+     * Trigger an AJAX update for content media IDs
+     */
+    triggerContentMediaUpdate() {
+        // Extract article ID from the current URL
+        const urlParts = window.location.pathname.split('/');
+        let articleId = null;
+        
+        // Find the article ID in the URL
+        for (let i = 0; i < urlParts.length; i++) {
+            if (urlParts[i] === 'approved-articles' && i < urlParts.length - 1) {
+                // Check if the next part is edit or a number
+                if (urlParts[i+1] !== 'create' && urlParts[i+1] !== 'edit') {
+                    articleId = urlParts[i+1];
+                    break;
+                } else if (urlParts[i+1] === 'edit' && i >= 1) {
+                    // The article ID should be before 'edit'
+                    articleId = urlParts[i-1];
+                    break;
+                }
+            }
+        }
+        
+        if (!articleId) {
+            console.warn('Could not determine article ID from URL for content media update');
+            return;
+        }
+        
+        // Get the content media IDs
+        const mediaIdsInput = document.getElementById('content_media_ids');
+        if (!mediaIdsInput || !mediaIdsInput.value) {
+            console.warn('No media IDs available for update');
+            return;
+        }
+        
+        const contentMediaIds = mediaIdsInput.value.split(',').filter(id => id.trim() !== '');
+        
+        // Prepare and send the AJAX request
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        const formData = new FormData();
+        
+        // Add content media IDs to the form
+        formData.append('content_media_ids', contentMediaIds.join(','));
+        
+        // Send the AJAX request
+        fetch(`/admin/approved-articles/${articleId}/update-media`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json'
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Media IDs updated via AJAX:', data);
+                
+                // Show a success message
+                const successMessage = document.createElement('div');
+                successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50 fade-out';
+                successMessage.innerText = 'Hình ảnh đã được thêm vào bài viết';
+                document.body.appendChild(successMessage);
+                
+                // Remove the message after 3 seconds
+                setTimeout(() => {
+                    successMessage.remove();
+                }, 3000);
+            } else {
+                console.error('Error updating media IDs:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('AJAX error updating media IDs:', error);
+        });
     }
     
     /**

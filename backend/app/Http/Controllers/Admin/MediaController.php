@@ -162,4 +162,60 @@ class MediaController extends Controller
             ]
         ]);
     }
+    
+    /**
+     * Upload an image for article content
+     */
+    public function uploadContentImage(Request $request)
+    {
+        $request->validate([
+            'image' => 'required|image|max:2048', // 2MB max
+            'article_id' => 'required|integer'
+        ]);
+        
+        try {
+            $file = $request->file('image');
+            $originalName = $file->getClientOriginalName();
+            $fileName = time() . '_' . Str::slug(pathinfo($originalName, PATHINFO_FILENAME)) . '.' . $file->getClientOriginalExtension();
+            
+            // Define storage path
+            $path = 'images/' . date('Y/m');
+            
+            // Store the file
+            $filePath = $file->storeAs($path, $fileName, 'public');
+            
+            // Create the media record
+            $media = Media::create([
+                'name' => $originalName,
+                'file_name' => $fileName,
+                'file_path' => $filePath,
+                'mime_type' => $file->getMimeType(),
+                'size' => $file->getSize(),
+                'type' => 'image',
+                'user_id' => Auth::id(),
+            ]);
+            
+            // Add the media to the article
+            $article = \App\Models\ApprovedArticle::findOrFail($request->article_id);
+            $article->media()->attach($media->id);
+            
+            // Return success response with media data
+            return response()->json([
+                'success' => true,
+                'message' => 'Image uploaded successfully',
+                'media' => [
+                    'id' => $media->id,
+                    'name' => $media->name,
+                    'url' => $media->getUrlAttribute(),
+                    'type' => $media->type
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error uploading image: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

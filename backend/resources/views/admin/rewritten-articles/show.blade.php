@@ -87,10 +87,43 @@
                     <div class="bg-gray-50 p-4 rounded-lg mb-6">
                         <h3 class="text-sm font-medium text-gray-700 mb-2">Bài viết gốc</h3>
                         <p class="text-gray-900">{{ $rewrittenArticle->originalArticle->title }}</p>
-                        <a href="{{ route('admin.approved-articles.show', $rewrittenArticle->originalArticle) }}" 
-                           class="text-blue-600 hover:text-blue-900 text-sm mt-2 inline-block">
-                            Xem bài viết gốc
-                        </a>
+                        <div class="flex items-center space-x-4 mt-2">
+                            <a href="{{ route('admin.approved-articles.show', $rewrittenArticle->originalArticle) }}" 
+                               class="text-blue-600 hover:text-blue-900 text-sm inline-flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                Xem bài viết gốc
+                            </a>
+                            
+                            @php
+                                // Tìm thông tin nguồn gốc từ bài viết gốc (nếu có)
+                                $originalArticle = \App\Models\Article::find($rewrittenArticle->originalArticle->original_article_id);
+                            @endphp
+
+                            @if($originalArticle && $originalArticle->source_url)
+                            <a href="{{ $originalArticle->source_url }}" 
+                               class="text-green-600 hover:text-green-900 text-sm inline-flex items-center"
+                               target="_blank" rel="noopener noreferrer" title="{{ $originalArticle->source_name ? $originalArticle->source_name : 'Xem nguồn gốc bài viết' }}">
+                                @if(strpos($originalArticle->source_url, 'facebook.com') !== false)
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="#1877F2">
+                                    <path d="M12.001 2.002c-5.522 0-9.999 4.477-9.999 9.999 0 4.99 3.656 9.126 8.437 9.879v-6.988h-2.54v-2.891h2.54V9.798c0-2.508 1.493-3.891 3.776-3.891 1.094 0 2.24.195 2.24.195v2.459h-1.264c-1.24 0-1.628.772-1.628 1.563v1.875h2.771l-.443 2.891h-2.328v6.988C18.344 21.129 22 16.992 22 12.001c0-5.522-4.477-9.999-9.999-9.999z"/>
+                                </svg>
+                                @else
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                </svg>
+                                @endif
+                            </a>
+                            @endif
+                        </div>
+                        
+                        @if($originalArticle && $originalArticle->source_name)
+                        <div class="mt-2 text-sm text-gray-600">
+                            <span class="font-medium">Nguồn:</span> {{ $originalArticle->source_name }}
+                        </div>
+                        @endif
                     </div>
                 @endif
 

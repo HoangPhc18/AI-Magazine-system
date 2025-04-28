@@ -59,6 +59,7 @@ Route::middleware(['auth', AdminMiddleware::class])->prefix('admin')->name('admi
     // Media management
     Route::resource('media', MediaController::class)->except(['edit', 'update']);
     Route::get('media/select', [MediaController::class, 'select'])->name('media.select');
+    Route::post('media/upload-content-image', [MediaController::class, 'uploadContentImage'])->name('media.upload-content-image');
     
     // Rewritten Article routes
     Route::resource('rewritten-articles', RewrittenArticleController::class)->except(['create', 'store']);

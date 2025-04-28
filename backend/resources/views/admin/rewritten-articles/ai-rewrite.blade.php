@@ -56,6 +56,70 @@
                             @enderror
                         </div>
                     </div>
+                    
+                    @if($rewrittenArticle->originalArticle && ($rewrittenArticle->originalArticle->source_url || $rewrittenArticle->originalArticle->source_name))
+                    <div>
+                        <p class="block text-sm font-medium text-gray-700 mb-1">
+                            Thông tin nguồn bài viết gốc
+                        </p>
+                        <div class="p-3 bg-gray-50 rounded-md border border-gray-200">
+                            @if($rewrittenArticle->originalArticle->source_name)
+                            <p class="text-sm text-gray-600">
+                                <span class="font-medium">Nguồn:</span> {{ $rewrittenArticle->originalArticle->source_name }}
+                            </p>
+                            @endif
+                            
+                            @if($rewrittenArticle->originalArticle->source_url)
+                            <div class="flex items-center mt-2">
+                                <span class="text-sm text-gray-600 mr-2">Nguồn gốc:</span>
+                                <a href="{{ $rewrittenArticle->originalArticle->source_url }}" 
+                                   class="text-green-600 hover:text-green-900"
+                                   target="_blank" rel="noopener noreferrer" title="Xem nguồn gốc bài viết">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                    </svg>
+                                </a>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    @else
+                    @php
+                        // Tìm thông tin nguồn gốc từ bài viết gốc (nếu có)
+                        $originalArticle = null;
+                        if ($rewrittenArticle->originalArticle && $rewrittenArticle->originalArticle->original_article_id) {
+                            $originalArticle = \App\Models\Article::find($rewrittenArticle->originalArticle->original_article_id);
+                        }
+                    @endphp
+                    
+                    @if($originalArticle && ($originalArticle->source_url || $originalArticle->source_name))
+                    <div>
+                        <p class="block text-sm font-medium text-gray-700 mb-1">
+                            Thông tin nguồn bài viết gốc
+                        </p>
+                        <div class="p-3 bg-gray-50 rounded-md border border-gray-200">
+                            @if($originalArticle->source_name)
+                            <p class="text-sm text-gray-600">
+                                <span class="font-medium">Nguồn:</span> {{ $originalArticle->source_name }}
+                            </p>
+                            @endif
+                            
+                            @if($originalArticle->source_url)
+                            <div class="flex items-center mt-2">
+                                <span class="text-sm text-gray-600 mr-2">Nguồn gốc:</span>
+                                <a href="{{ $originalArticle->source_url }}" 
+                                   class="text-green-600 hover:text-green-900"
+                                   target="_blank" rel="noopener noreferrer" title="Xem nguồn gốc bài viết">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                    </svg>
+                                </a>
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
+                    @endif
                 </div>
             </div>
             

@@ -175,6 +175,10 @@
                                             <button type="button" id="insert-media-btn" class="p-1 rounded hover:bg-gray-200" title="Chèn hình ảnh">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                                             </button>
+                                            <button type="button" id="upload-image-btn" class="p-1 rounded hover:bg-gray-200" title="Tải ảnh từ máy tính">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                            </button>
+                                            <input type="file" id="content-image-upload" accept="image/*" class="hidden">
                                         </div>
                                         <textarea id="content" name="content" rows="20" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 mt-1 block w-full sm:text-sm border border-gray-300 rounded-md">{{ old('content', $approvedArticle->content) }}</textarea>
                                     </div>
@@ -305,9 +309,136 @@
             contentMediaIds = contentMediaIdsInput.value.split(',');
         }
 
+        // Direct image upload functionality
+        const uploadImageBtn = document.getElementById('upload-image-btn');
+        const contentImageUpload = document.getElementById('content-image-upload');
+        const editor = document.getElementById('content');
+        
+        // Trigger file input when upload button is clicked
+        uploadImageBtn.addEventListener('click', function() {
+            contentImageUpload.click();
+        });
+        
+        // Handle file selection
+        contentImageUpload.addEventListener('change', function(e) {
+            if (this.files && this.files[0]) {
+                const file = this.files[0];
+                
+                // Check file type and size
+                if (!file.type.match('image.*')) {
+                    alert('Vui lòng chọn một tệp hình ảnh');
+                    return;
+                }
+                
+                if (file.size > 2 * 1024 * 1024) { // 2MB limit
+                    alert('Kích thước tệp quá lớn. Vui lòng chọn tệp nhỏ hơn 2MB');
+                    return;
+                }
+                
+                // Upload the file via AJAX
+                uploadContentImage(file);
+            }
+        });
+        
+        /**
+         * Upload content image via AJAX
+         */
+        function uploadContentImage(file) {
+            // Show loading indicator
+            const loadingIndicator = document.createElement('div');
+            loadingIndicator.className = 'fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded shadow-lg z-50';
+            loadingIndicator.textContent = 'Đang tải ảnh lên...';
+            document.body.appendChild(loadingIndicator);
+            
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            const formData = new FormData();
+            
+            formData.append('image', file);
+            formData.append('article_id', articleId);
+            
+            // Send the AJAX request
+            fetch('/admin/media/upload-content-image', {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Remove loading indicator
+                loadingIndicator.remove();
+                
+                if (data.success) {
+                    console.log('Image uploaded successfully:', data);
+                    
+                    // Insert the image into editor
+                    const media = data.media;
+                    const mediaHtml = `<img src="${media.url}" alt="${media.name}" class="img-fluid" data-media-id="${media.id}">`;
+                    
+                    // Insert at cursor position
+                    const cursorPos = editor.selectionStart || 0;
+                    editor.setRangeText(mediaHtml, cursorPos, cursorPos, 'end');
+                    
+                    // Add media ID to the list of used media
+                    if (!contentMediaIds.includes(media.id.toString())) {
+                        contentMediaIds.push(media.id.toString());
+                        // Update the hidden input
+                        document.getElementById('content_media_ids').value = contentMediaIds.join(',');
+                    }
+                    
+                    // Show success notification
+                    const successMessage = document.createElement('div');
+                    successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
+                    successMessage.textContent = 'Đã chèn hình ảnh vào bài viết';
+                    document.body.appendChild(successMessage);
+                    
+                    // Remove notification after 3 seconds
+                    setTimeout(() => {
+                        successMessage.remove();
+                    }, 3000);
+                    
+                    // Update content media via AJAX
+                    updateContentMediaViaAjax();
+                } else {
+                    console.error('Error uploading image:', data.message);
+                    
+                    // Show error notification
+                    const errorMessage = document.createElement('div');
+                    errorMessage.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
+                    errorMessage.textContent = 'Lỗi: ' + (data.message || 'Không thể tải ảnh lên');
+                    document.body.appendChild(errorMessage);
+                    
+                    // Remove notification after 3 seconds
+                    setTimeout(() => {
+                        errorMessage.remove();
+                    }, 3000);
+                }
+            })
+            .catch(error => {
+                // Remove loading indicator
+                loadingIndicator.remove();
+                
+                console.error('AJAX error uploading image:', error);
+                
+                // Show error notification
+                const errorMessage = document.createElement('div');
+                errorMessage.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
+                errorMessage.textContent = 'Lỗi kết nối: Không thể tải ảnh lên';
+                document.body.appendChild(errorMessage);
+                
+                // Remove notification after 3 seconds
+                setTimeout(() => {
+                    errorMessage.remove();
+                }, 3000);
+            });
+            
+            // Reset file input
+            contentImageUpload.value = '';
+        }
+        
         // Initialize format buttons
         const formatButtons = document.querySelectorAll('.format-btn');
-        const editor = document.getElementById('content');
         
         formatButtons.forEach(button => {
             button.addEventListener('click', function() {
@@ -472,9 +603,10 @@
                 
                 // Add media ID to the list of used media
                 if (!contentMediaIds.includes(media.id.toString())) {
-                    contentMediaIds.push(media.id);
+                    contentMediaIds.push(media.id.toString());
+                    // Update the hidden input immediately
+                    document.getElementById('content_media_ids').value = contentMediaIds.join(',');
                 }
-                document.getElementById('content_media_ids').value = contentMediaIds.join(',');
                 
                 // Log ra danh sách media IDs sau khi cập nhật
                 console.log('Content media IDs sau khi chèn:', contentMediaIds);
@@ -497,15 +629,20 @@
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
             const formData = new FormData();
             
+            // Đảm bảo sử dụng giá trị mới nhất từ input
+            const contentMediaIdsInput = document.getElementById('content_media_ids');
+            const updatedMediaIds = contentMediaIdsInput.value;
+            
             // Add content media IDs to the form
-            formData.append('content_media_ids', contentMediaIds.join(','));
+            formData.append('content_media_ids', updatedMediaIds);
+            
+            console.log('Sending AJAX update with media IDs:', updatedMediaIds);
             
             // Send the AJAX request
             fetch(`/admin/approved-articles/${articleId}/update-media`, {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': csrfToken,
-                    'Accept': 'application/json'
                 },
                 body: formData
             })
@@ -513,6 +650,17 @@
             .then(data => {
                 if (data.success) {
                     console.log('Media IDs updated via AJAX:', data);
+                    
+                    // Show a success notification
+                    const successMessage = document.createElement('div');
+                    successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded shadow-lg z-50';
+                    successMessage.textContent = 'Hình ảnh đã được thêm vào bài viết';
+                    document.body.appendChild(successMessage);
+                    
+                    // Remove the notification after 3 seconds
+                    setTimeout(() => {
+                        successMessage.remove();
+                    }, 3000);
                 } else {
                     console.error('Error updating media IDs:', data.message);
                 }
@@ -581,15 +729,18 @@
             featuredImageSelector.open();
         });
         
-        // Add form submit handler to ensure media IDs are saved
-        const formSubmitBtn = document.querySelector('button[type="submit"]');
-        if (formSubmitBtn) {
-            formSubmitBtn.addEventListener('click', function(e) {
-                // Force sync media IDs before form submission
-                updateContentMediaViaAjax();
-                // Continue with normal form submission (no need to prevent default)
-            });
-        }
+        // Make sure media IDs are up-to-date before form submission
+        const form = document.querySelector('form');
+        form.addEventListener('submit', function(e) {
+            // Make sure the hidden content_media_ids input has the latest value
+            const contentMediaIdsInput = document.getElementById('content_media_ids');
+            if (contentMediaIdsInput && contentMediaIds.length > 0) {
+                contentMediaIdsInput.value = contentMediaIds.join(',');
+                console.log('Updated content_media_ids before form submission:', contentMediaIdsInput.value);
+            }
+            
+            // Continue with form submission (no need to prevent default)
+        });
         
         // Initialize color picker functionality
         const colorBtn = document.querySelector('.text-color-btn');
