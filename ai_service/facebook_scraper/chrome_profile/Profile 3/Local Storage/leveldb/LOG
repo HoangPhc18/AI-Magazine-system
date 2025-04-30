@@ -1,0 +1,5 @@
+2025/04/28-10:31:46.394 483 Reusing MANIFEST /app/chrome_profile/Profile 3/Local Storage/leveldb/MANIFEST-000001
+2025/04/28-10:31:46.421 483 Recovering log #3
+2025/04/28-10:31:46.423 483 Level-0 table #3: started
+2025/04/28-10:31:46.439 483 Level-0 table #3: 8809 bytes OK
+2025/04/28-10:31:46.470 483 Delete type=0 #3

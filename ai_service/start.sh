@@ -87,7 +87,7 @@ log "Keyword Rewrite Service đã được khởi động."
 # Khởi động Facebook Scraper Service
 log "Khởi động Facebook Scraper Service (Port 5004)..."
 cd /app/facebook_scraper
-python main.py --all > /var/log/ai_service/facebook_scraper.log 2>&1 &
+python main.py  > /var/log/ai_service/facebook_scraper.log 2>&1 &
 log "Facebook Scraper Service đã được khởi động."
 
 # Khởi động Facebook Rewrite Service
