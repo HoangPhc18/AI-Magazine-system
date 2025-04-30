@@ -277,33 +277,54 @@ def extract_article_content(url):
         # If domain-specific extraction fails, fallback to trafilatura
         logger.info("Using trafilatura for content extraction")
         
-        # Trực tiếp sử dụng html đã tải xuống thay vì gọi fetch_url lại
-        result = trafilatura.extract(
-            html_content,
-            output_format="json",
-            include_comments=False,
-            include_tables=True,
-            favor_precision=True,
-            include_links=False,
-            target_language="vi"
-        )
-        
-        if result:
-            import json
-            data = json.loads(result)
-            title = data.get("title", "")
-            content = data.get("text", "")
+        try:
+            # Disable signal handling in trafilatura to prevent "signal only works in main thread" error
+            import signal
+            original_sighup = signal.getsignal(signal.SIGHUP)
+            original_sigterm = signal.getsignal(signal.SIGTERM)
+            original_sigint = signal.getsignal(signal.SIGINT)
             
-            if title and len(content) > 100:  # Chỉ chấp nhận nội dung đủ dài
-                logger.info(f"Successfully extracted content using trafilatura (Title length: {len(title)}, Content length: {len(content)})")
-                return {
-                    "title": title,
-                    "content": content
-                }
+            # Temporarily set signal handlers to default to avoid issues in non-main threads
+            signal.signal(signal.SIGHUP, signal.SIG_DFL)
+            signal.signal(signal.SIGTERM, signal.SIG_DFL)
+            signal.signal(signal.SIGINT, signal.SIG_DFL)
+            
+            # Trực tiếp sử dụng html đã tải xuống thay vì gọi fetch_url lại
+            result = trafilatura.extract(
+                html_content,
+                output_format="json",
+                include_comments=False,
+                include_tables=True,
+                favor_precision=True,
+                include_links=False,
+                target_language="vi"
+            )
+            
+            # Restore original signal handlers
+            signal.signal(signal.SIGHUP, original_sighup)
+            signal.signal(signal.SIGTERM, original_sigterm)
+            signal.signal(signal.SIGINT, original_sigint)
+            
+            if result:
+                import json
+                data = json.loads(result)
+                title = data.get("title", "")
+                content = data.get("text", "")
+                
+                if title and len(content) > 100:  # Chỉ chấp nhận nội dung đủ dài
+                    logger.info(f"Successfully extracted content using trafilatura (Title length: {len(title)}, Content length: {len(content)})")
+                    return {
+                        "title": title,
+                        "content": content
+                    }
+                else:
+                    logger.warning(f"Trafilatura extraction returned insufficient content: Title length={len(title)}, Content length={len(content)}")
             else:
-                logger.warning(f"Trafilatura extraction returned insufficient content: Title length={len(title)}, Content length={len(content)}")
-        else:
-            logger.warning("Trafilatura extraction returned None")
+                logger.warning("Trafilatura extraction returned None")
+                
+        except Exception as e:
+            logger.error(f"Error using trafilatura: {str(e)}")
+            logger.info("Continuing with fallback extraction methods")
         
         # If trafilatura fails, try a different approach with BeautifulSoup
         logger.info("Fallback to advanced extraction with BeautifulSoup")

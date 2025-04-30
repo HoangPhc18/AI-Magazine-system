@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 
 class ApprovedArticleController extends Controller
 {
@@ -528,35 +529,61 @@ class ApprovedArticleController extends Controller
     public function runScraper()
     {
         try {
-            // Chạy lệnh docker trong nền (background) để tránh timeout
-            $command = 'docker exec thp_214476_scraper python main.py --all > ' . storage_path('logs/scraper_output.log') . ' 2>&1 &';
+            // Sử dụng HTTP request đến API endpoint thống nhất
+            $response = Http::post('http://localhost:55025/scraper/run');
             
-            if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-                // Trên Windows, sử dụng 'start /B' để chạy trong nền
-                $command = 'start /B ' . $command;
-                // Thực thi lệnh và không đợi kết quả
-                pclose(popen($command, 'r'));
+            // Lấy dữ liệu phản hồi dưới dạng JSON
+            $data = $response->json();
+            
+            // Kiểm tra trạng thái phản hồi
+            if ($response->successful()) {
+                // Kiểm tra xem phản hồi có chứa thông báo lỗi không
+                if (isset($data['status']) && $data['status'] === 'error') {
+                    if (strpos($data['message'] ?? '', 'đang chạy') !== false) {
+                        // Trường hợp scraper đang chạy
+                        \Log::info('Scraper is already running', [
+                            'response' => $data
+                        ]);
+                        
+                        // Tạo thông báo cho người dùng
+                        $output = [
+                            'Scraper đang chạy và không thể kích hoạt lại.',
+                            'Vui lòng đợi quá trình hiện tại hoàn tất.',
+                            'Kiểm tra trang kết quả để biết thêm chi tiết.'
+                        ];
+                        
+                        // Lưu thông báo vào session
+                        session(['scraper_output' => $output]);
+                        
+                        return redirect()->route('admin.approved-articles.scraper-results')
+                            ->with('info', 'Scraper đang chạy và không thể kích hoạt lại.');
+                    } else {
+                        // Các trường hợp lỗi khác
+                        throw new \Exception('API returned error: ' . ($data['message'] ?? $response->body()));
+                    }
+                }
+                
+                // Ghi log thông báo đã kích hoạt scraper
+                \Log::info('Scraper triggered successfully via API', [
+                    'response' => $data
+                ]);
+                
+                // Tạo mảng output mẫu để hiển thị
+                $output = [
+                    'Scraper đã được kích hoạt và đang chạy trong nền.',
+                    'Quá trình sẽ tiếp tục chạy ngay cả khi bạn rời khỏi trang này.',
+                    'Bài viết sẽ được tự động thu thập và import vào hệ thống.',
+                    'Vui lòng quay lại danh sách bài viết sau vài phút để xem kết quả.'
+                ];
+                
+                // Lưu output mẫu vào session
+                session(['scraper_output' => $output]);
+                
+                return redirect()->route('admin.approved-articles.scraper-results')
+                    ->with('success', 'Đã kích hoạt scraper thành công. Quá trình đang chạy trong nền.');
             } else {
-                // Trên Linux/Unix
-                exec($command);
+                throw new \Exception('API returned error: ' . $response->body());
             }
-            
-            // Ghi log thông báo đã kích hoạt scraper
-            \Log::info('Scraper triggered in background');
-            
-            // Tạo mảng output mẫu để hiển thị
-            $output = [
-                'Scraper đã được kích hoạt và đang chạy trong nền.',
-                'Quá trình sẽ tiếp tục chạy ngay cả khi bạn rời khỏi trang này.',
-                'Bài viết sẽ được tự động thu thập và import vào hệ thống.',
-                'Vui lòng quay lại danh sách bài viết sau vài phút để xem kết quả.'
-            ];
-            
-            // Lưu output mẫu vào session
-            session(['scraper_output' => $output]);
-            
-            return redirect()->route('admin.approved-articles.scraper-results')
-                ->with('success', 'Đã kích hoạt scraper thành công. Quá trình đang chạy trong nền.');
                 
         } catch (\Exception $e) {
             \Log::error('Error triggering scraper', [
@@ -642,22 +669,46 @@ class ApprovedArticleController extends Controller
     {
         $log_output = $this->getScraperLogOutput();
         $is_running = false;
+        $status_message = '';
         
-        // Kiểm tra xem scraper có đang chạy không bằng cách kiểm tra process
-        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-            // Windows: kiểm tra bằng tasklist
-            $output = [];
-            exec('tasklist /FI "IMAGENAME eq python.exe" /NH', $output);
-            $is_running = count($output) > 0 && strpos(implode(' ', $output), 'python.exe') !== false;
-        } else {
-            // Linux/Unix: kiểm tra bằng ps
-            $output = [];
-            exec('ps aux | grep "[p]ython main.py --all"', $output);
-            $is_running = count($output) > 0;
+        try {
+            // Kiểm tra trạng thái qua API endpoint thống nhất
+            $response = Http::get('http://localhost:55025/scraper/health');
+            
+            if ($response->successful()) {
+                $data = $response->json();
+                $is_running = $data['running'] ?? false;
+                
+                // Lấy thêm thông tin từ API response nếu có
+                if (isset($data['last_run'])) {
+                    $last_run_time = $data['last_run'];
+                    if ($last_run_time) {
+                        $last_run = \Carbon\Carbon::parse($last_run_time);
+                        $status_message = 'Lần chạy gần nhất: ' . $last_run->format('H:i:s d/m/Y');
+                    }
+                }
+                
+                // Log thông tin debug
+                \Log::debug('Scraper status check response', [
+                    'data' => $data,
+                    'is_running' => $is_running
+                ]);
+            } else {
+                \Log::warning('Error response from scraper health check', [
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error checking scraper status', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
         }
         
         return response()->json([
             'is_running' => $is_running,
+            'status_message' => $status_message,
             'log_output' => $log_output,
             'last_updated' => now()->format('H:i:s - d/m/Y')
         ]);
@@ -669,35 +720,31 @@ class ApprovedArticleController extends Controller
     public function runRewriter(Request $request)
     {
         try {
-            // Chạy lệnh docker trong nền (background) để tránh timeout
-            $command = 'docker exec thp_214476_rewrite python rewrite_from_db.py > ' . storage_path('logs/rewriter_output.log') . ' 2>&1 &';
+            // Sử dụng HTTP request đến API endpoint thống nhất
+            $response = Http::post('http://localhost:55025/rewrite/run');
             
-            if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-                // Trên Windows, sử dụng 'start /B' để chạy trong nền
-                $command = 'start /B ' . $command;
-                // Thực thi lệnh và không đợi kết quả
-                pclose(popen($command, 'r'));
+            if ($response->successful()) {
+                // Ghi log thông báo đã kích hoạt rewriter
+                \Log::info('Article rewriter triggered successfully via API', [
+                    'response' => $response->json()
+                ]);
+                
+                // Tạo mảng output mẫu để hiển thị
+                $output = [
+                    'Module rewriter đã được kích hoạt và đang chạy trong nền.',
+                    'Quá trình sẽ tiếp tục chạy ngay cả khi bạn rời khỏi trang này.',
+                    'Các bài viết sẽ được tự động viết lại và import vào hệ thống.',
+                    'Vui lòng kiểm tra danh sách bài viết đã viết lại sau vài phút.'
+                ];
+                
+                // Lưu output mẫu vào session
+                session(['rewriter_output' => $output]);
+                
+                return redirect()->route('admin.approved-articles.rewriter-results')
+                    ->with('success', 'Đã kích hoạt module rewriter thành công. Quá trình đang chạy trong nền.');
             } else {
-                // Trên Linux/Unix
-                exec($command);
+                throw new \Exception('API returned error: ' . $response->body());
             }
-            
-            // Ghi log thông báo đã kích hoạt rewriter
-            \Log::info('Article rewriter triggered in background');
-            
-            // Tạo mảng output mẫu để hiển thị
-            $output = [
-                'Module rewriter đã được kích hoạt và đang chạy trong nền.',
-                'Quá trình sẽ tiếp tục chạy ngay cả khi bạn rời khỏi trang này.',
-                'Các bài viết sẽ được tự động viết lại và import vào hệ thống.',
-                'Vui lòng kiểm tra danh sách bài viết đã viết lại sau vài phút.'
-            ];
-            
-            // Lưu output mẫu vào session
-            session(['rewriter_output' => $output]);
-            
-            return redirect()->route('admin.approved-articles.rewriter-results')
-                ->with('success', 'Đã kích hoạt module rewriter thành công. Quá trình đang chạy trong nền.');
                 
         } catch (\Exception $e) {
             \Log::error('Error triggering rewriter', [
@@ -782,7 +829,7 @@ class ApprovedArticleController extends Controller
         }
         return [];
     }
-    
+
     /**
      * Check the status of running rewriter job (AJAX endpoint)
      */
@@ -791,17 +838,18 @@ class ApprovedArticleController extends Controller
         $log_output = $this->getRewriterLogOutput();
         $is_running = false;
         
-        // Kiểm tra xem rewriter có đang chạy không bằng cách kiểm tra process trong Docker
-        if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-            // Windows: kiểm tra bằng Docker
-            $output = [];
-            exec('docker exec thp_214476_rewrite ps aux | grep "[p]ython rewrite_from_db.py"', $output);
-            $is_running = count($output) > 0;
-        } else {
-            // Linux/Unix: kiểm tra bằng Docker
-            $output = [];
-            exec('docker exec thp_214476_rewrite ps aux | grep "[p]ython rewrite_from_db.py"', $output);
-            $is_running = count($output) > 0;
+        try {
+            // Kiểm tra trạng thái qua API endpoint thống nhất
+            $response = Http::get('http://localhost:55025/rewrite/health');
+            
+            if ($response->successful()) {
+                $data = $response->json();
+                $is_running = $data['running'] ?? false;
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error checking rewriter status', [
+                'error' => $e->getMessage()
+            ]);
         }
         
         return response()->json([

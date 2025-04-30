@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Module for rewriting article content using Google Gemini API.
+Module xử lý việc viết lại nội dung bài viết sử dụng Google Gemini API.
 """
 
 import os
@@ -11,119 +11,134 @@ import logging
 import time
 import json
 import requests
-from datetime import datetime
 import google.generativeai as genai
 
-# Set environment variables directly
-os.environ["GEMINI_MODEL"] = "gemini-1.5-flash-latest"
-os.environ["GEMINI_API_KEY"] = "AIzaSyDNYibANNjOZOG5dDPb6YlZ72bXkr7mvL4"
+# Import module config
+from config import get_config, reload_config
 
-# Get Gemini settings from environment
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash-latest")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyDNYibANNjOZOG5dDPb6YlZ72bXkr7mvL4")
+# Tải cấu hình
+config = get_config()
 
-# Configure logging
+# Thiết lập logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler(f"content_rewriter_{datetime.now().strftime('%Y%m%d')}.log", encoding='utf-8'),
+        logging.FileHandler("rewriter.log", encoding='utf-8'),
         logging.StreamHandler(sys.stdout)
     ]
 )
 logger = logging.getLogger()
 
-# Initialize Gemini API
-genai.configure(api_key=GEMINI_API_KEY)
-
-def rewrite_content(title, content, model=None, temperature=0.7, max_tokens=2048):
+def rewrite_content(title, content, model=None, temperature=0.6, max_tokens=4000):
     """
-    Rewrite article content using Google Gemini API.
+    Viết lại nội dung bài viết sử dụng Gemini API.
     
     Args:
-        title (str): Article title
-        content (str): Original article content
-        model (str): Gemini model to use (if None, uses GEMINI_MODEL from env)
-        temperature (float): Temperature parameter for generation
-        max_tokens (int): Maximum tokens to generate
+        title (str): Tiêu đề bài viết
+        content (str): Nội dung bài viết gốc
+        model (str, optional): Tên model Gemini sử dụng
+        temperature (float, optional): Nhiệt độ cho việc sinh văn bản
+        max_tokens (int, optional): Số token tối đa cho đầu ra
         
     Returns:
-        str: Rewritten content
+        str: Nội dung đã được viết lại
     """
-    # Use model from parameter or from environment
-    model_to_use = model if model else GEMINI_MODEL
+    start_time = time.time()
     
-    logger.info(f"Rewriting content with title: {title}")
-    logger.info(f"Using model: {model_to_use}, temperature: {temperature}")
+    # Lấy cấu hình mới nhất
+    current_config = get_config()
     
-    # Prepare prompt
-    prompt = f"""Hãy viết lại bài viết sau đây bằng chính từ ngữ của bạn, 
-giữ nguyên ý tưởng chính nhưng sử dụng cách diễn đạt khác:
-
-Tiêu đề: {title}
-
-Nội dung: {content}
-
-Viết lại bài theo cách mới mẻ, không copy các câu từ nguyên gốc, 
-nhưng vẫn giữ nguyên ý nghĩa tổng thể của bài viết. Hãy đảm bảo bài viết mới 
-mạch lạc, rõ ràng và dễ hiểu."""
+    # Nếu không cung cấp model, sử dụng từ cấu hình
+    if not model:
+        model = current_config.get("GEMINI_MODEL", "gemini-1.5-flash-latest")
+    
+    # Kiểm tra API key
+    api_key = current_config.get("GEMINI_API_KEY", "")
+    if not api_key:
+        error_msg = "Error: Missing Gemini API key"
+        logger.error(error_msg)
+        return error_msg
+    
+    logger.info(f"Rewriting content with title: '{title[:50]}...' using model: {model}")
     
     try:
-        # Configure the generation model
-        start_time = time.time()
+        # Cấu hình Gemini API
+        genai.configure(api_key=api_key)
+    
+        # Chuẩn bị prompt
+        prompt = f"""Bạn là biên tập viên của một trang tin tức hàng đầu. Nhiệm vụ của bạn là viết lại một bài báo dựa trên nội dung gốc được cung cấp.
+
+Tiêu đề bài báo gốc: {title}
+
+Nội dung bài báo gốc:
+{content[:10000]}
+
+Hướng dẫn:
+1. Viết lại nội dung thành một bài báo hoàn chỉnh, chuyên nghiệp với độ dài khoảng 500-1000 từ.
+2. Giữ nguyên ý nghĩa và thông tin quan trọng từ bài gốc.
+3. Viết với giọng điệu trang trọng, chuyên nghiệp phù hợp với báo chí.
+4. Đảm bảo bài viết mới có cấu trúc rõ ràng gồm: mở đầu hấp dẫn, thân bài phát triển ý, và kết luận mạnh mẽ.
+5. Tránh sao chép câu văn từ bài gốc, hãy diễn đạt lại bằng từ ngữ của riêng bạn.
+6. Tối ưu hóa bài viết cho SEO nhưng không làm giảm chất lượng nội dung.
+7. QUAN TRỌNG: CHỈ TRẢ VỀ NỘI DUNG BÀI VIẾT ĐÃ VIẾT LẠI, KHÔNG THÊM BẤT KỲ CHÚ THÍCH, GIẢI THÍCH HAY HƯỚNG DẪN NÀO KHÁC.
+
+Trả về bài viết đã viết lại:"""
         
-        logger.info(f"Initializing Gemini model: {model_to_use}")
-        generation_model = genai.GenerativeModel(model_to_use)
-        
-        # Generate content
-        logger.info(f"Generating content with temperature: {temperature}")
-        response = generation_model.generate_content(
-            prompt,
-            generation_config={
+        # Chuẩn bị tham số cho model
+        generation_config = {
                 "temperature": temperature,
                 "max_output_tokens": max_tokens,
-            }
-        )
+            "top_p": 0.95,
+            "top_k": 50
+        }
         
+        # Khởi tạo model
+        model = genai.GenerativeModel(model_name=model, generation_config=generation_config)
+        
+        # Tạo văn bản
+        logger.info("Generating content with Gemini API...")
+        
+        # Tạo response
+        response = model.generate_content(prompt)
+        
+        if not response or not response.text:
+            error_msg = "Error: Empty response from Gemini API"
+            logger.error(error_msg)
+            return error_msg
+        
+        # Lấy kết quả
+        result = response.text.strip()
+        
+        # Đo thời gian thực hiện
         duration = time.time() - start_time
-        
-        if response and hasattr(response, 'text'):
-            rewritten_content = response.text
+        logger.info(f"Content generation completed in {duration:.2f} seconds")
             
-            if not rewritten_content:
-                logger.error("Empty response from Gemini API")
-                return "Error: Empty response from Gemini API"
-                
-            logger.info(f"Successfully rewrote content using {model_to_use} in {duration:.2f} seconds (Length: {len(rewritten_content)})")
-            
-            return rewritten_content
-        else:
-            error_message = "Invalid response from Gemini API"
-            if hasattr(response, 'prompt_feedback'):
-                error_message += f": {response.prompt_feedback}"
-            logger.error(error_message)
-            return f"Error: {error_message}"
+        return result
             
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        return f"Error: {str(e)}"
+        error_msg = f"Error: {str(e)}"
+        logger.error(error_msg)
+        logger.exception("Exception details:")
+        return error_msg
 
-if __name__ == '__main__':
-    # Test the function
-    if len(sys.argv) > 2:
-        title = sys.argv[1]
-        content_file = sys.argv[2]
-        
-        try:
-            with open(content_file, 'r', encoding='utf-8') as f:
-                content = f.read()
-                
+if __name__ == "__main__":
+    import sys
+
+    # Lấy tên file từ tham số dòng lệnh, hoặc sử dụng mặc định
+    filename = sys.argv[1] if len(sys.argv) > 1 else "test_article.txt"
+
+    try:
+        with open(filename, 'r', encoding='utf-8') as file:
+            content = file.read()
+            title = "Tiêu đề bài viết test"
+            
+            print(f"Processing file: {filename}")
             result = rewrite_content(title, content)
-            print(f"Rewritten content using {GEMINI_MODEL} ({len(result)} chars):")
-            print("----------")
+            print("\n" + "="*50 + " RESULT " + "="*50 + "\n")
             print(result)
-            print("----------")
-        except Exception as e:
-            print(f"Error: {str(e)}")
-    else:
-        print("Usage: python rewriter.py <title> <content_file>") 
+            
+    except FileNotFoundError:
+        print(f"File not found: {filename}")
+        print("Usage: python rewriter.py [filename]")
+        sys.exit(1)

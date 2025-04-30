@@ -15,10 +15,9 @@ import argparse
 import requests
 from datetime import datetime
 import mysql.connector
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Import module config
+from config import get_config, reload_config
 
 # Process command line arguments
 def parse_args():
@@ -29,6 +28,7 @@ def parse_args():
     parser.add_argument('--article-ids', type=str, help='Comma-separated list of article IDs to rewrite (e.g., "1,2,3")')
     parser.add_argument('--auto-delete', action='store_true', help='Delete original articles after rewriting')
     parser.add_argument('--log-file', type=str, default='rewriter.log', help='Log file path')
+    parser.add_argument('--auto', action='store_true', help='Run in automatic mode with default settings')
     return parser.parse_args()
 
 # Setup logging
@@ -42,29 +42,44 @@ def setup_logging(log_file):
     )
     return logging.getLogger('rewriter')
 
+# Tải cấu hình 
+config = get_config()
+
 # Database configuration
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "host.docker.internal"),
-    "user": os.getenv("DB_USER", "root"),
-    "password": os.getenv("DB_PASSWORD", ""),
-    "database": os.getenv("DB_NAME", "aimagazinedb"),
-    "port": int(os.getenv("DB_PORT", "3306"))
+    "host": config.get("DB_HOST", "host.docker.internal"),
+    "user": config.get("DB_USER", "root"),
+    "password": config.get("DB_PASSWORD", ""),
+    "database": config.get("DB_NAME", "aimagazinedb"),
+    "port": config.get("DB_PORT", 3306)
 }
 
 # AI Model configuration
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyDNYibANNjOZOG5dDPb6YlZ72bXkr7mvL4")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_API_KEY = config.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = config.get("GEMINI_MODEL", "gemini-1.5-flash-latest")
 
 # Fallback Ollama configuration
-OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma2")
+OLLAMA_URL = config.get("OLLAMA_BASE_URL", "http://host.docker.internal:11434")
+OLLAMA_MODEL = config.get("OLLAMA_MODEL", "gemma2:latest")
 
 def connect_to_database():
     """Connect to the database"""
     try:
-        connection = mysql.connector.connect(**DB_CONFIG)
+        # Tải lại cấu hình để có thông tin mới nhất
+        current_config = get_config()
+        
+        # Tạo cấu hình kết nối mới
+        db_config = {
+            "host": current_config.get("DB_HOST", "host.docker.internal"),
+            "user": current_config.get("DB_USER", "root"),
+            "password": current_config.get("DB_PASSWORD", ""),
+            "database": current_config.get("DB_NAME", "aimagazinedb"),
+            "port": current_config.get("DB_PORT", 3306)
+        }
+        
+        connection = mysql.connector.connect(**db_config)
         if connection.is_connected():
-            print(f"Connected to MySQL database: {DB_CONFIG['database']}")
+            print(f"Connected to MySQL database: {db_config['database']} at {db_config['host']}")
             return connection
     except Exception as e:
         print(f"Error connecting to database: {e}")
@@ -152,6 +167,11 @@ def rewrite_with_gemini(text, word_limit=True):
         print("No text provided for rewriting")
         return None, 0
         
+    # Tải lại cấu hình để có thông tin mới nhất
+    current_config = get_config()
+    gemini_api_key = current_config.get("GEMINI_API_KEY", "")
+    gemini_model = current_config.get("GEMINI_MODEL", "gemini-1.5-flash-latest")
+        
     # Create prompt based on word limit
     if word_limit:
         prompt = f"""Hãy viết lại bài viết sau đây thành một bài viết đầy đủ thông tin, có cấu trúc rõ ràng. 
@@ -175,7 +195,7 @@ Chia thành các đoạn hợp lý, đảm bảo bài viết có độ dài vừ
         # Import Google Generative AI
         try:
             import google.generativeai as genai
-            genai.configure(api_key=GEMINI_API_KEY)
+            genai.configure(api_key=gemini_api_key)
         except ImportError:
             print("Error: Google Generative AI library not installed.")
             print("Please install with: pip install google-generativeai")
@@ -183,7 +203,7 @@ Chia thành các đoạn hợp lý, đảm bảo bài viết có độ dài vừ
             
         # Create a generative model
         model = genai.GenerativeModel(
-            model_name=GEMINI_MODEL,
+            model_name=gemini_model,
             generation_config={
                 "temperature": 0.7,
                 "max_output_tokens": 8000,  # Tăng số lượng token tối đa cho bài viết dài hơn
@@ -200,12 +220,75 @@ Chia thành các đoạn hợp lý, đảm bảo bài viết có độ dài vừ
         if response and hasattr(response, 'text'):
             return response.text, elapsed_time
         else:
-            print("Error: No valid response from Gemini API")
-            return None, 0
+            print("Error: No text returned from Gemini API")
+            return None, elapsed_time
     
     except Exception as e:
-        print(f"Error calling Gemini API: {e}")
-        return None, 0
+        elapsed_time = time.time() - start_time
+        print(f"Error with Gemini API: {e}")
+        print("Falling back to Ollama API...")
+        
+        # Try with Ollama as fallback
+        return rewrite_with_ollama(text, word_limit), elapsed_time
+
+def rewrite_with_ollama(text, word_limit=True):
+    """Rewrite text using Ollama API as fallback"""
+    if not text:
+        return None
+        
+    # Tải lại cấu hình để có thông tin mới nhất
+    current_config = get_config()
+    ollama_url = current_config.get("OLLAMA_BASE_URL", "http://host.docker.internal:11434")
+    ollama_model = current_config.get("OLLAMA_MODEL", "gemma2:latest")
+    
+    # Create prompt based on word limit
+    if word_limit:
+        prompt = f"""Hãy viết lại bài viết sau đây thành một bài viết đầy đủ thông tin, có cấu trúc rõ ràng. 
+Giữ nguyên các thông tin quan trọng, ý nghĩa chính của bài viết gốc nhưng diễn đạt theo cách khác.
+Chia thành các đoạn hợp lý, đảm bảo bài viết có độ dài từ 500-1000 từ:
+
+{text}
+"""
+    else:
+        prompt = f"""Hãy viết lại bài viết sau đây thành một bài viết có cấu trúc rõ ràng, mạch lạc và hấp dẫn.
+Giữ nguyên các thông tin quan trọng, ý nghĩa chính của bài viết gốc nhưng diễn đạt theo cách khác.
+Chia thành các đoạn hợp lý, đảm bảo bài viết có độ dài vừa phải:
+
+{text}
+"""
+    
+    # Create request data
+    data = {
+        "model": ollama_model,
+        "prompt": prompt,
+        "temperature": 0.7,
+        "stream": False
+    }
+    
+    try:
+        # Send request to Ollama API
+        response = requests.post(
+            f"{ollama_url}/api/generate",
+            json=data,
+            timeout=240  # Timeout = 4 minutes
+        )
+        
+        # Check if request was successful
+        if response.status_code == 200:
+            result = response.json()
+            if "response" in result:
+                return result["response"]
+            else:
+                print("Error: No response field in Ollama API result")
+                return None
+        else:
+            print(f"Error: Ollama API returned status code {response.status_code}")
+            print(f"Response: {response.text}")
+            return None
+            
+    except Exception as e:
+        print(f"Error with Ollama API: {e}")
+        return None
 
 def save_rewritten_article(connection, article_id, original_content, rewritten_content, metadata):
     """Save rewritten article to the rewritten_articles table"""

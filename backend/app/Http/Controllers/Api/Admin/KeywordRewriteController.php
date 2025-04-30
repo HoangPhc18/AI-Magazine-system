@@ -49,8 +49,8 @@ class KeywordRewriteController extends Controller
 
         // Send the keyword to the AI service for processing
         try {
-            $aiServiceUrl = env('AI_SERVICE_URL', 'http://localhost:5000');
-            $endpoint = $aiServiceUrl . '/api/keyword_rewrite/process';
+            $keywordRewriteUrl = env('KEYWORD_REWRITE_URL', 'http://localhost:55025/keyword-rewrite');
+            $endpoint = $keywordRewriteUrl . '/api/keyword_rewrite/process';
             $backendUrl = env('BACKEND_URL', 'http://localhost');
             
             // Đảm bảo BACKEND_URL không có dấu / ở cuối

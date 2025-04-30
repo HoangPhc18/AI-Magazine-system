@@ -3,7 +3,6 @@ import os
 import requests
 import json
 import mysql.connector
-from dotenv import load_dotenv
 import logging
 import datetime
 import time
@@ -12,8 +11,11 @@ import random
 import re
 import google.generativeai as genai
 
-# Load environment variables
-load_dotenv()
+# Import module config
+from config import get_config, reload_config
+
+# Tải cấu hình
+config = get_config()
 
 # Configure logging
 logging.basicConfig(
@@ -26,25 +28,25 @@ app = Flask(__name__)
 
 # Database configuration
 DB_CONFIG = {
-    'host': os.getenv('DB_HOST'),
-    'user': os.getenv('DB_USER'),
-    'password': os.getenv('DB_PASSWORD'),
-    'database': os.getenv('DB_NAME')
+    'host': config.get('DB_HOST'),
+    'user': config.get('DB_USER'),
+    'password': config.get('DB_PASSWORD'),
+    'database': config.get('DB_NAME')
 }
 
 # Google Gemini configuration
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', 'AIzaSyDNYibANNjOZOG5dDPb6YlZ72bXkr7mvL4')
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-1.5-flash-latest')
+GEMINI_API_KEY = config.get('GEMINI_API_KEY', '')
+GEMINI_MODEL = config.get('GEMINI_MODEL', 'gemini-1.5-flash-latest')
 
 # Ollama configuration (keeping for backward compatibility)
-OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
-OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'gemma2:latest')
+OLLAMA_HOST = config.get('OLLAMA_HOST', 'http://localhost:11434')
+OLLAMA_MODEL = config.get('OLLAMA_MODEL', 'gemma2:latest')
 
 # Timeout configuration
-API_TIMEOUT = int(os.getenv('API_TIMEOUT', 3600))
-MAX_RETRIES = int(os.getenv('MAX_RETRIES', 3))
-INITIAL_BACKOFF = int(os.getenv('INITIAL_BACKOFF', 5))
-MAX_TEXT_SIZE = int(os.getenv('MAX_TEXT_SIZE', 8000))
+API_TIMEOUT = config.get('API_TIMEOUT', 600)
+MAX_RETRIES = config.get('MAX_RETRIES', 3)
+INITIAL_BACKOFF = config.get('INITIAL_BACKOFF', 5)
+MAX_TEXT_SIZE = config.get('MAX_TEXT_SIZE', 8000)
 
 # Initialize Gemini API
 genai.configure(api_key=GEMINI_API_KEY)
@@ -577,9 +579,80 @@ def process_batch():
 @app.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
-    return jsonify({"status": "healthy"}), 200
+    # Lấy cấu hình hiện tại
+    current_config = get_config()
+    
+    return jsonify({
+        "status": "healthy",
+        "service": "facebook_rewrite_api",
+        "gemini": {
+            "model": current_config.get("GEMINI_MODEL"),
+            "api_key_configured": bool(current_config.get("GEMINI_API_KEY"))
+        },
+        "database": {
+            "host": current_config.get("DB_HOST"),
+            "name": current_config.get("DB_NAME")
+        },
+        "config": {
+            "max_text_size": current_config.get("MAX_TEXT_SIZE"),
+            "api_timeout": current_config.get("API_TIMEOUT")
+        }
+    }), 200
+
+@app.route('/reload-config', methods=['POST'])
+def reload_configuration():
+    """Endpoint để tải lại cấu hình từ file .env"""
+    # Tải lại cấu hình
+    global GEMINI_API_KEY, GEMINI_MODEL, OLLAMA_HOST, OLLAMA_MODEL
+    global API_TIMEOUT, MAX_RETRIES, INITIAL_BACKOFF, MAX_TEXT_SIZE, DB_CONFIG
+    
+    try:
+        new_config = reload_config()
+        
+        # Cập nhật các biến toàn cục
+        GEMINI_API_KEY = new_config.get('GEMINI_API_KEY', '')
+        GEMINI_MODEL = new_config.get('GEMINI_MODEL', 'gemini-1.5-flash-latest')
+        OLLAMA_HOST = new_config.get('OLLAMA_HOST', 'http://localhost:11434')
+        OLLAMA_MODEL = new_config.get('OLLAMA_MODEL', 'gemma2:latest')
+        API_TIMEOUT = new_config.get('API_TIMEOUT', 600)
+        MAX_RETRIES = new_config.get('MAX_RETRIES', 3)
+        INITIAL_BACKOFF = new_config.get('INITIAL_BACKOFF', 5)
+        MAX_TEXT_SIZE = new_config.get('MAX_TEXT_SIZE', 8000)
+        
+        # Cập nhật DB_CONFIG
+        DB_CONFIG.update({
+            'host': new_config.get('DB_HOST'),
+            'user': new_config.get('DB_USER'),
+            'password': new_config.get('DB_PASSWORD'),
+            'database': new_config.get('DB_NAME')
+        })
+        
+        # Khởi tạo lại Gemini API
+        genai.configure(api_key=GEMINI_API_KEY)
+        
+        logger.info("Cấu hình đã được tải lại thành công")
+        
+        return jsonify({
+            "status": "ok",
+            "message": "Cấu hình đã được tải lại thành công",
+            "config": {
+                "gemini_model": GEMINI_MODEL,
+                "api_timeout": API_TIMEOUT,
+                "max_text_size": MAX_TEXT_SIZE
+            }
+        })
+    except Exception as e:
+        logger.error(f"Lỗi khi tải lại cấu hình: {e}")
+        return jsonify({
+            "status": "error",
+            "message": f"Lỗi khi tải lại cấu hình: {str(e)}"
+        }), 500
 
 if __name__ == '__main__':
-    # Sử dụng biến môi trường PORT nếu có, mặc định là 5005
-    port = int(os.getenv('PORT', 5005))
-    app.run(host='0.0.0.0', port=port, debug=True) 
+    # Sử dụng cấu hình từ config thay vì biến môi trường
+    port = config.get('PORT_FACEBOOK_REWRITE', 5005)
+    host = config.get('HOST', '0.0.0.0')
+    debug = config.get('DEBUG', False)
+    
+    logger.info(f"Bắt đầu Facebook Rewrite API service tại {host}:{port}, debug={debug}")
+    app.run(host=host, port=port, debug=debug) 

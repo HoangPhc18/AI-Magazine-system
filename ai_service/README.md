@@ -1,110 +1,101 @@
-# AI Service Deployment
+# AI Service
 
-Tài liệu này cung cấp hướng dẫn để triển khai các dịch vụ AI trong hệ thống Magazine AI System.
+Module AI Service là một hệ thống microservices cho phép xử lý nội dung tự động dựa trên AI. 
+Bao gồm các dịch vụ:
 
-## Yêu cầu hệ thống
+- Scraper Service: Thu thập dữ liệu từ các trang web
+- Rewrite Service: Viết lại nội dung
+- Keyword Rewrite Service: Viết lại nội dụng theo từ khóa
+- Facebook Scraper Service: Thu thập dữ liệu từ Facebook
+- Facebook Rewrite Service: Viết lại nội dung thu thập từ Facebook
 
-- Docker và Docker Compose
-- Backend Laravel đang chạy trên localhost (port 8000)
-- XAMPP (MySQL) đang chạy trên localhost (port 3306)
-- Ollama đang chạy trên localhost (port 11434)
+## Cài đặt
 
-## Cấu trúc thư mục
+Hệ thống được đóng gói hoàn toàn trong Docker, vì vậy chỉ cần cài đặt Docker là có thể chạy.
+
+### Yêu cầu hệ thống
+
+- Docker Desktop (Windows, Mac) hoặc Docker Engine (Linux)
+- Ít nhất 4GB RAM cho container
+- Ít nhất 10GB dung lượng ổ đĩa trống
+
+### Cách cài đặt
+
+1. Clone repository hoặc giải nén archive vào thư mục trên máy
+2. Chạy file `run-container.bat` (Windows) hoặc `start.sh` (Linux/Mac)
+
+## Cấu hình
+
+Các tham số cấu hình được lưu trong file `.env` và có thể được ghi đè bằng biến môi trường khi khởi động container.
+
+### Các biến môi trường quan trọng:
+
+- `BACKEND_URL`: URL của backend API, mặc định là "http://host.docker.internal"
+- `DB_HOST`: Hostname của cơ sở dữ liệu, mặc định là "host.docker.internal"
+- `OLLAMA_HOST`: URL của Ollama API, mặc định là "http://host.docker.internal:11434"
+
+## Sử dụng API
+
+Tất cả các dịch vụ được expose qua Nginx trên cổng 55025, với các endpoint như sau:
+
+- `http://localhost:55025/` - Trang chủ
+- `http://localhost:55025/health` - Kiểm tra trạng thái
+- `http://localhost:55025/scraper/` - Scraper API
+- `http://localhost:55025/rewrite/` - Rewrite API
+- `http://localhost:55025/keyword-rewrite/` - Keyword Rewrite API
+- `http://localhost:55025/facebook-scraper/` - Facebook Scraper API
+- `http://localhost:55025/facebook-rewrite/` - Facebook Rewrite API
+
+## Kiểm tra lỗi
+
+Nếu có lỗi, bạn có thể kiểm tra logs bằng lệnh:
 
 ```
-ai_service/
-├── keyword_rewrite/    # Service viết lại từ khóa
-├── rewrite/            # Service viết lại nội dung
-├── scraper/            # Service thu thập dữ liệu
-├── docker-compose.yml  # File cấu hình Docker Compose
-└── README.md           # Tài liệu hướng dẫn
+docker logs ai-service-all
 ```
 
-## Các service được triển khai
+Hoặc kiểm tra logs của từng dịch vụ trong container:
 
-1. **Scraper (Port 5001)**: Thu thập dữ liệu từ các nguồn tin tức
-2. **Rewrite (Port 5002)**: Viết lại nội dung bài viết
-3. **Keyword Rewrite (Port 5003)**: Viết lại từ khóa
-
-## Hướng dẫn triển khai
-
-### 1. Chuẩn bị môi trường
-
-Đảm bảo các dịch vụ sau đã được khởi động trên máy local của bạn:
-- Backend Laravel (port 8000)
-- XAMPP/MySQL (port 3306)
-- Ollama (port 11434)
-
-### 2. Khởi động các dịch vụ AI
-
-Từ thư mục `ai_service`, chạy lệnh sau:
-
-```bash
-docker-compose up -d
+```
+docker exec -it ai-service-all cat /var/log/ai_service/scraper.log
+docker exec -it ai-service-all cat /var/log/ai_service/rewrite.log
+docker exec -it ai-service-all cat /var/log/ai_service/keyword_rewrite.log
+docker exec -it ai-service-all cat /var/log/ai_service/facebook_scraper.log
+docker exec -it ai-service-all cat /var/log/ai_service/facebook_rewrite.log
 ```
 
-Lệnh này sẽ xây dựng và khởi động tất cả các service trong container Docker.
+## Gỡ lỗi thường gặp
 
-### 3. Kiểm tra trạng thái
+1. **Lỗi "netstat: command not found"**
+   - Đã được sửa trong phiên bản hiện tại. Script khởi động hiện đã tự động cài đặt `net-tools` nếu cần.
 
-Để kiểm tra trạng thái của các container:
+2. **Lỗi Facebook Scraper Service không khởi động:**
+   - Đã sửa lỗi trong `start.sh` để không sử dụng tham số `--serve` khi khởi động `facebook_scraper/main.py`
 
-```bash
-docker-compose ps
-```
+3. **Lỗi kết nối đến backend:**
+   - Kiểm tra cấu hình `BACKEND_URL` trong file `.env` 
+   - Đảm bảo backend đang chạy và có thể truy cập từ container Docker
 
-### 4. Xem logs
+4. **Lỗi kết nối đến cơ sở dữ liệu:**
+   - Kiểm tra cấu hình `DB_HOST` trong file `.env`
+   - Đảm bảo cơ sở dữ liệu đang chạy và có thể truy cập từ container Docker
 
-Để xem logs của tất cả các service:
+5. **Lỗi kết nối đến Ollama:**
+   - Kiểm tra cấu hình `OLLAMA_HOST` trong file `.env`
+   - Đảm bảo Ollama đang chạy và có thể truy cập từ container Docker
 
-```bash
-docker-compose logs
-```
+## Cập nhật
 
-Để xem logs của một service cụ thể:
+Để cập nhật lên phiên bản mới, chạy lại file `run-container.bat` (Windows) hoặc `start.sh` (Linux/Mac).
 
-```bash
-docker-compose logs scraper
-docker-compose logs rewrite
-docker-compose logs keyword_rewrite
-```
+## Gỡ cài đặt
 
-### 5. Dừng các dịch vụ
+Để gỡ cài đặt:
 
-Để dừng tất cả các dịch vụ:
+1. Dừng container: `docker stop ai-service-all`
+2. Xóa container: `docker rm ai-service-all`
+3. Xóa image: `docker rmi ai-service:55025`
 
-```bash
-docker-compose down
-```
+## Phát triển
 
-## Kết nối đến các dịch vụ
-
-- Scraper API: http://localhost:5001
-- Rewrite API: http://localhost:5002
-- Keyword Rewrite API: http://localhost:5003
-
-## Xử lý sự cố
-
-1. **Lỗi kết nối đến Backend/MySQL/Ollama**:
-   - Đảm bảo các dịch vụ này đang chạy trên máy chủ của bạn
-   - Kiểm tra cài đặt tường lửa
-   - Xác nhận rằng các cổng (8000, 3306, 11434) đã được mở
-
-2. **Lỗi Docker Container**:
-   - Kiểm tra logs để xem lỗi chi tiết
-   - Thử dựng lại container bằng cách: `docker-compose down && docker-compose up -d --build`
-
-3. **Vấn đề về quyền truy cập file**:
-   - Đảm bảo thư mục `scraper/output` có quyền ghi
-   
-4. **Lỗi xung đột thư viện Python**:
-   - Nếu gặp lỗi "ResolutionImpossible" khi cài đặt các phụ thuộc Python
-   - Kiểm tra các file requirements.txt trong từng dịch vụ
-   - Tránh chỉ định phiên bản cứng (như numpy==1.24.3), thay vào đó sử dụng phạm vi phiên bản (như numpy>=1.24.3)
-   - Có thể chỉnh sửa trực tiếp file trong thư mục service tương ứng và xây dựng lại container
-
-## Ghi chú bổ sung
-
-- Các container sử dụng `host.docker.internal` để kết nối với các dịch vụ trên máy chủ (localhost).
-- Dữ liệu được chia sẻ giữa máy chủ và container thông qua volumes.
-- Các container được cấu hình để tự động khởi động lại nếu gặp sự cố. 
+Xem file BUILD-README.md để biết thêm chi tiết về cách phát triển và mở rộng hệ thống. 

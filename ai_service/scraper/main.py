@@ -37,6 +37,9 @@ import mysql.connector
 from mysql.connector import Error
 from unidecode import unidecode
 
+# Import cấu hình từ module config
+from config import get_config, reload_config
+
 # Import các module nội bộ
 from google_news import (
     fetch_categories_from_backend,
@@ -48,15 +51,15 @@ from google_news import (
 )
 from scrape_articles_selenium import extract_article_content
 
-# Tải biến môi trường từ file .env
-load_dotenv()
+# Tải cấu hình từ file .env thông qua module config
+config = get_config()
 
-# Thông tin kết nối database
-DB_HOST = os.getenv('DB_HOST', 'localhost')
-DB_USER = os.getenv('DB_USER', 'root')
-DB_PASSWORD = os.getenv('DB_PASSWORD', '')
-DB_NAME = os.getenv('DB_NAME', 'AiMagazineDB')
-DB_PORT = int(os.getenv('DB_PORT', '3306'))
+# Thông tin kết nối database từ cấu hình
+DB_HOST = config['DB_HOST']
+DB_USER = config['DB_USER']
+DB_PASSWORD = config['DB_PASSWORD']
+DB_NAME = config['DB_NAME']
+DB_PORT = config['DB_PORT']
 
 # Config kết nối database
 DB_CONFIG = {
@@ -76,30 +79,26 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ]
 )
-logger = logging.getLogger()
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 
-# 🔹 Các thông số mặc định
+# 🔹 Các thông số mặc định từ cấu hình
 SCRAPER_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMP_DIR = os.path.join(SCRAPER_DIR, "temp")
 OUTPUT_DIR = os.path.join(SCRAPER_DIR, "output")
-DEFAULT_BATCH_SIZE = 5
+DEFAULT_BATCH_SIZE = config.get("DEFAULT_BATCH_SIZE", 5)
 # Số ngày để giữ lại log files và output files
-RETENTION_DAYS = 2
+RETENTION_DAYS = config.get("RETENTION_DAYS", 7)
 
-# 🔹 Laravel Backend API URLs
-BACKEND_URL = os.getenv('BACKEND_URL', 'http://host.docker.internal')
-BACKEND_PORT = os.getenv('BACKEND_PORT', '80')
-BASE_API_URL = f"{BACKEND_URL}:{BACKEND_PORT}/api"
-if BACKEND_PORT == '80':
-    BASE_API_URL = f"{BACKEND_URL}/api"
-
-# URL configuration
-BACKEND_API_URL = BASE_API_URL
-CATEGORIES_API_URL = f"{BASE_API_URL}/categories"
-ARTICLES_API_URL = f"{BASE_API_URL}/articles"
-ARTICLES_BATCH_API_URL = f"{BASE_API_URL}/articles/batch"
-ARTICLES_IMPORT_API_URL = f"{BASE_API_URL}/articles/import"
-ARTICLES_CHECK_API_URL = f"{BASE_API_URL}/articles/check"
+# 🔹 Laravel Backend API URLs từ cấu hình
+BACKEND_URL = config['BACKEND_URL']
+BACKEND_PORT = config['BACKEND_PORT']
+BASE_API_URL = config['BASE_API_URL']
+CATEGORIES_API_URL = config['CATEGORIES_API_URL']
+ARTICLES_API_URL = config['ARTICLES_API_URL']
+ARTICLES_BATCH_API_URL = config['ARTICLES_BATCH_API_URL']
+ARTICLES_IMPORT_API_URL = config['ARTICLES_IMPORT_API_URL']
+ARTICLES_CHECK_API_URL = config['ARTICLES_CHECK_API_URL']
 
 # Các biến toàn cục
 # Cache lưu các URL đã xử lý để tránh trùng lặp
@@ -109,17 +108,18 @@ def check_api_keys():
     """
     Kiểm tra các API keys từ file .env
     """
+    config = get_config()  # Tải lại cấu hình để có thông tin mới nhất
     api_keys_status = {}
     
     # Kiểm tra WorldNewsAPI
-    worldnews_api_key = os.environ.get('WORLDNEWS_API_KEY', '')
+    worldnews_api_key = config.get('WORLDNEWS_API_KEY', '')
     if worldnews_api_key:
         api_keys_status['WorldNewsAPI'] = True
     else:
         api_keys_status['WorldNewsAPI'] = False
         
     # Kiểm tra Currents API
-    currents_api_key = os.environ.get('CURRENTS_API_KEY', '')
+    currents_api_key = config.get('CURRENTS_API_KEY', '')
     if currents_api_key:
         api_keys_status['CurrentsAPI'] = True
     else:
@@ -214,6 +214,21 @@ def send_to_backend(articles, batch_size=DEFAULT_BATCH_SIZE, auto_send=True):
         logger.warning("Không có bài viết nào để gửi!")
         return False
     
+    # Ghi log tổng số bài viết cần gửi
+    logger.info(f"Chuẩn bị gửi {len(articles)} bài viết tới backend")
+    
+    # Debug: Kiểm tra API URL
+    api_url = ARTICLES_IMPORT_API_URL
+    logger.info(f"API URL: {api_url}")
+    logger.debug(f"BASE_API_URL: {get_config('BASE_API_URL')}")
+    logger.debug(f"BACKEND_URL: {get_config('BACKEND_URL')}")
+    logger.debug(f"BACKEND_PORT: {get_config('BACKEND_PORT')}")
+    
+    # Debug tiêu đề và URL của bài viết đầu tiên
+    if len(articles) > 0:
+        logger.info(f"Bài viết đầu tiên: {articles[0].get('title', 'N/A')}")
+        logger.info(f"Source URL: {articles[0].get('source_url', 'N/A')}")
+    
     # Chuẩn hóa dữ liệu trước khi gửi
     normalized_articles = []
     for article in articles:
@@ -256,12 +271,18 @@ def send_to_backend(articles, batch_size=DEFAULT_BATCH_SIZE, auto_send=True):
     
     # Chia thành các batch để gửi
     batches = [normalized_articles[i:i + batch_size] for i in range(0, len(normalized_articles), batch_size)]
-    logger.info(f"Gửi {len(normalized_articles)} bài viết tới backend...")
+    logger.info(f"Gửi {len(normalized_articles)} bài viết tới backend trong {len(batches)} batches...")
     
     total_success = True
+    total_imported = 0
+    total_skipped = 0
     
     for i, batch in enumerate(batches, 1):
         logger.info(f"Gửi batch {i}/{len(batches)} ({len(batch)} bài viết)")
+        
+        # In ra tiêu đề của bài đầu tiên trong batch để debug
+        if len(batch) > 0:
+            logger.debug(f"Bài viết đầu tiên trong batch: {batch[0].get('title', 'Không có tiêu đề')}")
         
         # Chuẩn bị payload theo đúng định dạng API yêu cầu
         payload = {
@@ -281,12 +302,25 @@ def send_to_backend(articles, batch_size=DEFAULT_BATCH_SIZE, auto_send=True):
         
         while retry_count < max_retries:
             try:
-                # Sử dụng endpoint import thay vì gửi trực tiếp đến articles
+                # Sử dụng endpoint import từ cấu hình
+                api_url = ARTICLES_IMPORT_API_URL
+                logger.info(f"Gửi dữ liệu đến API: {api_url}")
+                
+                # Log payload size
+                payload_size = len(json.dumps(payload))
+                logger.debug(f"Kích thước payload: {payload_size} bytes")
+                
                 response = requests.post(
-                    ARTICLES_IMPORT_API_URL,
+                    api_url,
                     json=payload,
-                    headers=headers
+                    headers=headers,
+                    timeout=30
                 )
+                
+                # In ra response status và phần đầu của response body để debug
+                logger.info(f"API Response Status: {response.status_code}")
+                response_text = response.text[:200] + "..." if len(response.text) > 200 else response.text
+                logger.info(f"API Response Text: {response_text}")
                 
                 if response.status_code == 200 or response.status_code == 201:
                     logger.info(f"[OK] Batch {i}: Gửi thành công")
@@ -295,9 +329,11 @@ def send_to_backend(articles, batch_size=DEFAULT_BATCH_SIZE, auto_send=True):
                         result = response.json()
                         success = result.get('success', 0)
                         skipped = result.get('skipped', 0)
+                        total_imported += int(success) if isinstance(success, (int, str)) else 0
+                        total_skipped += int(skipped) if isinstance(skipped, (int, str)) else 0
                         logger.info(f"[INFO] Batch {i}: {success} bài viết đã import, {skipped} bài viết bị bỏ qua")
-                    except:
-                        pass
+                    except Exception as e:
+                        logger.warning(f"Không thể phân tích JSON response: {str(e)}")
                     break
                 else:
                     error_msg = response.text[:100] + "..." if len(response.text) > 100 else response.text
@@ -316,6 +352,10 @@ def send_to_backend(articles, batch_size=DEFAULT_BATCH_SIZE, auto_send=True):
                         
             except Exception as e:
                 logger.error(f"[ERROR] Batch {i}: Exception - {str(e)}")
+                # Log stack trace
+                import traceback
+                logger.error(f"Stack trace: {traceback.format_exc()}")
+                
                 retry_count += 1
                 if retry_count < max_retries:
                     logger.info(f"Thử lại sau {retry_delay} giây...")
@@ -326,9 +366,9 @@ def send_to_backend(articles, batch_size=DEFAULT_BATCH_SIZE, auto_send=True):
                     total_success = False
     
     if total_success:
-        logger.info(f"[OK] Tất cả {len(normalized_articles)} bài viết đã được gửi thành công")
+        logger.info(f"[OK] Tổng cộng: {total_imported} bài viết đã được import thành công, {total_skipped} bài viết bị bỏ qua")
     else:
-        logger.warning(f"[WARN] Có lỗi xảy ra khi gửi bài viết tới backend")
+        logger.warning(f"[WARN] Có lỗi xảy ra khi gửi bài viết tới backend. Đã import: {total_imported}, Đã bỏ qua: {total_skipped}")
         
     return total_success
 
@@ -1110,67 +1150,100 @@ def main():
     # Xử lý tất cả các danh mục
     if args.all:
         print(f"Xử lý tất cả các danh mục, tối đa {args.max} bài viết mỗi danh mục")
+        logger.info(f"Bắt đầu tìm và xử lý tất cả các danh mục, tối đa {args.max} bài viết mỗi danh mục")
+        
         results = find_and_process_all_categories(max_articles_per_category=args.max)
+        
+        # Log kết quả thu được
+        logger.info(f"Kết quả tìm kiếm: {results['success']} danh mục thành công, {results['failed']} danh mục thất bại")
+        logger.info(f"Tổng số bài viết đã tìm được: {results['total_articles']}")
+        
+        # Tự động gửi bài viết tới backend nếu cờ auto-send được bật
+        if args.auto_send and results['all_articles'] and len(results['all_articles']) > 0:
+            logger.info(f"Tự động gửi {len(results['all_articles'])} bài viết tới backend")
+            
+            # Gọi hàm gửi các bài viết tới backend API
+            send_status = send_to_backend(results['all_articles'])
+            
+            if send_status:
+                logger.info("Đã gửi tất cả bài viết thành công đến backend")
+            else:
+                logger.warning("Có lỗi khi gửi bài viết đến backend")
         
         # Lưu tất cả bài viết vào 1 file JSON
         logger.info(f"Bắt đầu lưu tất cả bài viết vào file JSON duy nhất, dữ liệu đầu vào: {type(results)}")
-        logger.info(f"Cấu trúc results: {list(results.keys())}")
+        logger.info(f"Cấu trúc results: {list(results.keys()) if isinstance(results, dict) else type(results)}")
         
         json_file = save_all_articles_to_single_file(results)
         
-        # In thông báo tổng kết
-        print(f"\nĐã xử lý {results['success'] + results['failed']} danh mục")
-        print(f"Thành công: {results['success']} danh mục, Thất bại: {results['failed']} danh mục")
-        print(f"Tổng số bài viết đã tìm được: {results['total_articles']}")
-        
-        # Gửi đến backend nếu được yêu cầu hoặc tự động import
-        if args.auto_send and results['all_articles']:
-            logger.info(f"Gửi {len(results['all_articles'])} bài viết đến backend...")
-            send_to_backend(results['all_articles'])
-        elif json_file:
-            # Tự động import file JSON kể cả khi không có flag auto-send
-            logger.info(f"Tự động import file JSON {json_file} vào database")
-            import_json_file_to_backend(json_file)
+        if json_file and os.path.exists(json_file):
+            logger.info(f"Đã lưu tất cả bài viết vào file JSON: {json_file}")
+            
+            # Import file JSON vào backend nếu cờ auto-send được bật
+            if args.auto_send:
+                imported, failed = import_json_file_to_backend(json_file)
+                logger.info(f"Đã import file JSON vào backend: {imported} thành công, {failed} thất bại")
+        else:
+            logger.warning("Không thể lưu bài viết vào file JSON")
+            
+        logger.info(f"Scraper hoàn thành: Xử lý tất cả các danh mục, tối đa {args.max} bài viết mỗi danh mục")
     
     # Xử lý một danh mục cụ thể
     elif args.category:
-        category = get_category_by_id(args.category)
-        if category:
-            category_name = category.get('name', f"Danh mục {args.category}")
-            print(f"Xử lý danh mục: {category_name} (ID: {args.category})")
-            
-            articles = process_category(args.category, category_name, args.max)
-            
-            if articles:
-                print(f"Đã tìm thấy {len(articles)} bài viết")
+        category_id = args.category
+        print(f"Xử lý danh mục ID: {category_id}, tối đa {args.max} bài viết")
+        
+        # Lấy thông tin danh mục từ backend
+        try:
+            category_info = get_category_by_id(category_id)
+            if category_info and 'name' in category_info:
+                category_name = category_info['name']
+                print(f"Danh mục: {category_name}")
                 
-                # Gửi đến backend nếu được yêu cầu
-                if args.auto_send:
-                    logger.info(f"Gửi {len(articles)} bài viết đến backend...")
-                    send_to_backend(articles)
+                # Xử lý danh mục
+                articles = process_category(category_id, category_name, max_articles=args.max)
+                
+                if articles:
+                    print(f"Tìm thấy {len(articles)} bài viết")
+                    
+                    # Tự động gửi bài viết tới backend nếu cờ auto-send được bật
+                    if args.auto_send and len(articles) > 0:
+                        send_status = send_to_backend(articles)
+                        if send_status:
+                            print("Đã gửi tất cả bài viết thành công đến backend")
+                        else:
+                            print("Có lỗi khi gửi bài viết đến backend")
+                else:
+                    print("Không tìm thấy bài viết nào phù hợp")
             else:
-                print("Không tìm thấy bài viết nào cho danh mục này")
-        else:
-            print(f"Không tìm thấy thông tin về danh mục có ID: {args.category}")
+                print(f"Không tìm thấy thông tin danh mục với ID: {category_id}")
+        except Exception as e:
+            print(f"Lỗi khi xử lý danh mục {category_id}: {str(e)}")
     
-    # Import các file JSON từ thư mục output vào backend
+    # Import tất cả các file JSON trong thư mục output
     elif args.import_all:
-        import_all_to_backend()
+        print("Import tất cả các file JSON trong thư mục output")
+        success, failed = import_all_to_backend()
+        print(f"Kết quả: {success} thành công, {failed} thất bại")
     
-    # Import một file JSON cụ thể vào backend
+    # Import file JSON chỉ định
     elif args.import_file:
-        if os.path.exists(args.import_file):
-            import_json_file_to_backend(args.import_file)
-        else:
-            print(f"Không tìm thấy file: {args.import_file}")
+        json_file = args.import_file
+        if not os.path.exists(json_file):
+            print(f"File không tồn tại: {json_file}")
+            return
+        
+        print(f"Import file JSON: {json_file}")
+        success, failed = import_json_file_to_backend(json_file)
+        print(f"Kết quả: {success} thành công, {failed} thất bại")
     
-    # Dọn dẹp các tệp tin tạm và log cũ
+    # Dọn dẹp tệp tin cũ
     elif args.cleanup:
+        print("Dọn dẹp các tệp tin tạm và log cũ")
         cleanup_temp_files()
         cleanup_old_files()
-        print("Đã dọn dẹp xong tệp tin tạm và log cũ")
     
-    # Hiển thị trợ giúp nếu không có tham số nào được cung cấp
+    # Không có tham số dòng lệnh, hiển thị trợ giúp
     else:
         parser.print_help()
 

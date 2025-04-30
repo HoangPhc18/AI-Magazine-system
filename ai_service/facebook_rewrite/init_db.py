@@ -1,7 +1,9 @@
 import mysql.connector
 import os
-from dotenv import load_dotenv
 import logging
+
+# Import module config
+from config import get_config, reload_config
 
 # Configure logging
 logging.basicConfig(
@@ -10,14 +12,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load environment variables
-load_dotenv()
+# Tải cấu hình
+config = get_config()
 
 # Database configuration
 DB_CONFIG = {
-    'host': os.getenv('DB_HOST'),
-    'user': os.getenv('DB_USER'),
-    'password': os.getenv('DB_PASSWORD')
+    'host': config.get('DB_HOST'),
+    'user': config.get('DB_USER'),
+    'password': config.get('DB_PASSWORD')
 }
 
 def init_database():
@@ -33,7 +35,7 @@ def init_database():
         cursor = conn.cursor()
         
         # Create database if it doesn't exist
-        db_name = os.getenv('DB_NAME')
+        db_name = config.get('DB_NAME')
         cursor.execute(f"CREATE DATABASE IF NOT EXISTS {db_name}")
         logger.info(f"Database '{db_name}' created or already exists")
         

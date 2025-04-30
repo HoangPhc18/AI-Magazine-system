@@ -24,6 +24,12 @@ import pickle
 import platform
 import traceback
 
+# Import module config
+from config import get_config, reload_config
+
+# Tải cấu hình
+config = get_config()
+
 # Tạo thư mục cookies nếu chưa tồn tại
 os.makedirs("cookies", exist_ok=True)
 
@@ -32,24 +38,21 @@ logging.basicConfig(level=logging.INFO,
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('facebook_scraper')
 
-# Load .env file from Laravel backend
-dotenv_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'backend', '.env')
-dotenv.load_dotenv(dotenv_path)
-
-# Load Facebook credentials from .env
-FB_USERNAME = os.getenv('FACEBOOK_USERNAME', '')
-FB_PASSWORD = os.getenv('FACEBOOK_PASSWORD', '')
-USE_CHROME_PROFILE = os.getenv('USE_CHROME_PROFILE', 'false').lower() == 'true'
-CHROME_PROFILE_PATH = os.getenv('CHROME_PROFILE_PATH', '/app/chrome_profile')
-HEADLESS = os.getenv('HEADLESS', 'true').lower() == 'true'
+# Lấy thông tin Facebook từ config
+FB_USERNAME = config.get('FACEBOOK_USERNAME', '')
+FB_PASSWORD = config.get('FACEBOOK_PASSWORD', '')
+USE_CHROME_PROFILE = config.get('USE_CHROME_PROFILE', False)
+CHROME_PROFILE_PATH = config.get('CHROME_PROFILE_PATH', '/app/chrome_profile')
+HEADLESS = config.get('HEADLESS', True)
 
 def get_db_connection():
     """Get a connection to the Laravel database"""
-    db_host = os.getenv('DB_HOST', 'localhost')
-    db_name = os.getenv('DB_DATABASE', 'AiMagazineDB')
-    db_user = os.getenv('DB_USERNAME', 'root')
-    db_pass = os.getenv('DB_PASSWORD', '')
-    db_port = int(os.getenv('DB_PORT', '3306'))
+    # Lấy thông tin kết nối từ config
+    db_host = config.get('DB_HOST', 'localhost')
+    db_name = config.get('DB_NAME', 'aimagazinedb') 
+    db_user = config.get('DB_USER', 'root')
+    db_pass = config.get('DB_PASSWORD', '')
+    db_port = int(config.get('DB_PORT', 3306))
     
     return mysql.connector.connect(
         host=db_host,
@@ -73,11 +76,11 @@ def kill_chrome_processes():
 def setup_mysql_connection():
     """Thiết lập kết nối đến MySQL"""
     try:
-        # Lấy thông tin kết nối từ biến môi trường
-        db_host = os.getenv('DB_HOST', 'localhost')
-        db_user = os.getenv('DB_USERNAME', 'root')
-        db_password = os.getenv('DB_PASSWORD', '')
-        db_name = os.getenv('DB_DATABASE', 'AiMagazineDB')
+        # Lấy thông tin kết nối từ config
+        db_host = config.get('DB_HOST', 'localhost')
+        db_user = config.get('DB_USER', 'root')
+        db_password = config.get('DB_PASSWORD', '')
+        db_name = config.get('DB_NAME', 'aimagazinedb')
         
         # Kết nối đến cơ sở dữ liệu
         connection = mysql.connector.connect(
@@ -200,100 +203,114 @@ def login_facebook(driver, username=None, password=None):
                     logger.warning("Still on login page after loading cookies")
                     cookie_login_success = False
                 else:
-                    # Check for elements that would indicate we're logged in
-                    if driver.find_elements(By.ID, "facebook"):
-                        if driver.find_elements(By.CSS_SELECTOR, '[aria-label="Home"]') or \
-                           driver.find_elements(By.CSS_SELECTOR, '[aria-label="Facebook"]') or \
-                           driver.find_elements(By.CSS_SELECTOR, '[aria-label="Your profile"]') or \
-                           driver.find_elements(By.CSS_SELECTOR, '[data-pagelet="Stories"]') or \
-                           driver.find_elements(By.CSS_SELECTOR, '[role="navigation"]'):
-                            logger.info("Successfully logged in using cookies")
-                            cookie_login_success = True
-                            
-                            # Save screenshot of success
-                            try:
-                                os.makedirs("logs", exist_ok=True)
-                                driver.save_screenshot("logs/facebook_login_success.png")
-                            except:
-                                pass
-                            
-                            return True
+                    # Check if user menu is present
+                    WebDriverWait(driver, 5).until(
+                        EC.presence_of_element_located((By.XPATH, "//div[@aria-label='Your profile' or @aria-label='Tài khoản' or contains(@aria-label, 'Account')]"))
+                    )
+                    logger.info("Login successful via cookies")
+                    cookie_login_success = True
+                    
+                    # Save updated cookies
+                    save_cookies(driver)
+                    return True
             except Exception as e:
-                logger.warning(f"Error checking login status: {str(e)}")
-                
-        # If cookie login failed and credentials are provided, try normal login
-        if not cookie_login_success and username and password:
-            logger.info("Attempting login with credentials")
-            driver.get("https://www.facebook.com")
-            time.sleep(2)
+                logger.warning(f"Cookie login check failed: {str(e)}")
+                cookie_login_success = False
+        
+        # If cookie login failed, try credential login
+        if not cookie_login_success:
+            logger.info("Cookie login failed, attempting login with credentials")
             
-            # Save screenshot before login
+            # Use provided credentials or fallback to environment variables
+            fb_username = username if username else FB_USERNAME
+            fb_password = password if password else FB_PASSWORD
+            
+            if not fb_username or not fb_password:
+                logger.error("Facebook credentials not provided and not found in environment")
+                return False
+            
+            # Navigate to login page
+            driver.get("https://www.facebook.com/login")
+            time.sleep(3)
+            
+            # Accept cookies if the dialog appears
             try:
-                os.makedirs("logs", exist_ok=True)
-                driver.save_screenshot("logs/facebook_before_login.png")
-            except:
+                accept_button = WebDriverWait(driver, 3).until(
+                    EC.element_to_be_clickable((By.XPATH, "//button[contains(@title, 'Accept') or contains(@title, 'Cho phép')]"))
+                )
+                accept_button.click()
+                time.sleep(1)
+            except Exception:
+                # Cookie dialog might not appear, so we just continue
                 pass
-            
-            # Enter username and password
+                
             try:
-                # Enter email/username
+                # Find username/email field and fill it
                 email_field = WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.ID, "email"))
+                    EC.element_to_be_clickable((By.ID, "email"))
                 )
                 email_field.clear()
-                email_field.send_keys(username)
+                email_field.send_keys(fb_username)
                 
-                # Enter password
-                password_field = WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.ID, "pass"))
-                )
+                # Find password field and fill it
+                password_field = driver.find_element(By.ID, "pass")
                 password_field.clear()
-                password_field.send_keys(password)
+                password_field.send_keys(fb_password)
                 
                 # Click login button
-                login_button = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.NAME, "login"))
-                )
+                login_button = driver.find_element(By.ID, "loginbutton")
                 login_button.click()
                 
                 # Wait for login to complete
                 time.sleep(5)
                 
-                # Check if we're still on login page
+                # Take screenshot for debugging
+                try:
+                    screenshot_path = "logs/facebook_login_result.png"
+                    driver.save_screenshot(screenshot_path)
+                    logger.info(f"Saved login result screenshot to {screenshot_path}")
+                except Exception as e:
+                    logger.warning(f"Could not save screenshot: {str(e)}")
+                
+                # Check if login was successful
                 if "facebook.com/login" in driver.current_url:
-                    logger.warning("Still on login page after credential login")
-                    
-                    # Save screenshot for debugging
-                    try:
-                        driver.save_screenshot("logs/facebook_login_failed.png")
-                    except:
-                        pass
-                    
+                    logger.error("Login failed: Still on the login page")
                     return False
                     
-                # Save screenshot after login
-                try:
-                    driver.save_screenshot("logs/facebook_after_login.png")
-                except:
-                    pass
+                # Check for login verification challenge
+                if "challenge" in driver.current_url or "checkpoint" in driver.current_url:
+                    logger.error("Login requires verification. Please login manually first and save cookies.")
+                    return False
                 
-                # Save cookies after successful login
-                save_cookies(driver)
-                logger.info("Successfully logged in with credentials")
-                return True
+                # Check if login was successful by looking for common elements
+                try:
+                    # Check if user menu is present
+                    WebDriverWait(driver, 10).until(
+                        EC.presence_of_element_located((By.XPATH, "//div[@aria-label='Your profile' or @aria-label='Tài khoản' or contains(@aria-label, 'Account')]"))
+                    )
+                    logger.info("Login successful via credentials")
+                    
+                    # Save cookies for future use
+                    save_cookies(driver)
+                    return True
+                except Exception as e:
+                    logger.error(f"Could not verify login success: {str(e)}")
+                    return False
+                    
             except Exception as e:
-                logger.error(f"Login failed: {str(e)}")
+                logger.error(f"Error during login process: {str(e)}")
                 return False
-        
+                
         return cookie_login_success
+        
     except Exception as e:
-        logger.error(f"Error in login process: {str(e)}")
+        logger.error(f"Login error: {str(e)}")
         return False
 
 def setup_driver(headless=None, use_profile=None, chrome_profile="Default"):
     """Setup Chrome driver with options"""
     try:
-        # Sử dụng biến môi trường nếu không được cung cấp
+        # Sử dụng giá trị từ config nếu không được cung cấp
         if headless is None:
             headless = HEADLESS
         if use_profile is None:
@@ -305,7 +322,7 @@ def setup_driver(headless=None, use_profile=None, chrome_profile="Default"):
         
         # Use Chrome profile if requested
         if use_profile:
-            # Sử dụng đường dẫn từ biến môi trường
+            # Sử dụng đường dẫn từ config
             user_data_dir = CHROME_PROFILE_PATH
             logger.info(f"Using Chrome profile at: {user_data_dir}")
             
@@ -1353,45 +1370,60 @@ def save_posts_to_database(posts):
             logger.info("Đã đóng kết nối đến cơ sở dữ liệu")
 
 def main():
-    """Main function to run the scraper"""
-    parser = argparse.ArgumentParser(description='Facebook Scraper')
-    parser.add_argument('--url', type=str, required=True, help='Facebook URL to scrape')
-    parser.add_argument('--limit', type=int, default=10, help='Limit number of posts to scrape')
-    parser.add_argument('--headless', action='store_true', help='Run Chrome in headless mode')
-    parser.add_argument('--use_profile', action='store_true', help='Use Chrome profile')
-    parser.add_argument('--chrome_profile', type=str, default="Default", help='Chrome profile name')
-    parser.add_argument('--save_to_db', action='store_true', help='Save posts to database')
-    parser.add_argument('--username', type=str, help='Facebook username for login')
-    parser.add_argument('--password', type=str, help='Facebook password for login')
+    """
+    Hàm chính để chạy script từ command line
+    """
+    parser = argparse.ArgumentParser(description='Scrape posts from a Facebook page')
+    parser.add_argument('url', help='The URL of the Facebook page to scrape')
+    parser.add_argument('--limit', type=int, default=config.get('DEFAULT_POST_LIMIT', 10), 
+                      help='Number of posts to scrape')
+    parser.add_argument('--headless', action='store_true', default=config.get('HEADLESS', True),
+                      help='Run browser in headless mode')
+    parser.add_argument('--use-profile', action='store_true', default=config.get('USE_CHROME_PROFILE', False),
+                      help='Use Chrome profile')
+    parser.add_argument('--save-to-db', action='store_true', 
+                      help='Save scraped posts to the database')
+    parser.add_argument('--username', type=str, default=None,
+                      help='Facebook username or email')
+    parser.add_argument('--password', type=str, default=None,
+                      help='Facebook password')
     
     args = parser.parse_args()
     
+    # Ghi đè lên cấu hình từ tham số dòng lệnh
+    username = args.username if args.username else config.get('FACEBOOK_USERNAME', '')
+    password = args.password if args.password else config.get('FACEBOOK_PASSWORD', '')
+    
     try:
-        # Get posts from Facebook
+        # Scrape posts from the provided URL
         posts = get_facebook_posts(
             url=args.url,
             limit=args.limit,
             headless=args.headless,
             use_profile=args.use_profile,
-            chrome_profile=args.chrome_profile,
             save_to_db=args.save_to_db,
-            username=args.username,
-            password=args.password
+            username=username,
+            password=password
         )
         
-        # Print results
-        logger.info(f"Đã thu thập {len(posts)} bài viết")
-        for i, post in enumerate(posts, 1):
-            print(f"\n--- Post {i} ---")
-            print(f"ID: {post.get('post_id', 'N/A')}")
-            print(f"Time: {post.get('post_time', 'N/A')}")
-            print(f"URL: {post.get('url', 'N/A')}")
-            print(f"Content: {post.get('content', 'N/A')[:100]}...")
-        
-        return posts
+        # Print out a brief summary of the scraped posts
+        if posts:
+            print(f"\nScraped {len(posts)} posts:")
+            for i, post in enumerate(posts, 1):
+                print(f"{i}. Post type: {post.get('type', 'unknown')}, Author: {post.get('author_name', 'Unknown')}")
+                print(f"   Content: {post.get('content', '')[:100]}...")
+                print(f"   URL: {post.get('url', 'N/A')}")
+                print(f"   Reactions: {post.get('reaction_count', 0)}, Comments: {post.get('comment_count', 0)}, Shares: {post.get('share_count', 0)}")
+                print()
+        else:
+            print("No posts were scraped.")
+    
     except Exception as e:
-        logger.error(f"Lỗi trong hàm main: {str(e)}")
-        return []
+        print(f"Error: {str(e)}")
+        traceback.print_exc()
+        return 1
+        
+    return 0
 
 if __name__ == "__main__":
     main()

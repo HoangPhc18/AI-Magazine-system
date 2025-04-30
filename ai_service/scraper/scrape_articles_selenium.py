@@ -16,6 +16,12 @@ from datetime import datetime
 import trafilatura
 from urllib.parse import urlparse
 
+# Import cấu hình từ module config
+from config import get_config
+
+# Tải cấu hình
+config = get_config()
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -55,6 +61,12 @@ DOMAIN_SELECTORS = {
     }
 }
 
+# Kiểm tra xem có cấu hình bổ sung nào từ file .env
+additional_domains = config.get("DOMAIN_SELECTORS", None)
+if additional_domains and isinstance(additional_domains, dict):
+    DOMAIN_SELECTORS.update(additional_domains)
+    logger.info(f"Added {len(additional_domains)} custom domain selectors from config")
+
 def extract_article_content(url):
     """
     Extract article title and content from a URL.
@@ -67,8 +79,15 @@ def extract_article_content(url):
     """
     logger.info(f"Extracting content from: {url}")
     
+    # Tải lại cấu hình để có thông tin mới nhất
+    config = get_config()
+    
+    # Sử dụng User-Agent từ cấu hình nếu có
+    default_user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    user_agent = config.get("USER_AGENT", default_user_agent)
+    
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "User-Agent": user_agent,
         "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
     }
@@ -78,8 +97,11 @@ def extract_article_content(url):
         domain = urlparse(url).netloc
         logger.info(f"Detected domain: {domain}")
         
+        # Timeout từ cấu hình hoặc mặc định 15s
+        timeout = config.get("REQUEST_TIMEOUT", 15)
+        
         # Fetch the page
-        response = requests.get(url, headers=headers, timeout=15)
+        response = requests.get(url, headers=headers, timeout=timeout)
         response.raise_for_status()
         
         # Try using domain-specific selectors first

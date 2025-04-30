@@ -71,7 +71,7 @@ class FacebookPostController extends Controller
             // Thử kết nối với API để kiểm tra tình trạng hoạt động
             try {
                 // Xác định API URL
-                $apiUrl = config('services.facebook_scraper.api_url', 'http://localhost:5000');
+                $apiUrl = config('services.facebook_scraper.api_url', 'http://localhost:55025/facebook-scraper');
                 $pingUrl = rtrim($apiUrl, '/') . "/health";
                 
                 // Log thông tin kết nối API
@@ -307,7 +307,7 @@ class FacebookPostController extends Controller
             Log::info('Facebook Post job status check requested', ['job_id' => $jobId]);
             
             // Get API URL from config
-            $apiUrl = config('services.facebook_scraper.api_url', 'http://localhost:5000');
+            $apiUrl = config('services.facebook_scraper.api_url', 'http://localhost:55025/facebook-scraper');
             $apiUrl = rtrim($apiUrl, '/') . "/api/jobs/{$jobId}";
             
             // Log API call
@@ -398,7 +398,7 @@ class FacebookPostController extends Controller
             Log::info('Facebook Post all jobs requested');
             
             // Get API URL from config
-            $apiUrl = config('services.facebook_scraper.api_url', 'http://localhost:5000');
+            $apiUrl = config('services.facebook_scraper.api_url', 'http://localhost:55025/facebook-scraper');
             $apiUrl = rtrim($apiUrl, '/') . "/api/jobs";
             
             // Log API call

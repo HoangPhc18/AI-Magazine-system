@@ -16,6 +16,9 @@ import subprocess
 from datetime import datetime
 from flask import Flask, request, jsonify
 
+# Import module config
+from config import get_config, reload_config
+
 # Thiết lập logging
 logging.basicConfig(
     level=logging.INFO,
@@ -37,12 +40,30 @@ def health_check():
     """Endpoint kiểm tra trạng thái hoạt động của dịch vụ"""
     global running_process
     
+    # Tải lại cấu hình để có thông tin mới nhất
+    config = get_config()
+    
     return jsonify({
         'status': 'ok',
         'timestamp': datetime.now().isoformat(),
         'service': 'Rewrite API',
         'running': running_process is not None,
         'last_run': getattr(running_process, 'start_time', None),
+        'config': {
+            'backend_url': config['BACKEND_URL'],
+            'db_host': config['DB_HOST'],
+            'default_provider': config['DEFAULT_PROVIDER']
+        }
+    })
+
+@app.route('/reload-config', methods=['POST'])
+def reload_configuration():
+    """Endpoint để tải lại cấu hình từ file .env"""
+    config = reload_config()
+    return jsonify({
+        'status': 'ok',
+        'message': 'Cấu hình đã được tải lại',
+        'timestamp': datetime.now().isoformat(),
     })
 
 @app.route('/run', methods=['POST'])
@@ -166,7 +187,7 @@ def get_unprocessed_articles():
     """Get list of unprocessed articles"""
     try:
         # Kết nối database trực tiếp để lấy danh sách bài viết chưa xử lý
-        from rewrite_from_db import DB_CONFIG, connect_to_database
+        from rewrite_from_db import connect_to_database
         
         connection = connect_to_database()
         if not connection:
@@ -259,6 +280,13 @@ if __name__ == "__main__":
     # Thiết lập logging
     setup_logging()
     
+    # Tải cấu hình
+    config = get_config()
+    
     # Chạy ứng dụng Flask
-    port = int(os.environ.get("PORT", 5002))
-    app.run(host="0.0.0.0", port=port, debug=False) 
+    port = config["PORT_REWRITE"]
+    host = config["HOST"]
+    debug = config["DEBUG"]
+    
+    logger.info(f"Starting Rewrite API on {host}:{port} (debug: {debug})")
+    app.run(host=host, port=port, debug=debug) 

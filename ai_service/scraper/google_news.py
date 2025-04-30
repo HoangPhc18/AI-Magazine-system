@@ -27,30 +27,33 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
 
+# Import cấu hình từ module config
+from config import get_config
+
 # Import the content extractor from scrape_articles_selenium.py
 from scrape_articles_selenium import extract_article_content
 
-# Import biến từ main.py
-try:
-    from main import CATEGORIES_API_URL, BACKEND_API_URL
-except ImportError:
-    # Fallback to environment variables if can't import from main
-    BACKEND_URL = os.getenv('BACKEND_URL', 'http://host.docker.internal')
-    BACKEND_PORT = os.getenv('BACKEND_PORT', '8000')
-    BASE_API_URL = f"{BACKEND_URL}:{BACKEND_PORT}/api"
-    CATEGORIES_API_URL = f"{BASE_API_URL}/categories"
-    BACKEND_API_URL = f"{BASE_API_URL}/articles"
+# Tải cấu hình
+config = get_config()
+
+# Lấy thông tin cấu hình API URLs
+BACKEND_URL = config["BACKEND_URL"]
+BACKEND_PORT = config["BACKEND_PORT"]
+BASE_API_URL = config["BASE_API_URL"]
+CATEGORIES_API_URL = config["CATEGORIES_API_URL"]
+BACKEND_API_URL = config["ARTICLES_API_URL"]
 
 # 🔹 Số bài viết tối đa cho mỗi danh mục
-MAX_ARTICLES_PER_CATEGORY = 3
+MAX_ARTICLES_PER_CATEGORY = config.get("MAX_ARTICLES_PER_CATEGORY", 3)
 
-# Set environment variables for Flask
-os.environ["PORT"] = "5001"
-os.environ["HOST"] = "0.0.0.0"
-os.environ["DEBUG"] = "False"
+# Thông tin cấu hình service
+PORT = config["PORT_SCRAPER"]
+HOST = config["HOST"]
+DEBUG = config["DEBUG"]
 
 # Thư mục đầu ra JSON
 OUTPUT_DIR = "output"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Configure logging
 logging.basicConfig(
@@ -81,15 +84,19 @@ def fetch_categories_from_backend():
         list: Danh sách các danh mục hoặc None nếu có lỗi
     """
     try:
+        # Tải lại cấu hình để có thông tin mới nhất
+        config = get_config()
+        categories_url = config["CATEGORIES_API_URL"]
+        
         headers = {
             'User-Agent': random.choice(USER_AGENTS),
             'Accept': 'application/json',
         }
         
         # Gọi API lấy danh sách danh mục
-        logger.info(f"Fetching categories from backend: {CATEGORIES_API_URL}")
+        logger.info(f"Fetching categories from backend: {categories_url}")
         
-        response = requests.get(CATEGORIES_API_URL, headers=headers, timeout=15)
+        response = requests.get(categories_url, headers=headers, timeout=15)
         
         if response.status_code == 200:
             categories = response.json()

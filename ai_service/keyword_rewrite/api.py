@@ -18,20 +18,17 @@ os.environ["FLASK_SKIP_DOTENV"] = "1"
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-# from dotenv import load_dotenv
+
+# Import module config
+from config import get_config, reload_config
 
 # Import our modules
 from search import search_google_news
 from scraper import extract_article_content
 from rewriter import rewrite_content
 
-# Set environment variables directly
-# load_dotenv()
-os.environ["PORT"] = "5003"
-os.environ["HOST"] = "0.0.0.0"
-os.environ["DEBUG"] = "False"
-os.environ["GEMINI_MODEL"] = "gemini-1.5-flash-latest"
-os.environ["GEMINI_API_KEY"] = "AIzaSyDNYibANNjOZOG5dDPb6YlZ72bXkr7mvL4"
+# Tải cấu hình
+config = get_config()
 
 # Configure logging
 logging.basicConfig(
@@ -49,8 +46,8 @@ app = Flask(__name__)
 CORS(app)
 
 # Get model configuration from environment
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash-latest")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyDNYibANNjOZOG5dDPb6YlZ72bXkr7mvL4")
+GEMINI_MODEL = config.get("GEMINI_MODEL", "gemini-1.5-flash-latest")
+GEMINI_API_KEY = config.get("GEMINI_API_KEY", "")
 
 # Initialize Gemini API
 genai.configure(api_key=GEMINI_API_KEY)
@@ -93,7 +90,7 @@ def process_keyword_task(keyword, rewrite_id, callback_url):
         for attempt in range(1, max_retries + 1):
             # Step 2: Extract content from the URL
             logger.info(f"Extracting content from URL (attempt {attempt}/{max_retries}): {article_url}")
-            article_data = extract_article_content(article_url, attempt)
+            article_data = extract_article_content(article_url)
             
             # Kiểm tra xem article_data có phải là None không
             if article_data is None:
@@ -220,24 +217,30 @@ def send_callback(callback_url, rewrite_id, status, source_url=None, source_titl
             data['error_message'] = error_message
             
         # Use BACKEND_URL from environment and append path
-        backend_url = os.getenv('BACKEND_URL')
+        backend_url = config.get('BACKEND_URL')
         if backend_url:
             # Extract the path from the original callback_url
             parsed_url = urllib.parse.urlparse(callback_url)
             api_path = parsed_url.path
+            
             # Replace any domain/host part with our backend URL
             fixed_callback_url = f"{backend_url}{api_path}"
             logger.info(f"Using BACKEND_URL from environment: {fixed_callback_url}")
             
-            # Add custom headers for Host header to ensure proper virtual host routing
-            headers = {
-                'Host': 'magazine.test',
-                'Content-Type': 'application/json'
-            }
-            
-            # Attempt the request with custom headers
-            logger.info(f"Sending callback with Host: magazine.test to: {fixed_callback_url}")
-            response = requests.post(fixed_callback_url, json=data, headers=headers, timeout=30)
+            # Kiểm tra nếu đang chạy trong Docker container và giao tiếp với host
+            if os.path.exists('/.dockerenv') and 'host.docker.internal' in backend_url:
+                # Add custom headers for Host header to ensure proper virtual host routing
+                headers = {
+                    'Host': 'magazine.test',
+                    'Content-Type': 'application/json'
+                }
+                
+                # Attempt the request with custom headers
+                logger.info(f"Sending callback with Host: magazine.test to: {fixed_callback_url}")
+                response = requests.post(fixed_callback_url, json=data, headers=headers, timeout=30)
+            else:
+                # Nếu không chạy trong Docker, không cần header đặc biệt
+                response = requests.post(fixed_callback_url, json=data, timeout=30)
         else:
             # Fallback to the original URL
             fixed_callback_url = callback_url
@@ -249,263 +252,150 @@ def send_callback(callback_url, rewrite_id, status, source_url=None, source_titl
             logger.error(f"Error sending callback: {response.status_code} - {response.text}")
     except Exception as e:
         logger.error(f"Error sending callback: {str(e)}")
-        import traceback
-        logger.error(traceback.format_exc())
 
 @app.route('/api/keyword_rewrite/process', methods=['POST'])
 def process_keyword():
     """
-    Process a keyword rewrite request.
+    API endpoint to process keyword and retrieve relevant content.
+    
+    Expected JSON body:
+    {
+        "keyword": "search term",
+        "rewrite_id": 123,
+        "callback_url": "https://example.com/api/callback"
+    }
     """
-    data = request.json
-    
-    if not data:
-        return jsonify({"error": "No data provided"}), 400
-        
-    keyword = data.get('keyword')
-    rewrite_id = data.get('rewrite_id')
-    callback_url = data.get('callback_url')
-    
-    if not keyword:
-        return jsonify({"error": "No keyword provided"}), 400
-        
-    if not rewrite_id:
-        return jsonify({"error": "No rewrite_id provided"}), 400
-        
-    if not callback_url:
-        return jsonify({"error": "No callback_url provided"}), 400
-        
-    # Start processing in a background thread
-    thread = threading.Thread(
-        target=process_keyword_task, 
-        args=(keyword, rewrite_id, callback_url)
-    )
-    thread.daemon = True
-    thread.start()
-    
-    return jsonify({
-        "status": "processing",
-        "message": f"Processing keyword: {keyword}"
-    })
+    try:
+        data = request.json
+
+        # Validate required fields
+        if not all(key in data for key in ['keyword', 'rewrite_id', 'callback_url']):
+            return jsonify({
+                'status': 'error',
+                'message': 'Missing required fields: keyword, rewrite_id, callback_url'
+            }), 400
+
+        keyword = data['keyword']
+        rewrite_id = data['rewrite_id']
+        callback_url = data['callback_url']
+
+        # Generate a unique task ID
+        task_id = f"{rewrite_id}_{int(time.time())}"
+
+        # Start processing in a new thread
+        thread = threading.Thread(
+            target=process_keyword_task, 
+            args=(keyword, rewrite_id, callback_url)
+        )
+        thread.daemon = True
+        thread.start()
+
+        # Track the task
+        active_tasks[task_id] = {
+            'keyword': keyword,
+            'rewrite_id': rewrite_id,
+            'start_time': datetime.now().isoformat(),
+            'status': 'running'
+        }
+
+        return jsonify({
+            'status': 'accepted',
+            'message': 'Processing started',
+            'task_id': task_id,
+            'keyword': keyword,
+            'rewrite_id': rewrite_id
+        })
+
+    except Exception as e:
+        logger.error(f"Error in process_keyword endpoint: {str(e)}")
+        return jsonify({
+            'status': 'error', 
+            'message': str(e)
+        }), 500
+
+
 
 @app.route('/api/health', methods=['GET', 'POST'])
 def health_check():
-    """Endpoint kiểm tra trạng thái hoạt động của service"""
+    """Health check endpoint for API monitoring"""
     return jsonify({
         'status': 'ok',
+        'service': 'keyword_rewrite_api',
         'timestamp': datetime.now().isoformat(),
-        'service': 'Keyword Rewrite API'
+        'active_tasks': len(active_tasks),
+        'gemini_model': GEMINI_MODEL,
+        'gemini_api_key_configured': bool(GEMINI_API_KEY)
     })
 
 @app.route('/health', methods=['GET', 'POST'])
 def health_check_all():
-    """
-    Endpoint kiểm tra trạng thái hoạt động của dịch vụ.
-    Cũng có thể được gọi bởi cron để lập lịch các tác vụ chung.
-    """
-    # Ghi log khi được gọi bởi cron
-    if request.method == 'POST':
-        logger.info("Health check triggered by scheduler (cron)")
-        # Có thể thêm xử lý lịch trình tại đây nếu cần
+    """Simple health check endpoint including configuration"""
+    # Tải lại cấu hình để có thông tin mới nhất
+    current_config = get_config()
     
-    return jsonify({
-        "status": "ok",
-        "timestamp": datetime.now().isoformat(),
-        "service": "AI Keyword Rewrite",
-        "version": "1.0.0",
-        "active_tasks": len(active_tasks)
-    })
-
-def extract_article_content(url, attempt_num=1):
-    """
-    Hàm trích xuất nội dung tối giản, không sử dụng signal.
-    Thiết kế để hoạt động trong môi trường đa luồng.
-    
-    Args:
-        url (str): URL của bài viết
-        attempt_num (int): Số lần thử (để ghi log)
-        
-    Returns:
-        dict: Dictionary chứa thông tin bài viết hoặc None nếu thất bại
-    """
-    logger.info(f"Extracting content from URL (attempt {attempt_num}/3): {url}")
+    # Kiểm tra trạng thái các dịch vụ phụ thuộc
+    search_status = "ok"
+    scraper_status = "ok"
+    rewriter_status = "ok"
     
     try:
-        import requests
-        from bs4 import BeautifulSoup
-        from urllib.parse import urlparse
-        
-        # Headers chuẩn để tránh bị chặn
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-            "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        }
-        
-        # Lấy domain từ URL
-        domain = urlparse(url).netloc
-        logger.info(f"Extracting from domain: {domain}")
-        
-        # Dictionary các selector theo domain
-        domain_selectors = {
-            "vnexpress.net": {
-                "title": "h1.title-detail",
-                "content": "article.fck_detail",
-            },
-            "tuoitre.vn": {
-                "title": "h1.article-title",
-                "content": "div.article-content",
-            },
-            "thanhnien.vn": {
-                "title": "h1.details__headline",
-                "content": "div.details__content",
-            },
-            "dantri.com.vn": {
-                "title": "h1.title-page",
-                "content": "div.dt-news__content",
-            },
-            "vietnamnet.vn": {
-                "title": "h1.content-detail-title",
-                "content": "div.content-detail-body",
-            },
-            "24h.com.vn": {
-                "title": "h1.brmCne, h1.clrTit",
-                "content": "div.text-conent, div.brmDtl",
-            },
-            "danviet.vn": {
-                "title": "h1.title",
-                "content": "div.detail-content",
-            },
-            "vov.vn": {
-                "title": "h1.article-title",
-                "content": "div.article-body",
-            },
-            "nongnghiep.vn": {
-                "title": "h1.title",
-                "content": "div.detail-content-body",
-            },
-            "qdnd.vn": {
-                "title": "h1.article-title",
-                "content": "div.article-body",
-            },
-            "congthuong.vn": {
-                "title": "h1.detail-title",
-                "content": "div.detail-content-body",
-            }
-        }
-        
-        # Tải nội dung trang
-        try:
-            response = requests.get(url, headers=headers, timeout=10)
-            response.raise_for_status()
-            html_content = response.text
-            logger.info(f"Successfully fetched content from {url}, content length: {len(html_content)}")
-            
-            # Lưu trang HTML để debug
-            debug_filename = f"debug_{attempt_num}.html"
-            with open(debug_filename, "w", encoding="utf-8") as f:
-                f.write(html_content)
-            
-            # Phân tích HTML bằng BeautifulSoup
-            soup = BeautifulSoup(html_content, 'html.parser')
-            
-            # Thử lấy thông tin từ selector dựa trên domain
-            title = ""
-            content = ""
-            
-            # Tìm trong domain_selectors
-            found_selectors = False
-            for domain_key, selectors in domain_selectors.items():
-                if domain_key in domain:
-                    found_selectors = True
-                    # Lấy tiêu đề
-                    title_elements = soup.select(selectors["title"])
-                    if title_elements:
-                        title = title_elements[0].get_text().strip()
-                        logger.info(f"Found title with length {len(title)}")
-                    
-                    # Lấy nội dung
-                    content_elements = soup.select(selectors["content"])
-                    if content_elements:
-                        # Lấy toàn bộ text từ các thẻ p
-                        paragraphs = []
-                        for p in content_elements[0].find_all('p'):
-                            p_text = p.get_text().strip()
-                            if p_text:
-                                paragraphs.append(p_text)
-                        
-                        content = "\n\n".join(paragraphs)
-                        logger.info(f"Found content with length {len(content)}")
-                    break
-            
-            # Nếu không tìm thấy selector phù hợp, thử dùng trafilatura
-            if not found_selectors or not title or not content:
-                logger.info(f"Falling back to trafilatura for {url}")
-                try:
-                    import trafilatura
-                    downloaded = trafilatura.fetch_url(url)
-                    if downloaded:
-                        result = trafilatura.extract(downloaded, output_format='json', include_links=True, 
-                                                include_images=True, include_tables=True)
-                        
-                        import json
-                        if result:
-                            data = json.loads(result)
-                            if not title:
-                                title = data.get('title', '')
-                            if not content or len(content) < 100:
-                                content = data.get('text', '')
-                            logger.info(f"Trafilatura extraction: title length={len(title)}, content length={len(content)}")
-                except Exception as e:
-                    logger.error(f"Trafilatura extraction failed: {str(e)}")
-            
-            # Nếu vẫn không tìm thấy, thử tìm tiêu đề từ thẻ title và nội dung từ bất kỳ thẻ p nào
-            if not title or not content:
-                logger.info("Using fallback extraction method")
-                # Lấy tiêu đề từ thẻ title
-                if soup.title and not title:
-                    title = soup.title.string.strip()
-                
-                # Tìm tất cả các thẻ p có độ dài hợp lý
-                if not content or len(content) < 100:
-                    paragraphs = []
-                    for p in soup.find_all('p'):
-                        p_text = p.get_text().strip()
-                        if len(p_text) > 30:  # Loại bỏ các thẻ p quá ngắn
-                            paragraphs.append(p_text)
-                    
-                    if paragraphs:
-                        content = "\n\n".join(paragraphs)
-                        logger.info(f"Fallback extraction: found {len(paragraphs)} paragraphs, content length={len(content)}")
-            
-            # Kiểm tra và trả về kết quả
-            if title and content and len(content) > 200:
-                logger.info(f"Successfully extracted content from {url}")
-                return {
-                    'url': url,
-                    'title': title,
-                    'content': content,
-                    'html_content': html_content[:10000]  # Giới hạn kích thước HTML
-                }
-            else:
-                logger.warning(f"Extraction failed: title={bool(title)}, content_length={len(content) if content else 0}")
-                return None
-                
-        except requests.RequestException as e:
-            logger.error(f"Request error: {str(e)}")
-            return None
-            
+        search_google_news("test", skip=999)  # Không thực hiện tìm kiếm thực tế
     except Exception as e:
-        logger.error(f"Extraction error: {str(e)}")
-        return None
+        search_status = f"error: {str(e)}"
+        
+    try:
+        # Kiểm tra kết nối Gemini API
+        if not GEMINI_API_KEY:
+            rewriter_status = "error: Missing Gemini API key"
+    except Exception as e:
+        rewriter_status = f"error: {str(e)}"
+    
+    return jsonify({
+        'status': 'ok',
+        'service': 'keyword_rewrite_api',
+        'timestamp': datetime.now().isoformat(),
+        'active_tasks': len(active_tasks),
+        'dependencies': {
+            'search': search_status,
+            'scraper': scraper_status,
+            'rewriter': rewriter_status
+        },
+        'config': {
+            'gemini_model': current_config.get('GEMINI_MODEL'),
+            'gemini_api_key_configured': bool(current_config.get('GEMINI_API_KEY')),
+            'backend_url': current_config.get('BACKEND_URL'),
+            'debug': current_config.get('DEBUG')
+        }
+    })
+
+@app.route('/reload-config', methods=['POST'])
+def reload_configuration():
+    """Endpoint để tải lại cấu hình từ file .env"""
+    global GEMINI_MODEL, GEMINI_API_KEY
+    
+    config = reload_config()
+                
+    # Cập nhật các biến toàn cục
+    GEMINI_MODEL = config.get("GEMINI_MODEL", "gemini-1.5-flash-latest")
+    GEMINI_API_KEY = config.get("GEMINI_API_KEY", "")
+            
+    # Cập nhật cấu hình Gemini API
+    genai.configure(api_key=GEMINI_API_KEY)
+    
+    return jsonify({
+        'status': 'ok',
+        'message': 'Cấu hình đã được tải lại',
+        'timestamp': datetime.now().isoformat(),
+    })
 
 if __name__ == "__main__":
-    # Các thiết lập từ biến môi trường
-    port = int(os.getenv("PORT", 5003))
-    host = os.getenv("HOST", "0.0.0.0")
-    debug = os.getenv("DEBUG", "False").lower() == "true"
+    # Tải cấu hình
+    config = get_config()
     
-    logger.info(f"Starting Keyword Rewrite API on {host}:{port} (debug: {debug})")
+    # Lấy cấu hình từ config
+    port = config.get("PORT_KEYWORD_REWRITE", 5003)
+    host = config.get("HOST", "0.0.0.0")
+    debug = config.get("DEBUG", False)
     
-    # Chạy ứng dụng Flask
+    logger.info(f"Starting Keyword Rewrite API server on {host}:{port}, debug={debug}")
     app.run(host=host, port=port, debug=debug) 

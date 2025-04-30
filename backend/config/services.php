@@ -43,11 +43,11 @@ return [
     ],
 
     'facebook_scraper' => [
-        'api_url' => env('FACEBOOK_SCRAPER_API_URL', 'http://127.0.0.1:5000'),
+        'api_url' => env('FACEBOOK_SCRAPER_API_URL', 'http://localhost:55025/facebook-scraper'),
     ],
 
     'facebook_rewrite' => [
-        'url' => env('FACEBOOK_REWRITE_URL', 'http://127.0.0.1:5005'),
+        'url' => env('FACEBOOK_REWRITE_URL', 'http://localhost:55025/facebook-rewrite'),
     ],
 
 ];

@@ -49,7 +49,7 @@ class FacebookRewriteController extends Controller
 
         try {
             // Call the Facebook rewrite service
-            $rewriteServiceUrl = config('services.facebook_rewrite.url', 'http://localhost:5001');
+            $rewriteServiceUrl = config('services.facebook_rewrite.url', 'http://localhost:55025/facebook-rewrite');
             $endpoint = $rewriteServiceUrl . '/api/rewrite';
 
             $response = Http::timeout(120)
@@ -172,7 +172,7 @@ class FacebookRewriteController extends Controller
 
         try {
             // Call the batch processing endpoint
-            $rewriteServiceUrl = config('services.facebook_rewrite.url', 'http://localhost:5001');
+            $rewriteServiceUrl = config('services.facebook_rewrite.url', 'http://localhost:55025/facebook-rewrite');
             $endpoint = $rewriteServiceUrl . '/api/process-batch';
 
             $response = Http::timeout(300)

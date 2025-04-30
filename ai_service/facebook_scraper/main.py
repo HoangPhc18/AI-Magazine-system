@@ -11,6 +11,12 @@ from scraper_facebook import setup_driver, get_facebook_posts
 from datetime import datetime
 import traceback
 
+# Import module config
+from config import get_config, reload_config
+
+# Tải cấu hình
+config = get_config()
+
 # Cấu hình logging với UTF-8 encoding để hỗ trợ tiếng Việt
 logging.basicConfig(
     level=logging.INFO,
@@ -100,10 +106,10 @@ def scrape():
         
         # Kiểm tra tham số đầu vào
         url = data.get('url')
-        use_profile = data.get('use_profile', True)
+        use_profile = data.get('use_profile', config.get('USE_CHROME_PROFILE', True))
         chrome_profile = data.get('chrome_profile', 'Default')
-        limit = int(data.get('limit', 10))
-        headless = data.get('headless', True)
+        limit = int(data.get('limit', config.get('DEFAULT_POST_LIMIT', 10)))
+        headless = data.get('headless', config.get('HEADLESS', True))
         
         if not url:
             return jsonify({'error': 'URL is required'}), 400
@@ -170,27 +176,66 @@ def get_all_jobs():
 def health_check():
     """API endpoint để kiểm tra trạng thái của service"""
     try:
+        # Lấy lại cấu hình mới nhất
+        current_config = get_config()
+        
         return jsonify({
             'status': 'ok',
+            'service': 'facebook_scraper_api',
             'active_jobs': len(jobs['active']),
-            'completed_jobs': len(jobs['completed'])
+            'completed_jobs': len(jobs['completed']),
+            'config': {
+                'facebook_username_configured': bool(current_config.get('FACEBOOK_USERNAME')),
+                'use_chrome_profile': current_config.get('USE_CHROME_PROFILE'),
+                'chrome_profile_path': current_config.get('CHROME_PROFILE_PATH'),
+                'headless': current_config.get('HEADLESS')
+            }
         })
     except Exception as e:
         logger.error(f"Loi khi kiem tra health: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/reload-config', methods=['POST'])
+def reload_configuration():
+    """Endpoint để tải lại cấu hình từ file .env"""
+    try:
+        new_config = reload_config()
+        logger.info("Đã tải lại cấu hình thành công")
+        
+        return jsonify({
+            'status': 'ok',
+            'message': 'Cấu hình đã được tải lại thành công',
+            'config': {
+                'facebook_username_configured': bool(new_config.get('FACEBOOK_USERNAME')),
+                'use_chrome_profile': new_config.get('USE_CHROME_PROFILE'),
+                'chrome_profile_path': new_config.get('CHROME_PROFILE_PATH'),
+                'headless': new_config.get('HEADLESS')
+            }
+        })
+    except Exception as e:
+        logger.error(f"Lỗi khi tải lại cấu hình: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 def run_server(host='0.0.0.0', port=None):
     """Chạy Flask server"""
-    # Sử dụng biến môi trường PORT nếu có, mặc định là 5004
+    # Sử dụng config thay vì trực tiếp từ biến môi trường
     if port is None:
-        port = int(os.getenv('PORT', 5004))
-    logger.info(f"Bat dau Facebook Scraper API service tren {host}:{port}")
-    app.run(host=host, port=port, debug=False)
+        port = config.get('PORT_FACEBOOK_SCRAPER', 5004)
+    
+    host = config.get('HOST', '0.0.0.0')
+    debug = config.get('DEBUG', False)
+    
+    logger.info(f"Bat dau Facebook Scraper API service tren {host}:{port}, debug={debug}")
+    app.run(host=host, port=port, debug=debug)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Facebook Scraper Service')
-    parser.add_argument('--host', type=str, default='0.0.0.0', help='Host to bind to')
-    parser.add_argument('--port', type=int, default=None, help='Port to bind to (defaults to PORT env or 5004)')
+    parser.add_argument('--host', type=str, default=None, help='Host to bind to')
+    parser.add_argument('--port', type=int, default=None, help='Port to bind to')
     args = parser.parse_args()
     
-    run_server(host=args.host, port=args.port) 
+    # Ưu tiên tham số dòng lệnh nếu có
+    host = args.host if args.host is not None else config.get('HOST', '0.0.0.0')
+    port = args.port if args.port is not None else config.get('PORT_FACEBOOK_SCRAPER', 5004)
+    
+    run_server(host=host, port=port) 
