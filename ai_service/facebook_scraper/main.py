@@ -6,6 +6,7 @@ import json
 import logging
 import argparse
 import threading
+import subprocess
 from flask import Flask, request, jsonify
 from scraper_facebook import setup_driver, get_facebook_posts
 from datetime import datetime
@@ -17,12 +18,15 @@ from config import get_config, reload_config
 # Tải cấu hình
 config = get_config()
 
+# Tạo thư mục logs nếu chưa tồn tại
+os.makedirs("logs", exist_ok=True)
+
 # Cấu hình logging với UTF-8 encoding để hỗ trợ tiếng Việt
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("facebook_scraper.log", encoding='utf-8'),
+        logging.FileHandler("logs/facebook_scraper.log", encoding='utf-8'),
         logging.StreamHandler(sys.stdout)
     ]
 )
@@ -41,11 +45,37 @@ jobs = {
     'completed': {}  # Các job đã hoàn thành
 }
 
+def ensure_chromedriver():
+    """Đảm bảo ChromeDriver được cài đặt với phiên bản phù hợp"""
+    try:
+        logger.info("Verifying ChromeDriver installation...")
+        
+        # Chạy script install_chromedriver.py
+        result = subprocess.run(
+            [sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "install_chromedriver.py")],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        
+        if result.returncode != 0:
+            logger.error(f"ChromeDriver installation failed: {result.stderr}")
+            return False
+        else:
+            logger.info("ChromeDriver installed successfully")
+            return True
+    except Exception as e:
+        logger.error(f"Error installing ChromeDriver: {str(e)}")
+        return False
+
 def scrape_task(job_id, url, use_profile, chrome_profile, limit, headless):
     """Hàm chạy task scraping trong một thread riêng"""
     try:
         logger.info(f"Job {job_id} - Bat dau scraping tu URL: {url}")
         jobs['active'][job_id]['status'] = 'running'
+        
+        # Đảm bảo ChromeDriver đã được cài đặt đúng phiên bản
+        ensure_chromedriver()
         
         # Thực hiện scraping
         try:
@@ -233,9 +263,13 @@ if __name__ == "__main__":
     parser.add_argument('--host', type=str, default=None, help='Host to bind to')
     parser.add_argument('--port', type=int, default=None, help='Port to bind to')
     args = parser.parse_args()
+
+    # Đảm bảo ChromeDriver được cài đặt trước khi khởi động dịch vụ
+    if not ensure_chromedriver():
+        logger.error("Failed to ensure ChromeDriver is properly installed. Continuing anyway...")
     
     # Ưu tiên tham số dòng lệnh nếu có
     host = args.host if args.host is not None else config.get('HOST', '0.0.0.0')
     port = args.port if args.port is not None else config.get('PORT_FACEBOOK_SCRAPER', 5004)
-    
+        
     run_server(host=host, port=port) 

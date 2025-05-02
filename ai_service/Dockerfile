@@ -43,11 +43,18 @@ RUN apt-get update && apt-get install -y \
     libxss1 \
     libxtst6 \
     nginx \
-    chromium-browser \
+    jq \
     && rm -rf /var/lib/apt/lists/*
 
-# Tạo liên kết để các ứng dụng sử dụng Chrome có thể sử dụng Chromium
-RUN ln -sf /usr/bin/chromium-browser /usr/bin/google-chrome
+# Cài đặt Google Chrome trực tiếp từ tệp DEB
+RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
+    && apt-get update \
+    && apt-get install -y ./google-chrome-stable_current_amd64.deb \
+    && rm google-chrome-stable_current_amd64.deb \
+    && rm -rf /var/lib/apt/lists/*
+
+# Kiểm tra phiên bản Chrome đã cài đặt
+RUN google-chrome --version
 
 # Tạo liên kết cho Python 3
 RUN ln -s /usr/bin/python3 /usr/bin/python
@@ -109,6 +116,45 @@ COPY facebook_scraper/ .
 RUN rm -rf .venv venv
 RUN mkdir -p logs cookies chrome_profile
 RUN chmod +x main.py
+
+# Cài đặt ChromeDriver từ Chrome for Testing API để có phiên bản tương thích với Chrome
+RUN apt-get update && apt-get install -y wget unzip curl jq \
+    && echo "Detecting Chrome version and getting compatible ChromeDriver..." \
+    && CHROME_VERSION=$(google-chrome --version | awk '{print $3}') \
+    && CHROME_MAJOR_VERSION=$(echo $CHROME_VERSION | cut -d. -f1) \
+    && echo "Detected Chrome version: $CHROME_VERSION (Major: $CHROME_MAJOR_VERSION)" \
+    \
+    && echo "Fetching Chrome for Testing metadata..." \
+    && curl -s https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json > /tmp/chrome_versions.json \
+    && CFT_VERSION=$(jq -r '.channels.Stable.version' /tmp/chrome_versions.json) \
+    && echo "Latest Chrome for Testing stable version: $CFT_VERSION" \
+    \
+    && CHROMEDRIVER_URL=$(jq -r '.channels.Stable.downloads.chromedriver[] | select(.platform=="linux64") | .url' /tmp/chrome_versions.json) \
+    && if [ -z "$CHROMEDRIVER_URL" ]; then \
+         echo "Could not find ChromeDriver URL for stable version, trying canary..." && \
+         CHROMEDRIVER_URL=$(jq -r '.channels.Canary.downloads.chromedriver[] | select(.platform=="linux64") | .url' /tmp/chrome_versions.json); \
+       fi \
+    \
+    && if [ ! -z "$CHROMEDRIVER_URL" ]; then \
+         echo "Downloading ChromeDriver from: $CHROMEDRIVER_URL" && \
+         mkdir -p /tmp/chromedriver && \
+         wget -q -O /tmp/chromedriver.zip "$CHROMEDRIVER_URL" && \
+         unzip -q /tmp/chromedriver.zip -d /tmp/chromedriver && \
+         find /tmp/chromedriver -name chromedriver -type f -exec cp {} /usr/local/bin/chromedriver \; && \
+         chmod +x /usr/local/bin/chromedriver && \
+         chromedriver --version || echo "ChromeDriver installed but version check failed"; \
+       else \
+         echo "Failed to find ChromeDriver URL, trying fallback method..." && \
+         apt-get update && apt-get install -y chromium-chromedriver && \
+         ln -sf /usr/lib/chromium/chromedriver /usr/local/bin/chromedriver; \
+       fi \
+    \
+    && echo "ChromeDriver installation completed. Path: $(which chromedriver)" \
+    && rm -rf /tmp/chrome_versions.json /tmp/chromedriver.zip /tmp/chromedriver \
+    && rm -rf /var/lib/apt/lists/*
+    
+# Sử dụng installer script từ facebook_scraper để cài đặt ChromeDriver phù hợp
+RUN cd /app/facebook_scraper && python install_chromedriver.py || echo "Using pre-installed ChromeDriver"
 
 # --- FACEBOOK REWRITE SERVICE ---
 WORKDIR /app/facebook_rewrite

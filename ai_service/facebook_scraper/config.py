@@ -12,6 +12,7 @@ import logging
 from pathlib import Path
 from dotenv import load_dotenv
 import json
+import platform
 
 # Setup logging
 logging.basicConfig(
@@ -84,7 +85,23 @@ def load_config():
     config["FACEBOOK_USERNAME"] = os.getenv("FACEBOOK_USERNAME", "")
     config["FACEBOOK_PASSWORD"] = os.getenv("FACEBOOK_PASSWORD", "")
     config["USE_CHROME_PROFILE"] = os.getenv("USE_CHROME_PROFILE", "false").lower() == "true"
-    config["CHROME_PROFILE_PATH"] = os.getenv("CHROME_PROFILE_PATH", "/app/facebook_scraper/chrome_profile")
+    
+    # Determine the default Chrome profile path based on the platform
+    default_chrome_profile = "/app/chrome_profile"
+    if platform.system() == "Windows":
+        default_chrome_profile = os.path.join(FACEBOOK_SCRAPER_DIR, "chrome_profile")
+    elif platform.system() == "Darwin":  # macOS
+        default_chrome_profile = os.path.join(FACEBOOK_SCRAPER_DIR, "chrome_profile")
+    
+    config["CHROME_PROFILE_PATH"] = os.getenv("CHROME_PROFILE_PATH", default_chrome_profile)
+    
+    # Make sure the Chrome profile path is absolute
+    if not os.path.isabs(config["CHROME_PROFILE_PATH"]):
+        config["CHROME_PROFILE_PATH"] = os.path.abspath(os.path.join(FACEBOOK_SCRAPER_DIR, config["CHROME_PROFILE_PATH"]))
+    
+    logger.info(f"Chrome profile path set to: {config['CHROME_PROFILE_PATH']}")
+    
+    # Browser Configuration
     config["HEADLESS"] = os.getenv("HEADLESS", "true").lower() == "true"
     
     # API URLs
@@ -103,6 +120,13 @@ def load_config():
     
     # Log các cấu hình đã tải
     logger.info("Đã tải cấu hình thành công")
+    
+    # Log Facebook credentials status
+    if config["FACEBOOK_USERNAME"] and config["FACEBOOK_PASSWORD"]:
+        logger.info("Facebook credentials found in configuration")
+    else:
+        logger.warning("Facebook credentials missing or incomplete")
+    
     return config
 
 def get_config(key=None, default=None):

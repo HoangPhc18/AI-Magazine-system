@@ -32,10 +32,16 @@ config = get_config()
 
 # Tạo thư mục cookies nếu chưa tồn tại
 os.makedirs("cookies", exist_ok=True)
+# Tạo thư mục logs nếu chưa tồn tại
+os.makedirs("logs", exist_ok=True)
 
 # Thiết lập logging
 logging.basicConfig(level=logging.INFO, 
-                   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+                   format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                   handlers=[
+                       logging.FileHandler("logs/facebook_scraper.log", encoding='utf-8'),
+                       logging.StreamHandler(sys.stdout)
+                   ])
 logger = logging.getLogger('facebook_scraper')
 
 # Lấy thông tin Facebook từ config
@@ -44,6 +50,15 @@ FB_PASSWORD = config.get('FACEBOOK_PASSWORD', '')
 USE_CHROME_PROFILE = config.get('USE_CHROME_PROFILE', False)
 CHROME_PROFILE_PATH = config.get('CHROME_PROFILE_PATH', '/app/chrome_profile')
 HEADLESS = config.get('HEADLESS', True)
+CHROMEDRIVER_PATH = "/usr/local/bin/chromedriver"  # Đường dẫn cố định đến ChromeDriver
+
+# Kiểm tra và tạo thư mục chrome_profile nếu cần
+if USE_CHROME_PROFILE and not os.path.exists(CHROME_PROFILE_PATH):
+    try:
+        os.makedirs(CHROME_PROFILE_PATH, exist_ok=True)
+        logger.info(f"Đã tạo thư mục Chrome profile: {CHROME_PROFILE_PATH}")
+    except Exception as e:
+        logger.error(f"Không thể tạo thư mục Chrome profile: {str(e)}")
 
 def get_db_connection():
     """Get a connection to the Laravel database"""
@@ -71,7 +86,15 @@ def is_chrome_running():
 
 def kill_chrome_processes():
     """Tắt tất cả các tiến trình Chrome đang chạy"""
-    os.system('taskkill /f /im chrome.exe')
+    try:
+        if platform.system() == 'Windows':
+            os.system('taskkill /f /im chrome.exe')
+        else:
+            os.system('pkill -f chrome')
+        logger.info("Đã tắt tất cả các tiến trình Chrome")
+        time.sleep(2)  # Cho phép thời gian để Chrome tắt hoàn toàn
+    except Exception as e:
+        logger.error(f"Lỗi khi tắt Chrome: {str(e)}")
 
 def setup_mysql_connection():
     """Thiết lập kết nối đến MySQL"""
@@ -101,12 +124,22 @@ def setup_mysql_connection():
 def save_cookies(driver):
     """Save browser cookies to a file"""
     try:
+        # Kiểm tra xem driver có tồn tại không
+        if driver is None:
+            logger.error("Driver is None, cannot save cookies")
+            return False
+            
         # Create cookies directory if it doesn't exist
         os.makedirs("cookies", exist_ok=True)
         
         # Save cookies to a file
+        cookies = driver.get_cookies()
+        if not cookies:
+            logger.warning("No cookies to save")
+            return False
+            
         with open("cookies/facebook_cookies.json", "w") as file:
-            json.dump(driver.get_cookies(), file)
+            json.dump(cookies, file)
             
         logger.info("Successfully saved cookies")
         return True
@@ -117,6 +150,11 @@ def save_cookies(driver):
 def load_cookies(driver):
     """Load cookies from file and add them to the browser"""
     try:
+        # Kiểm tra xem driver có tồn tại không
+        if driver is None:
+            logger.error("Driver is None, cannot load cookies")
+            return False
+            
         cookie_file = "cookies/facebook_cookies.json"
         
         if not os.path.exists(cookie_file):
@@ -126,6 +164,10 @@ def load_cookies(driver):
         # Load cookies from file
         with open(cookie_file, "r") as file:
             cookies = json.load(file)
+            
+        if not cookies or not isinstance(cookies, list) or len(cookies) == 0:
+            logger.warning("Cookie file is empty or invalid")
+            return False
             
         # Navigate to Facebook domain first (required to set cookies)
         driver.get("https://www.facebook.com")
@@ -137,18 +179,16 @@ def load_cookies(driver):
             # Convert from EditThisCookie format
             for cookie in cookies:
                 try:
+                    if not cookie or not isinstance(cookie, dict):
+                        continue
+                        
                     # Remove fields that Selenium doesn't accept
-                    cookie_dict = {
-                        'name': cookie.get('name'),
-                        'value': cookie.get('value'),
-                        'domain': cookie.get('domain'),
-                        'path': cookie.get('path'),
-                        'expiry': cookie.get('expirationDate'),
-                        'secure': cookie.get('secure'),
-                        'httpOnly': cookie.get('httpOnly')
-                    }
-                    # Remove None values
-                    cookie_dict = {k: v for k, v in cookie_dict.items() if v is not None}
+                    cookie_dict = {k: v for k, v in cookie.items() if k in 
+                                  ['name', 'value', 'domain', 'path', 'expiry', 'secure', 'httpOnly']}
+                    
+                    if 'name' not in cookie_dict or 'value' not in cookie_dict:
+                        continue
+                        
                     driver.add_cookie(cookie_dict)
                 except Exception as e:
                     logger.warning(f"Error adding cookie: {str(e)}")
@@ -156,6 +196,12 @@ def load_cookies(driver):
             # Standard format - just add directly
             for cookie in cookies:
                 try:
+                    if not cookie or not isinstance(cookie, dict):
+                        continue
+                        
+                    if 'name' not in cookie or 'value' not in cookie:
+                        continue
+                        
                     driver.add_cookie(cookie)
                 except Exception as e:
                     logger.warning(f"Error adding cookie: {str(e)}")
@@ -178,6 +224,11 @@ def load_cookies(driver):
 def login_facebook(driver, username=None, password=None):
     """Login to Facebook using cookies or credentials"""
     try:
+        # Kiểm tra xem driver có tồn tại không
+        if driver is None:
+            logger.error("Driver is None, cannot login to Facebook")
+            return False
+            
         # First try to login using cookies
         cookie_login_success = False
         logger.info("Attempting login with cookies")
@@ -189,122 +240,81 @@ def login_facebook(driver, username=None, password=None):
             
             # Take screenshot for debugging
             try:
-                os.makedirs("logs", exist_ok=True)
                 screenshot_path = "logs/facebook_cookie_login.png"
                 driver.save_screenshot(screenshot_path)
                 logger.info(f"Saved login screenshot to {screenshot_path}")
             except Exception as e:
                 logger.warning(f"Could not save screenshot: {str(e)}")
             
-            # Check if login was successful by looking for common elements
-            try:
-                # Check if we're on the login page
-                if "facebook.com/login" in driver.current_url:
-                    logger.warning("Still on login page after loading cookies")
-                    cookie_login_success = False
-                else:
-                    # Check if user menu is present
-                    WebDriverWait(driver, 5).until(
-                        EC.presence_of_element_located((By.XPATH, "//div[@aria-label='Your profile' or @aria-label='Tài khoản' or contains(@aria-label, 'Account')]"))
-                    )
-                    logger.info("Login successful via cookies")
-                    cookie_login_success = True
-                    
-                    # Save updated cookies
-                    save_cookies(driver)
-                    return True
-            except Exception as e:
-                logger.warning(f"Cookie login check failed: {str(e)}")
-                cookie_login_success = False
-        
-        # If cookie login failed, try credential login
-        if not cookie_login_success:
+            # Check if login was successful
+            if "facebook.com/login" not in driver.current_url:
+                logger.info("Cookie login successful")
+                cookie_login_success = True
+                return True
+            else:
+                logger.info("Cookie login failed, attempting login with credentials")
+        else:
             logger.info("Cookie login failed, attempting login with credentials")
             
-            # Use provided credentials or fallback to environment variables
+        # If cookie login failed and credentials are provided, try to login with credentials
+        if not cookie_login_success:
+            # Use provided credentials or fall back to config values
             fb_username = username if username else FB_USERNAME
             fb_password = password if password else FB_PASSWORD
             
             if not fb_username or not fb_password:
-                logger.error("Facebook credentials not provided and not found in environment")
+                logger.error("No Facebook credentials available. Please provide username/password or configure them in .env")
                 return False
-            
-            # Navigate to login page
+                
+            # Navigate to Facebook login page
             driver.get("https://www.facebook.com/login")
             time.sleep(3)
             
-            # Accept cookies if the dialog appears
+            # Wait for and fill in username field
             try:
-                accept_button = WebDriverWait(driver, 3).until(
-                    EC.element_to_be_clickable((By.XPATH, "//button[contains(@title, 'Accept') or contains(@title, 'Cho phép')]"))
+                WebDriverWait(driver, 10).until(
+                    EC.presence_of_element_located((By.ID, "email"))
                 )
-                accept_button.click()
-                time.sleep(1)
-            except Exception:
-                # Cookie dialog might not appear, so we just continue
-                pass
                 
-            try:
-                # Find username/email field and fill it
-                email_field = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.ID, "email"))
-                )
-                email_field.clear()
-                email_field.send_keys(fb_username)
+                # Fill in username and password
+                driver.find_element(By.ID, "email").send_keys(fb_username)
+                driver.find_element(By.ID, "pass").send_keys(fb_password)
                 
-                # Find password field and fill it
-                password_field = driver.find_element(By.ID, "pass")
-                password_field.clear()
-                password_field.send_keys(fb_password)
+                # Take screenshot before clicking login
+                driver.save_screenshot("logs/before_login.png")
                 
                 # Click login button
-                login_button = driver.find_element(By.ID, "loginbutton")
+                login_button = driver.find_element(By.NAME, "login")
                 login_button.click()
                 
                 # Wait for login to complete
                 time.sleep(5)
                 
-                # Take screenshot for debugging
-                try:
-                    screenshot_path = "logs/facebook_login_result.png"
-                    driver.save_screenshot(screenshot_path)
-                    logger.info(f"Saved login result screenshot to {screenshot_path}")
-                except Exception as e:
-                    logger.warning(f"Could not save screenshot: {str(e)}")
+                # Take screenshot to see result
+                driver.save_screenshot("logs/after_login.png")
                 
-                # Check if login was successful
-                if "facebook.com/login" in driver.current_url:
-                    logger.error("Login failed: Still on the login page")
-                    return False
-                    
-                # Check for login verification challenge
-                if "challenge" in driver.current_url or "checkpoint" in driver.current_url:
-                    logger.error("Login requires verification. Please login manually first and save cookies.")
-                    return False
-                
-                # Check if login was successful by looking for common elements
-                try:
-                    # Check if user menu is present
-                    WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.XPATH, "//div[@aria-label='Your profile' or @aria-label='Tài khoản' or contains(@aria-label, 'Account')]"))
-                    )
-                    logger.info("Login successful via credentials")
+                # Check if login successful
+                if "login" not in driver.current_url and "checkpoint" not in driver.current_url:
+                    logger.info("Login with credentials successful")
                     
                     # Save cookies for future use
                     save_cookies(driver)
                     return True
-                except Exception as e:
-                    logger.error(f"Could not verify login success: {str(e)}")
+                else:
+                    logger.error("Login with credentials failed, please check username/password")
                     return False
-                    
+                
             except Exception as e:
                 logger.error(f"Error during login process: {str(e)}")
+                driver.save_screenshot("logs/login_error.png")
                 return False
                 
         return cookie_login_success
         
     except Exception as e:
         logger.error(f"Login error: {str(e)}")
+        if driver:
+            driver.save_screenshot("logs/login_exception.png")
         return False
 
 def setup_driver(headless=None, use_profile=None, chrome_profile="Default"):
@@ -316,52 +326,119 @@ def setup_driver(headless=None, use_profile=None, chrome_profile="Default"):
         if use_profile is None:
             use_profile = USE_CHROME_PROFILE
             
-        logger.info(f"Setting up Chrome driver: headless={headless}, use_profile={use_profile}, chrome_profile={chrome_profile}")
+        # Kiểm tra và tắt Chrome nếu đang chạy
+        if "linux" in sys.platform:
+            try:
+                logger.info("Chrome is running. Terminating existing Chrome processes...")
+                os.system("pkill -f chrome")
+                os.system("pkill -f Chrom")
+                time.sleep(2)  # Đợi một chút để Chrome được đóng hoàn toàn
+                logger.info("Đã tắt tất cả các tiến trình Chrome")
+            except Exception as e:
+                logger.error(f"Lỗi khi tắt Chrome: {str(e)}")
         
+        # Thiết lập options chung cho Chrome
         options = webdriver.ChromeOptions()
         
-        # Use Chrome profile if requested
-        if use_profile:
-            # Sử dụng đường dẫn từ config
-            user_data_dir = CHROME_PROFILE_PATH
-            logger.info(f"Using Chrome profile at: {user_data_dir}")
+        # Đặt đường dẫn đến Chrome binary
+        if os.path.exists('/usr/bin/google-chrome'):
+            options.binary_location = '/usr/bin/google-chrome'
             
-            options.add_argument(f"user-data-dir={user_data_dir}")
-            options.add_argument(f"profile-directory={chrome_profile}")
-            
-        # Common options
-        options.add_argument("--disable-notifications")
-        options.add_argument("--disable-infobars")
-        options.add_argument("--disable-extensions")
-        options.add_argument("--disable-gpu")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
+        # Thêm các tùy chọn cho Chrome để tăng tính ổn định
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--disable-gpu')
+        options.add_argument('--disable-extensions')
+        options.add_argument('--disable-popup-blocking')
+        options.add_argument('--ignore-certificate-errors')
+        options.add_argument('--remote-debugging-port=9222')
+        options.add_argument('--disable-browser-side-navigation')
+        options.add_argument('--blink-settings=imagesEnabled=true')
         
-        # Add user agent
-        options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36")
+        # Đặt user agent phù hợp với Chrome mới nhất
+        user_agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36'
+        options.add_argument(f'--user-agent={user_agent}')
         
-        # Run in headless mode if requested
+        # Sử dụng profile Chrome nếu được chỉ định
+        if use_profile and chrome_profile:
+            if chrome_profile == "Default":
+                # Sử dụng đường dẫn mặc định
+                chrome_profile_path = CHROME_PROFILE_PATH
+            else:
+                # Sử dụng đường dẫn được cung cấp
+                chrome_profile_path = chrome_profile
+                
+            logger.info(f"Using Chrome profile at: {chrome_profile_path}")
+            options.add_argument(f'--user-data-dir={chrome_profile_path}')
+        
+        # Chế độ headless
         if headless:
-            options.add_argument("--headless=new")
+            logger.info("Using headless mode")
+            options.add_argument('--headless=new')
+            
+        # Thêm các tùy chọn cần thiết để tránh phát hiện automation
+        options.add_experimental_option('excludeSwitches', ['enable-logging', 'enable-automation'])
+        options.add_experimental_option('useAutomationExtension', False)
         
-        # Sử dụng webdriver-manager để tự động tải và quản lý ChromeDriver
-        from webdriver_manager.chrome import ChromeDriverManager
-        from selenium.webdriver.chrome.service import Service
+        # Tùy chọn để giải quyết vấn đề không tương thích phiên bản
+        options.add_argument('--ignore-certificate-errors')
+        options.add_argument('--allow-running-insecure-content')
+        options.add_argument('--allow-insecure-localhost')
         
-        # Initialize the WebDriver with automatic ChromeDriver management
-        service = Service(ChromeDriverManager().install())
-        driver = webdriver.Chrome(service=service, options=options)
-        driver.set_window_size(1920, 1080)
+        # Thêm tùy chọn mới để vượt qua kiểm tra phiên bản
+        options.add_argument('--disable-blink-features=AutomationControlled')
         
-        logger.info("Successfully initialized Chrome driver")
-        return driver
+        logger.info(f"Using ChromeDriver at: {CHROMEDRIVER_PATH}")
+        
+        # Khởi tạo service và driver
+        try:
+            service = Service(executable_path=CHROMEDRIVER_PATH)
+            driver = webdriver.Chrome(service=service, options=options)
+            
+            # Đặt kích thước cửa sổ trình duyệt
+            driver.set_window_size(1920, 1080)
+            
+            # Đặt thời gian timeout cho việc tải trang
+            driver.set_page_load_timeout(30)
+            
+            logger.info("Chrome WebDriver initialized successfully")
+            return driver
+        except Exception as e:
+            logger.error(f"Error initializing Chrome WebDriver: {str(e)}")
+            logger.error(traceback.format_exc())
+            
+            # Thử cài đặt ChromeDriver tự động nếu khởi tạo thất bại
+            try:
+                logger.info("Attempting to reinstall ChromeDriver...")
+                script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "install_chromedriver.py")
+                subprocess.run([sys.executable, script_path], check=True)
+                
+                # Thử lại sau khi cài đặt lại
+                service = Service(executable_path=CHROMEDRIVER_PATH)
+                driver = webdriver.Chrome(service=service, options=options)
+                driver.set_window_size(1920, 1080)
+                driver.set_page_load_timeout(30)
+                
+                logger.info("Chrome WebDriver initialized successfully after reinstalling ChromeDriver")
+                return driver
+            except Exception as e2:
+                logger.error(f"Error reinstalling ChromeDriver: {str(e2)}")
+                logger.error(traceback.format_exc())
+                return None
+            
     except Exception as e:
         logger.error(f"Error setting up Chrome driver: {str(e)}")
+        logger.error(traceback.format_exc())
         return None
 
 def take_debug_screenshot(driver, element=None, prefix="debug"):
     """Chụp ảnh màn hình hoặc phần tử cụ thể để debug"""
     try:
+        # Kiểm tra xem driver có tồn tại không
+        if driver is None:
+            logger.error("Driver is None, cannot take screenshot")
+            return None
+            
         # Tạo thư mục logs nếu chưa tồn tại
         os.makedirs("logs", exist_ok=True)
         
@@ -406,6 +483,12 @@ def get_facebook_posts(url, limit=10, headless=True, use_profile=False, chrome_p
         try:
             # Thiết lập trình duyệt
             driver = setup_driver(headless, use_profile, chrome_profile)
+            
+            # Kiểm tra xem driver có được khởi tạo thành công không
+            if driver is None:
+                logger.error(f"Không thể khởi tạo trình duyệt (lần {attempts}/{max_attempts})")
+                time.sleep(2)  # Đợi một chút trước khi thử lại
+                continue
             
             # Đăng nhập vào Facebook
             login_success = login_facebook(driver, username, password)
@@ -838,6 +921,11 @@ def extract_post_content(post_element):
 def get_deep_content(driver, post_element):
     """Trích xuất nội dung bài viết với nhiều phương pháp, bao gồm JavaScript"""
     try:
+        # Kiểm tra xem driver có tồn tại không
+        if driver is None:
+            logger.error("Driver is None, cannot extract content")
+            return ""
+            
         # Method 1: Sử dụng JavaScript để lấy text nội dung
         try:
             content = driver.execute_script("""
@@ -933,6 +1021,11 @@ def find_post_content_by_attribute(driver, post_element):
     Tìm nội dung bài viết dựa vào thuộc tính r2a mà bạn đã chỉ ra
     """
     try:
+        # Kiểm tra xem driver có tồn tại không
+        if driver is None:
+            logger.error("Driver is None, cannot find post content by attribute")
+            return ""
+            
         # Thử trực tiếp với CSS selector theo ví dụ bạn đã cung cấp
         script = """
             return (function() {
@@ -1015,6 +1108,11 @@ def find_post_content_by_attribute(driver, post_element):
 
 def extract_posts_data(driver, is_group=False, url="", limit=10):
     """Extract post data from page"""
+    # Kiểm tra xem driver có tồn tại không
+    if driver is None:
+        logger.error("Driver is None, cannot extract posts data")
+        return []
+        
     posts = []
     selectors_tried = 0
     max_selectors = 5
