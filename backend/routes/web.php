@@ -102,7 +102,7 @@ Route::middleware(['auth', AdminMiddleware::class])->prefix('admin')->name('admi
     Route::post('approved-articles/{approvedArticle}/update-featured-image', [ApprovedArticleController::class, 'updateFeaturedImage'])->name('approved-articles.update-featured-image');
 
     // Facebook Posts routes
-    Route::resource('facebook-posts', FacebookPostController::class)->except(['edit', 'update']);
+    Route::resource('facebook-posts', FacebookPostController::class);
     Route::patch('facebook-posts/{facebookPost}/mark-processed', [FacebookPostController::class, 'markAsProcessed'])->name('facebook-posts.mark-processed');
     Route::patch('facebook-posts/{facebookPost}/mark-unprocessed', [FacebookPostController::class, 'markAsUnprocessed'])->name('facebook-posts.mark-unprocessed');
     Route::post('facebook-posts/{facebookPost}/rewrite', [FacebookPostController::class, 'rewrite'])->name('facebook-posts.rewrite');
@@ -145,3 +145,25 @@ Route::get('/docs', function () {
 Route::get('/test-scraper-results', function () {
     return view('admin.approved-articles.scraper-results', ['output' => ['Đây là trang kiểm tra scraper results.', 'Nếu bạn thấy trang này, tức là view đã hoạt động đúng.']]);
 });
+
+// Phục vụ media trong trường hợp khẩn cấp (khi symbolic link không hoạt động)
+Route::get('/media/direct/{path}', function ($path) {
+    // Chỉ cho phép trong môi trường local
+    if (config('app.env') !== 'local') {
+        abort(404);
+    }
+    
+    $storagePath = storage_path('app/public/' . $path);
+    
+    if (!file_exists($storagePath)) {
+        abort(404);
+    }
+    
+    // Lấy mimetype của file
+    $mime = mime_content_type($storagePath);
+    
+    // Phục vụ file trực tiếp với header đúng
+    return response()->file($storagePath, [
+        'Content-Type' => $mime,
+    ]);
+})->where('path', '.*')->name('media.direct');

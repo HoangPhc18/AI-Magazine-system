@@ -149,6 +149,37 @@ class FacebookPostController extends Controller
     }
 
     /**
+     * Show the form for editing the specified facebook post.
+     */
+    public function edit(FacebookPost $facebookPost)
+    {
+        return view('admin.facebook-posts.edit', compact('facebookPost'));
+    }
+
+    /**
+     * Update the specified facebook post.
+     */
+    public function update(Request $request, FacebookPost $facebookPost)
+    {
+        $request->validate([
+            'content' => 'required|string',
+            'status' => 'required|in:pending,processed,failed'
+        ]);
+
+        // Sync the processed field with the status
+        $processed = $request->input('status') === 'processed';
+
+        $facebookPost->update([
+            'content' => $request->input('content'),
+            'status' => $request->input('status'),
+            'processed' => $processed
+        ]);
+
+        return redirect()->route('admin.facebook-posts.index')
+                         ->with('success', 'Bài viết Facebook đã được cập nhật thành công.');
+    }
+
+    /**
      * Remove the specified facebook post.
      */
     public function destroy(FacebookPost $facebookPost)
@@ -163,7 +194,10 @@ class FacebookPostController extends Controller
      */
     public function markAsProcessed(FacebookPost $facebookPost)
     {
-        $facebookPost->update(['processed' => true]);
+        $facebookPost->update([
+            'processed' => true,
+            'status' => 'processed'
+        ]);
         return redirect()->back()->with('success', 'Bài viết đã được đánh dấu là đã xử lý.');
     }
 
@@ -172,7 +206,10 @@ class FacebookPostController extends Controller
      */
     public function markAsUnprocessed(FacebookPost $facebookPost)
     {
-        $facebookPost->update(['processed' => false]);
+        $facebookPost->update([
+            'processed' => false,
+            'status' => 'pending'
+        ]);
         return redirect()->back()->with('success', 'Bài viết đã được đánh dấu là chưa xử lý.');
     }
 

@@ -37,7 +37,23 @@ class Media extends Model
      */
     public function getUrlAttribute()
     {
-        return asset('storage/' . $this->file_path);
+        // Đường dẫn chính thức qua storage link
+        $url = asset('storage/' . $this->file_path);
+        
+        // Kiểm tra xem file có tồn tại không
+        $publicPath = public_path('storage/' . $this->file_path);
+        
+        // Nếu không tồn tại trong public, thử truy cập trực tiếp thông qua storage_path
+        if (!file_exists($publicPath) && config('app.env') === 'local') {
+            // Chỉ sử dụng phương pháp này trong môi trường development
+            $storagePath = storage_path('app/public/' . $this->file_path);
+            if (file_exists($storagePath)) {
+                // Tạo URL tạm thời với route động
+                return route('media.direct', ['path' => $this->file_path]);
+            }
+        }
+        
+        return $url;
     }
 
     /**

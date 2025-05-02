@@ -10,6 +10,7 @@ class FacebookPost extends Model
         'content',
         'source_url',
         'page_or_group_name',
-        'processed'
+        'processed',
+        'status'
     ];
 }
