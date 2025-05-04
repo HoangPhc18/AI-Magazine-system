@@ -1,66 +1,194 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Backend Magazine AI
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Backend cho hệ thống tạo nội dung tự động bằng AI, sử dụng Laravel làm nền tảng.
 
-## About Laravel
+## Giới thiệu
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Backend Magazine AI là một ứng dụng Laravel quản lý nội dung được thu thập và tạo bởi các dịch vụ AI. Hệ thống này cung cấp:
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+- API quản lý nội dung
+- Giao diện quản trị
+- Tương tác với các dịch vụ AI
+- Quản lý quyền và người dùng
+- Hiển thị nội dung cho người đọc
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Yêu cầu hệ thống
 
-## Learning Laravel
+- PHP 8.1+
+- MySQL 8.0+
+- Composer
+- Node.js và NPM (cho việc biên dịch assets)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Cài đặt và thiết lập
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+### Cài đặt thủ công
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+1. Clone repository và truy cập thư mục backend
+```bash
+git clone https://github.com/yourusername/magazine-ai-system.git
+cd magazine-ai-system/backend
+```
 
-## Laravel Sponsors
+2. Cài đặt các phụ thuộc PHP
+```bash
+composer install
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+3. Cài đặt các phụ thuộc Node.js
+```bash
+npm install
+```
 
-### Premium Partners
+4. Sao chép file môi trường và cấu hình
+```bash
+cp .env.example .env
+php artisan key:generate
+```
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+5. Cấu hình cơ sở dữ liệu trong file `.env`
+```
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=aimagazinedb
+DB_USERNAME=root
+DB_PASSWORD=
+```
 
-## Contributing
+6. Thực hiện migration và tạo dữ liệu mẫu
+```bash
+php artisan migrate
+php artisan db:seed
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+7. Biên dịch assets
+```bash
+npm run dev
+```
 
-## Code of Conduct
+8. Khởi động server
+```bash
+php artisan serve
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Cài đặt với Docker
 
-## Security Vulnerabilities
+1. Đảm bảo Docker và Docker Compose đã được cài đặt
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+2. Từ thư mục gốc của dự án, khởi động dịch vụ
+```bash
+docker compose up -d
+```
 
-## License
+## Cấu trúc ứng dụng
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### Thư mục chính
+
+- `app/` - Chứa các controllers, models, middleware và service classes
+- `config/` - Chứa các file cấu hình
+- `database/` - Chứa migrations và seeders
+- `public/` - Điểm truy cập và asset files
+- `resources/` - Chứa views, assets chưa biên dịch và file ngôn ngữ
+- `routes/` - Chứa các định nghĩa route
+- `storage/` - Chứa file tạm thời và uploads
+- `tests/` - Chứa test files
+
+### Các thành phần chính
+
+1. **Models** (`app/Models/`):
+   - `Article.php` - Quản lý bài viết
+   - `Category.php` - Quản lý danh mục
+   - `FacebookPost.php` - Quản lý bài viết từ Facebook
+   - `Media.php` - Quản lý media (hình ảnh, video)
+   - `User.php` - Quản lý người dùng
+
+2. **Controllers** (`app/Http/Controllers/`):
+   - `ArticleController.php` - Xử lý bài viết
+   - `CategoryController.php` - Xử lý danh mục
+   - `FacebookPostController.php` - Xử lý bài viết từ Facebook
+   - `MediaController.php` - Xử lý media
+   - `UserController.php` - Xử lý người dùng
+   - `AdminController.php` - Xử lý tác vụ quản trị
+
+3. **Services** (`app/Services/`):
+   - `AIService.php` - Tương tác với các dịch vụ AI
+   - `WebsiteConfigService.php` - Quản lý cấu hình website
+
+## API Documentation
+
+Tài liệu API (Swagger/OpenAPI) có sẵn và có thể được truy cập theo các cách sau:
+
+### Xem tài liệu API trực tuyến
+
+Truy cập http://localhost:8000/docs để xem tài liệu API được tạo bằng Swagger UI.
+
+### Tệp định nghĩa API
+
+Các tệp định nghĩa API có sẵn trong thư mục `docs/`:
+- `swagger.yaml`: Định nghĩa API ở định dạng YAML
+- `swagger.json`: Định nghĩa API ở định dạng JSON
+
+### Sử dụng API
+
+1. **Xác thực**: 
+   - Đăng ký người dùng mới: `POST /api/auth/register`
+   - Đăng nhập: `POST /api/auth/login`
+   - Sử dụng token nhận được trong header `Authorization: Bearer {token}`
+
+2. **Endpoints chính**:
+   - Bài viết: `/api/articles`
+   - Danh mục: `/api/categories`
+   - Facebook Posts: `/api/facebook-posts`
+   - Media: `/api/media`
+   - Quản lý người dùng (Admin): `/api/admin/users`
+   - Cài đặt AI: `/api/ai-settings` hoặc `/api/admin/ai-settings`
+
+## Kiểm tra tích hợp AI
+
+Hệ thống bao gồm các script kiểm tra kết nối với dịch vụ AI:
+
+```bash
+# Kiểm tra kết nối với tất cả dịch vụ AI
+php check-all-ai-services.php
+
+# Kiểm tra kết nối trực tiếp với AI service
+php test-ai-connection.php
+
+# Kiểm tra kết nối qua Laravel
+php test-laravel-ai-connection.php
+```
+
+## Cấu hình AI
+
+Cấu hình kết nối đến các dịch vụ AI được lưu trong file `.env`:
+
+```
+AI_SERVICE_URL=http://localhost:55025
+AI_SCRAPER_ENDPOINT=/scraper
+AI_REWRITE_ENDPOINT=/rewrite
+AI_KEYWORD_REWRITE_ENDPOINT=/keyword-rewrite
+AI_FACEBOOK_SCRAPER_ENDPOINT=/facebook-scraper
+AI_FACEBOOK_REWRITE_ENDPOINT=/facebook-rewrite
+```
+
+## Chạy tests
+
+```bash
+php artisan test
+```
+
+## Nhật ký và gỡ lỗi
+
+Xem log Laravel
+```bash
+tail -f storage/logs/laravel.log
+```
+
+## Bảo mật
+
+Đảm bảo thay đổi các thông tin nhạy cảm trong file `.env` và cài đặt quyền truy cập thích hợp:
+
+```bash
+chmod -R 775 storage
+chmod -R 775 bootstrap/cache
+```
