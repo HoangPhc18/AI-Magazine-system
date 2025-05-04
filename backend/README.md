@@ -14,18 +14,17 @@ Backend Magazine AI là một ứng dụng Laravel quản lý nội dung đượ
 
 ## Yêu cầu hệ thống
 
-- PHP 8.1+
-- MySQL 8.0+
+- XAMPP (PHP 8.1+, MySQL 8.0+, Apache)
 - Composer
 - Node.js và NPM (cho việc biên dịch assets)
 
 ## Cài đặt và thiết lập
 
-### Cài đặt thủ công
+### Cài đặt với XAMPP
 
 1. Clone repository và truy cập thư mục backend
 ```bash
-git clone https://github.com/yourusername/magazine-ai-system.git
+git clone https://github.com/HoanqPhuc/magazine-ai-system
 cd magazine-ai-system/backend
 ```
 
@@ -50,9 +49,9 @@ php artisan key:generate
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=aimagazinedb
-DB_USERNAME=root
-DB_PASSWORD=
+DB_DATABASE=tap_chi_dien_tu
+DB_USERNAME=tap_chi_dien_tu
+DB_PASSWORD=Nh[Xg3KT06)FI91X
 ```
 
 6. Thực hiện migration và tạo dữ liệu mẫu
@@ -66,19 +65,34 @@ php artisan db:seed
 npm run dev
 ```
 
-8. Khởi động server
-```bash
-php artisan serve
+### Cấu hình Apache Virtual Host
+
+1. Mở file `c:\xampp\apache\conf\extra\httpd-vhosts.conf` và thêm:
+
+```
+<VirtualHost *:80>
+    DocumentRoot "F:/magazine-ai-system/backend/public"
+    ServerName magazine.test
+    
+    <Directory "F:/magazine-ai-system/backend/public">
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+    
+    ErrorLog "logs/magazine-error.log"
+    CustomLog "logs/magazine-access.log" combined
+</VirtualHost>
 ```
 
-### Cài đặt với Docker
-
-1. Đảm bảo Docker và Docker Compose đã được cài đặt
-
-2. Từ thư mục gốc của dự án, khởi động dịch vụ
-```bash
-docker compose up -d
+2. Mở file `c:\Windows\System32\drivers\etc\hosts` với quyền administrator và thêm:
 ```
+127.0.0.1 magazine.test
+```
+
+3. Khởi động lại Apache từ XAMPP Control Panel
+
+4. Truy cập ứng dụng tại http://magazine.test
 
 ## Cấu trúc ứng dụng
 
@@ -114,19 +128,9 @@ docker compose up -d
    - `AIService.php` - Tương tác với các dịch vụ AI
    - `WebsiteConfigService.php` - Quản lý cấu hình website
 
-## API Documentation
 
-Tài liệu API (Swagger/OpenAPI) có sẵn và có thể được truy cập theo các cách sau:
 
-### Xem tài liệu API trực tuyến
 
-Truy cập http://localhost:8000/docs để xem tài liệu API được tạo bằng Swagger UI.
-
-### Tệp định nghĩa API
-
-Các tệp định nghĩa API có sẵn trong thư mục `docs/`:
-- `swagger.yaml`: Định nghĩa API ở định dạng YAML
-- `swagger.json`: Định nghĩa API ở định dạng JSON
 
 ### Sử dụng API
 
@@ -179,16 +183,15 @@ php artisan test
 
 ## Nhật ký và gỡ lỗi
 
-Xem log Laravel
+Xem log Laravel:
 ```bash
 tail -f storage/logs/laravel.log
 ```
 
-## Bảo mật
-
-Đảm bảo thay đổi các thông tin nhạy cảm trong file `.env` và cài đặt quyền truy cập thích hợp:
-
+Xem log Apache:
 ```bash
-chmod -R 775 storage
-chmod -R 775 bootstrap/cache
+tail -f c:\xampp\apache\logs\magazine-error.log
+tail -f c:\xampp\apache\logs\magazine-access.log
 ```
+
+

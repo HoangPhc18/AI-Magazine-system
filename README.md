@@ -1,39 +1,42 @@
 # Hệ thống Magazine AI
 
-Hệ thống tự động thu thập, viết lại và tạo nội dung cho trang web tin tức, sử dụng AI để tạo nội dung chất lượng cao.
+Hệ thống tự động thu thập, viết lại và tạo nội dung cho trang web tạp chí điện tử, sử dụng AI để tạo nội dung chất lượng cao.
 
-## Tổng quan hệ thống
+## Mô tả hệ thống
 
-Hệ thống Magazine AI là một giải pháp toàn diện để tự động hóa việc tạo nội dung cho trang web tin tức, bao gồm:
+Hệ thống Magazine AI là một giải pháp toàn diện để tự động hóa việc tạo nội dung cho trang web tạp chí điện tử, bao gồm các tính năng chính:
 
-- Thu thập dữ liệu tự động từ nhiều nguồn
-- Viết lại nội dung bằng AI
-- Tạo nội dung mới từ từ khóa
-- Tích hợp nội dung với trang web
-- Thu thập và xử lý dữ liệu từ Facebook
+- **Thu thập nội dung tự động**: Thu thập tin tức từ nhiều nguồn khác nhau
+- **Viết lại nội dung**: Sử dụng AI để viết lại nội dung thu thập một cách độc đáo
+- **Tạo nội dung từ từ khóa**: Tạo bài viết mới dựa trên từ khóa đầu vào
+- **Thu thập dữ liệu từ Facebook**: Tự động thu thập nội dung từ Facebook
+- **Quản lý nội dung**: Backend quản lý và hiển thị nội dung đã xử lý
 
-## Cấu trúc dự án
+## Cấu trúc hệ thống
 
-Dự án bao gồm các module chính:
+Hệ thống gồm 2 thành phần chính:
 
-1. **Backend**: Backend Laravel cho trang web, quản lý và hiển thị nội dung
-2. **AI Service**:
-   - **Scraper**: Module tự động thu thập tin tức từ nhiều nguồn
-   - **Rewrite**: Module tự động viết lại nội dung bài viết 
-   - **Keyword Rewrite**: Module tự động tạo bài viết từ từ khóa
-   - **Facebook Scraper**: Thu thập dữ liệu từ Facebook
-   - **Facebook Rewrite**: Viết lại nội dung thu thập từ Facebook
+1. **Backend** (Laravel): Quản lý và hiển thị nội dung
+2. **AI Service**: Cung cấp các dịch vụ AI xử lý nội dung
+   - Scraper Service
+   - Rewrite Service
+   - Keyword Rewrite Service
+   - Facebook Scraper Service
+   - Facebook Rewrite Service
 
 ## Yêu cầu hệ thống
 
-- Docker và Docker Compose
-- Ít nhất 8GB RAM
-- Ít nhất 20GB dung lượng ổ đĩa trống
-- Ollama (cho mô hình AI cục bộ)
+### Backend
+- XAMPP (PHP 8.1+, MySQL 8.0+, Apache)
+- Composer
+- Node.js và NPM
 
-## Cài đặt và chạy
+### AI Service
+- Docker Desktop
+- Ít nhất 4GB RAM cho container AI
+- Ít nhất 10GB dung lượng ổ đĩa trống
 
-### Các bước cài đặt
+## Cài đặt Backend
 
 1. Clone repository
 ```bash
@@ -41,110 +44,104 @@ git clone https://github.com/HoanqPhuc/magazine-ai-system
 cd magazine-ai-system
 ```
 
-2. Tạo các file môi trường
+2. Cài đặt phụ thuộc
 ```bash
-# Backend .env
-cp backend/.env.example backend/.env
+cd backend
+composer install
+npm install
+```
 
-# AI Service
+3. Cấu hình môi trường
+```bash
+cp .env.example .env
+php artisan key:generate
+```
+
+4. Cấu hình cơ sở dữ liệu trong file `.env`
+```
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=tap_chi_dien_tu
+DB_USERNAME=tap_chi_dien_tu
+DB_PASSWORD=Nh[Xg3KT06)FI91X
+```
+
+5. Migrate và seed dữ liệu
+```bash
+php artisan migrate
+php artisan db:seed
+```
+
+6. Cấu hình Apache Virtual Host
+- Thêm cấu hình vào file `c:\xampp\apache\conf\extra\httpd-vhosts.conf`:
+```
+<VirtualHost *:80>
+    DocumentRoot "F:/magazine-ai-system/backend/public"
+    ServerName magazine.test
+    
+    <Directory "F:/magazine-ai-system/backend/public">
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+    
+    ErrorLog "logs/magazine-error.log"
+    CustomLog "logs/magazine-access.log" combined
+</VirtualHost>
+```
+
+- Thêm domain vào file `c:\Windows\System32\drivers\etc\hosts`:
+```
+127.0.0.1 magazine.test
+```
+
+7. Khởi động lại Apache từ XAMPP Control Panel
+
+## Cài đặt AI Service
+
+1. Di chuyển vào thư mục AI service
+```bash
 cd ai_service
-./start.sh
 ```
 
-3. Khởi động dịch vụ với Docker Compose
+2. Chạy script khởi động (Windows)
 ```bash
-docker compose up -d
+run-container.bat
 ```
 
+## Truy cập hệ thống
 
-
-### Kiểm tra trạng thái
-
-```bash
-# Xem log của tất cả các dịch vụ
-docker compose logs -f
-
-# Xem log của một dịch vụ cụ thể
-docker compose logs -f ai-service-all
-```
-
-## Dịch vụ và cổng
-
-- **Backend**: http://localhost:8000
-- **Backend API**: http://localhost:8000/api
+- **Frontend/Backend**: http://magazine.test
+- **Backend API**: http://magazine.test/api
+- **API Documentation**: http://magazine.test/docs
 - **AI Service API**: http://localhost:55025
-  - Scraper: /scraper/
-  - Rewrite: /rewrite/
-  - Keyword Rewrite: /keyword-rewrite/
-  - Facebook Scraper: /facebook-scraper/
-  - Facebook Rewrite: /facebook-rewrite/
-- **Ollama**: http://localhost:11434
 
-## Lịch trình tự động
+## Kiểm tra hệ thống
 
-Hệ thống được cấu hình để chạy tự động theo lịch trình:
-
-- **Scraper**: Chạy vào lúc 0h00, 6h00, 12h00, 18h00 mỗi ngày
-- **Rewrite**: Chạy vào lúc 0h30, 6h30, 12h30, 18h30 mỗi ngày (30 phút sau khi Scraper chạy)
-- **Facebook Scraper**: Chạy vào lúc 1h00, 7h00, 13h00, 19h00 mỗi ngày
-- **Facebook Rewrite**: Chạy vào lúc 1h30, 7h30, 13h30, 19h30 mỗi ngày
-- **Keyword Rewrite**: Luôn hoạt động (API service), xử lý yêu cầu từ Backend
-
-
-
-## Kiểm tra trạng thái dịch vụ AI
+Kiểm tra kết nối với các dịch vụ AI:
 
 ```bash
-curl http://localhost:55025/health
+cd backend
+php check-all-ai-services.php
 ```
 
-## Chạy thủ công
+## Gỡ lỗi
 
-Mặc dù hệ thống đã được cấu hình để chạy tự động, bạn vẫn có thể kích hoạt thủ công:
-
+### Backend
 ```bash
-# Chạy Scraper thủ công
-curl -X POST http://localhost:55025/scraper/run
+# Xem log Laravel
+tail -f backend/storage/logs/laravel.log
 
-# Chạy Rewrite thủ công
-curl -X POST http://localhost:55025/rewrite/run
-
-# Chạy Facebook Scraper thủ công
-curl -X POST http://localhost:55025/facebook-scraper/run
-
-# Chạy Facebook Rewrite thủ công
-curl -X POST http://localhost:55025/facebook-rewrite/run
+# Xem log Apache
+tail -f c:\xampp\apache\logs\magazine-error.log
 ```
 
-
-
-### Khắc phục sự cố
-
-1. **Kiểm tra log**:
+### AI Service
 ```bash
-docker compose logs -f
+# Xem log AI Service
+docker logs ai-service-all
 ```
-
-2. **Khởi động lại một dịch vụ**:
-```bash
-docker compose restart service_name
-```
-
-3. **Khởi động lại toàn bộ hệ thống**:
-```bash
-docker compose down
-docker compose up -d
-```
-
-### Lỗi thường gặp
-
-1. **Lỗi kết nối đến backend:**
-   - Kiểm tra biến môi trường `BACKEND_URL` trong file `.env` của AI Service
-   - Đảm bảo backend đang chạy và có thể truy cập
-
-2. **Lỗi kết nối đến cơ sở dữ liệu:**
-   - Kiểm tra cấu hình `DB_HOST` trong các file `.env`
-   - Đảm bảo cơ sở dữ liệu đang chạy và có thể truy cập
 
 
 
