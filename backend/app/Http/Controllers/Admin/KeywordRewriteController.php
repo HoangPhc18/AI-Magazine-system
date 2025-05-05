@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\KeywordRewrite;
 use App\Models\RewrittenArticle;
 use App\Models\Category;
+use App\Models\Subcategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
@@ -355,6 +356,12 @@ class KeywordRewriteController extends Controller
                 ['name' => 'Tin tức', 'description' => 'Tin tức tổng hợp']
             );
             
+            // Find or create the "HOT" subcategory under the "Tin tức" category
+            $subcategory = Subcategory::firstOrCreate(
+                ['slug' => 'hot', 'parent_category_id' => $category->id],
+                ['name' => 'HOT', 'description' => 'Tin tức nổi bật, thu hút sự chú ý']
+            );
+            
             // Create a new rewritten article
             $rewrittenArticle = RewrittenArticle::create([
                 'title' => $keywordRewrite->source_title ?? "Bài viết về {$keywordRewrite->keyword}",
@@ -364,6 +371,7 @@ class KeywordRewriteController extends Controller
                 'meta_description' => Str::limit(strip_tags($keywordRewrite->rewritten_content), 160),
                 'user_id' => auth()->id(),
                 'category_id' => $category->id,
+                'subcategory_id' => $subcategory->id,
                 'status' => 'pending',
             ]);
             
