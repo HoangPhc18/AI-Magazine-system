@@ -20,6 +20,7 @@ class ApprovedArticle extends Model
         'featured_image_id',
         'user_id',
         'category_id',
+        'subcategory_id',
         'original_article_id',
         'ai_generated',
         'status',
@@ -39,6 +40,14 @@ class ApprovedArticle extends Model
     public function category()
     {
         return $this->belongsTo(Category::class);
+    }
+
+    /**
+     * Get the subcategory that this article belongs to.
+     */
+    public function subcategory()
+    {
+        return $this->belongsTo(Subcategory::class);
     }
 
     public function originalArticle()

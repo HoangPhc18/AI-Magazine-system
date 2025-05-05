@@ -119,6 +119,27 @@
                             @enderror
                         </div>
                     </div>
+                    
+                    <div class="sm:col-span-3">
+                        <label for="subcategory_id" class="block text-sm font-medium text-gray-700">
+                            Danh mục con
+                        </label>
+                        <div class="mt-1">
+                            <select id="subcategory_id" name="subcategory_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                <option value="">-- Chọn danh mục con --</option>
+                                @if($selectedArticle && $selectedArticle->category && $selectedArticle->category->subcategories)
+                                    @foreach($selectedArticle->category->subcategories as $subcategory)
+                                        <option value="{{ $subcategory->id }}" {{ $selectedArticle && $selectedArticle->subcategory_id == $subcategory->id ? 'selected' : '' }}>
+                                            {{ $subcategory->name }}
+                                        </option>
+                                    @endforeach
+                                @endif
+                            </select>
+                            @error('subcategory_id')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
 
                     <div class="sm:col-span-6">
                         <label for="featured_image" class="block text-sm font-medium text-gray-700">
@@ -190,6 +211,8 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const originalArticleSelect = document.getElementById('original_article_id');
+    const categorySelect = document.getElementById('category_id');
+    const subcategorySelect = document.getElementById('subcategory_id');
     
     originalArticleSelect.addEventListener('change', function() {
         const articleId = this.value;
@@ -198,6 +221,74 @@ document.addEventListener('DOMContentLoaded', function() {
             window.location.href = "{{ route('admin.rewritten-articles.rewrite-form') }}/" + articleId;
         }
     });
+    
+    if (categorySelect && subcategorySelect) {
+        // Store initial values
+        const initialCategoryId = categorySelect.value;
+        const initialSubcategoryId = subcategorySelect.value;
+        
+        categorySelect.addEventListener('change', function() {
+            const categoryId = this.value;
+            
+            // Clear current options and reset value
+            subcategorySelect.innerHTML = '<option value="">Chọn danh mục con</option>';
+            subcategorySelect.value = '';
+            
+            if (categoryId) {
+                // Fetch subcategories for the selected category
+                fetch(`/admin/categories/${categoryId}/subcategories`)
+                    .then(response => response.json())
+                    .then(subcategories => {
+                        if (subcategories.length > 0) {
+                            subcategories.forEach(subcategory => {
+                                const option = document.createElement('option');
+                                option.value = subcategory.id;
+                                option.textContent = subcategory.name;
+                                subcategorySelect.appendChild(option);
+                            });
+                            
+                            // If this is the initial page load and we have both initial values, try to select the initial subcategory
+                            if (categoryId === initialCategoryId && initialSubcategoryId) {
+                                // Check if the initial subcategory is in the list (exists in the new category)
+                                const initialOption = Array.from(subcategorySelect.options)
+                                    .find(option => option.value === initialSubcategoryId);
+                                
+                                if (initialOption) {
+                                    subcategorySelect.value = initialSubcategoryId;
+                                }
+                            }
+                        }
+                    })
+                    .catch(error => console.error('Error fetching subcategories:', error));
+            }
+        });
+        
+        // Trigger change event on page load if category is selected
+        if (initialCategoryId) {
+            // We'll trigger the change event only if necessary
+            // For rewrite form, we'll check the current subcategories to ensure they match
+            fetch(`/admin/categories/${initialCategoryId}/subcategories`)
+                .then(response => response.json())
+                .then(subcategories => {
+                    // Check if current subcategory belongs to this category
+                    if (initialSubcategoryId) {
+                        const subcategoryExists = subcategories.some(sc => sc.id == initialSubcategoryId);
+                        if (!subcategoryExists) {
+                            // If it doesn't belong, we need to reload the subcategory dropdown
+                            categorySelect.dispatchEvent(new Event('change'));
+                        }
+                    } else {
+                        // If no subcategory is selected, we should load available ones
+                        categorySelect.dispatchEvent(new Event('change'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error verifying subcategories:', error);
+                    // On error, safest to just reload subcategories
+                    categorySelect.dispatchEvent(new Event('change'));
+                });
+        }
+    }
 });
 </script>
 @endpush

@@ -56,6 +56,27 @@
                             @enderror
                         </div>
                     </div>
+
+                    <div>
+                        <label for="subcategory_id" class="block text-sm font-medium text-gray-700">
+                            Danh mục con
+                        </label>
+                        <div class="mt-1">
+                            <select id="subcategory_id" name="subcategory_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                                <option value="">-- Chọn danh mục con --</option>
+                                @if($rewrittenArticle->category && $rewrittenArticle->category->subcategories)
+                                    @foreach($rewrittenArticle->category->subcategories as $subcategory)
+                                        <option value="{{ $subcategory->id }}" {{ $rewrittenArticle->subcategory_id == $subcategory->id ? 'selected' : '' }}>
+                                            {{ $subcategory->name }}
+                                        </option>
+                                    @endforeach
+                                @endif
+                            </select>
+                            @error('subcategory_id')
+                                <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
                     
                     @if($rewrittenArticle->originalArticle && ($rewrittenArticle->originalArticle->source_url || $rewrittenArticle->originalArticle->source_name))
                     <div>
@@ -213,4 +234,42 @@
         </form>
     </div>
 </div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const categorySelect = document.getElementById('category_id');
+    const subcategorySelect = document.getElementById('subcategory_id');
+    
+    if (categorySelect && subcategorySelect) {
+        categorySelect.addEventListener('change', function() {
+            const categoryId = this.value;
+            
+            // Clear current options
+            subcategorySelect.innerHTML = '<option value="">-- Chọn danh mục con --</option>';
+            
+            // Very important: Clear the selected subcategory value when category changes
+            subcategorySelect.value = '';
+            
+            if (categoryId) {
+                // Fetch subcategories for the selected category
+                fetch(`/admin/categories/${categoryId}/subcategories`)
+                    .then(response => response.json())
+                    .then(subcategories => {
+                        if (subcategories.length > 0) {
+                            subcategories.forEach(subcategory => {
+                                const option = document.createElement('option');
+                                option.value = subcategory.id;
+                                option.textContent = subcategory.name;
+                                subcategorySelect.appendChild(option);
+                            });
+                        }
+                    })
+                    .catch(error => console.error('Error fetching subcategories:', error));
+            }
+        });
+    }
+});
+</script>
+@endpush
 @endsection 

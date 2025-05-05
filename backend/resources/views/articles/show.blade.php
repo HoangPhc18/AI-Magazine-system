@@ -29,6 +29,12 @@
                 <a href="{{ route('articles.category', $article->category->slug) }}" class="inline-block bg-primary-100 text-primary-800 rounded-full px-3 py-1 text-xs font-semibold hover:bg-primary-200 transition-colors">
                     {{ $article->category->name }}
                 </a>
+                @if($article->subcategory)
+                <span class="text-gray-500">/</span>
+                <a href="{{ route('articles.subcategory', ['category_slug' => $article->category->slug, 'subcategory_slug' => $article->subcategory->slug]) }}" class="inline-block bg-gray-100 text-gray-800 rounded-full px-3 py-1 text-xs font-semibold hover:bg-gray-200 transition-colors">
+                    {{ $article->subcategory->name }}
+                </a>
+                @endif
                 <span class="text-gray-500 text-sm flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />

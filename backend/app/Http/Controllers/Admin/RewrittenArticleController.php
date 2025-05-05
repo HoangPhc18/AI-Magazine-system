@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use App\Models\Subcategory;
 
 class RewrittenArticleController extends Controller
 {
@@ -73,8 +74,19 @@ class RewrittenArticleController extends Controller
             'title' => 'required|string|max:255',
             'content' => 'required|string',
             'category_id' => 'required|exists:categories,id',
+            'subcategory_id' => 'nullable|exists:subcategories,id',
             'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
+
+        // Validate that the subcategory belongs to the selected category
+        if (!empty($validated['subcategory_id'])) {
+            $subcategory = Subcategory::find($validated['subcategory_id']);
+            if (!$subcategory || $subcategory->parent_category_id != $validated['category_id']) {
+                return redirect()->back()->withErrors([
+                    'subcategory_id' => 'Danh mục con phải thuộc danh mục cha đã chọn.'
+                ])->withInput();
+            }
+        }
 
         $validated['slug'] = Str::slug($validated['title']);
         $validated['user_id'] = Auth::id();
@@ -124,15 +136,93 @@ class RewrittenArticleController extends Controller
 
     /**
      * Update the specified resource in storage.
+     * Always include validation for subcategory_id to ensure it's preserved when updating.
      */
     public function update(Request $request, RewrittenArticle $rewrittenArticle)
     {
+        // Debug: Log all request data to see what's being received
+        \Log::info('RewrittenArticle update request data', [
+            'all_data' => $request->all(),
+            'subcategory_id' => $request->input('subcategory_id'),
+            'explicit_subcategory_id' => $request->input('explicit_subcategory_id'),
+            'has_subcategory_id' => $request->has('subcategory_id'),
+            'has_explicit_subcategory_id' => $request->has('explicit_subcategory_id'),
+            'article_id' => $rewrittenArticle->id,
+            'current_subcategory_id' => $rewrittenArticle->subcategory_id
+        ]);
+        
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'content' => 'required|string',
             'category_id' => 'required|exists:categories,id',
+            'subcategory_id' => 'nullable|exists:subcategories,id',
             'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'explicit_subcategory_id' => 'nullable|exists:subcategories,id',
         ]);
+
+        // Validate that the subcategory belongs to the selected category
+        if (!empty($validated['subcategory_id'])) {
+            $subcategory = Subcategory::find($validated['subcategory_id']);
+            if (!$subcategory || $subcategory->parent_category_id != $validated['category_id']) {
+                return redirect()->back()->withErrors([
+                    'subcategory_id' => 'Danh mục con phải thuộc danh mục cha đã chọn.'
+                ])->withInput();
+            }
+        }
+
+        // Use explicit_subcategory_id if provided - this helps preserve subcategory selections
+        if (isset($validated['explicit_subcategory_id']) && !empty($validated['explicit_subcategory_id'])) {
+            $subcategory = Subcategory::find($validated['explicit_subcategory_id']);
+            if ($subcategory && $subcategory->parent_category_id == $validated['category_id']) {
+                $validated['subcategory_id'] = $validated['explicit_subcategory_id'];
+            }
+            // Remove the explicit field as it's not in the fillable attributes
+            unset($validated['explicit_subcategory_id']);
+        }
+        
+        // TEST CODE: Use test_subcategory_id for testing purposes
+        if ($request->has('test_subcategory_id')) {
+            $testSubcategoryId = $request->input('test_subcategory_id');
+            \Log::info('Using test_subcategory_id for debugging', [
+                'test_subcategory_id' => $testSubcategoryId
+            ]);
+            
+            // Just set the value directly for testing
+            $validated['subcategory_id'] = $testSubcategoryId;
+        }
+        
+        // Debug logging for subcategory changes
+        Log::info('Updating rewritten article with subcategory data', [
+            'article_id' => $rewrittenArticle->id,
+            'old_category_id' => $rewrittenArticle->category_id,
+            'new_category_id' => $validated['category_id'],
+            'old_subcategory_id' => $rewrittenArticle->subcategory_id,
+            'new_subcategory_id' => $validated['subcategory_id'] ?? null,
+            'submitted_subcategory_id' => $request->input('subcategory_id'),
+            'explicit_subcategory_id' => $request->input('explicit_subcategory_id')
+        ]);
+        
+        // If category changed but subcategory is still from old category, clear it
+        if ($rewrittenArticle->category_id != $validated['category_id'] && !empty($rewrittenArticle->subcategory_id)) {
+            $oldSubcategory = Subcategory::find($rewrittenArticle->subcategory_id);
+            if ($oldSubcategory && $oldSubcategory->parent_category_id != $validated['category_id']) {
+                // Force subcategory to null if it doesn't belong to the new category
+                $validated['subcategory_id'] = null;
+                Log::info('Cleared subcategory because category changed', [
+                    'article_id' => $rewrittenArticle->id,
+                    'old_category_id' => $rewrittenArticle->category_id,
+                    'new_category_id' => $validated['category_id']
+                ]);
+            }
+        }
+        
+        // Ensure subcategory_id is explicitly set to null if the field was emptied in the form
+        if ($request->has('subcategory_id') && $request->input('subcategory_id') === '') {
+            $validated['subcategory_id'] = null;
+            Log::info('Subcategory explicitly cleared by user', [
+                'article_id' => $rewrittenArticle->id
+            ]);
+        }
 
         $validated['slug'] = Str::slug($validated['title']);
 
@@ -155,7 +245,47 @@ class RewrittenArticleController extends Controller
             ]);
         }
 
-        $rewrittenArticle->update($validated);
+        // Debug: Log final validated data right before update
+        Log::info('Final data before update', [
+            'article_id' => $rewrittenArticle->id,
+            'validated_data' => $validated,
+            'subcategory_id' => $validated['subcategory_id'] ?? null
+        ]);
+        
+        // Set values explicitly one by one to ensure they're properly saved
+        $rewrittenArticle->title = $validated['title'];
+        $rewrittenArticle->slug = $validated['slug'];
+        $rewrittenArticle->content = $validated['content'];
+        $rewrittenArticle->category_id = $validated['category_id'];
+        
+        // Set subcategory_id explicitly
+        if (isset($validated['subcategory_id'])) {
+            $rewrittenArticle->subcategory_id = $validated['subcategory_id'];
+            Log::info('Setting subcategory_id explicitly', [
+                'article_id' => $rewrittenArticle->id,
+                'subcategory_id' => $validated['subcategory_id']
+            ]);
+        } else {
+            // Make sure to set it to null if not provided
+            $rewrittenArticle->subcategory_id = null;
+            Log::info('Setting subcategory_id to null explicitly', [
+                'article_id' => $rewrittenArticle->id
+            ]);
+        }
+        
+        // Set other fields if they exist
+        if (isset($validated['meta_title'])) $rewrittenArticle->meta_title = $validated['meta_title'];
+        if (isset($validated['meta_description'])) $rewrittenArticle->meta_description = $validated['meta_description'];
+        if (isset($validated['featured_image'])) $rewrittenArticle->featured_image = $validated['featured_image'];
+        if (isset($validated['status'])) $rewrittenArticle->status = $validated['status'];
+        
+        // Save the article explicitly
+        $rewrittenArticle->save();
+        
+        Log::info('Article updated successfully', [
+            'article_id' => $rewrittenArticle->id,
+            'subcategory_id' => $rewrittenArticle->subcategory_id
+        ]);
 
         return redirect()->route('admin.rewritten-articles.index')
             ->with('success', 'Bài viết đã được cập nhật thành công.');
@@ -189,6 +319,16 @@ class RewrittenArticleController extends Controller
         try {
             // Xác thực dữ liệu từ form
             $validated = $request->validated();
+            
+            // Add explicit_subcategory_id to validated data if it's in the request
+            if ($request->has('explicit_subcategory_id')) {
+                $validated['explicit_subcategory_id'] = $request->input('explicit_subcategory_id');
+                
+                Log::info('Received explicit subcategory ID during approval', [
+                    'rewritten_article_id' => $rewrittenArticle->id,
+                    'explicit_subcategory_id' => $validated['explicit_subcategory_id']
+                ]);
+            }
             
             // Thêm slug vào dữ liệu đã xác thực
             $baseSlug = Str::slug($validated['title'] ?? $rewrittenArticle->title);
@@ -321,6 +461,17 @@ class RewrittenArticleController extends Controller
     private function moveToApprovedArticles(RewrittenArticle $rewrittenArticle, array $validated = null)
     {
         try {
+            // Debug: Log all data before processing
+            \Log::info('Before moveToApprovedArticles processing', [
+                'rewritten_article_id' => $rewrittenArticle->id,
+                'rewritten_article_data' => $rewrittenArticle->toArray(),
+                'validated_data' => $validated ?? 'No validated data provided',
+                'has_subcategory_id' => isset($validated['subcategory_id']),
+                'subcategory_id_value' => $validated['subcategory_id'] ?? null,
+                'has_explicit_subcategory_id' => isset($validated['explicit_subcategory_id']),
+                'explicit_subcategory_id_value' => $validated['explicit_subcategory_id'] ?? null,
+            ]);
+            
             DB::beginTransaction();
             
             // Tạo bài viết đã duyệt
@@ -348,11 +499,93 @@ class RewrittenArticleController extends Controller
             
             $approvedArticle->user_id = Auth::id();
             $approvedArticle->category_id = $validated['category_id'] ?? $rewrittenArticle->category_id;
+            
+            // Log subcategory information before processing
+            Log::info('Subcategory data before approval', [
+                'rewritten_article_id' => $rewrittenArticle->id,
+                'rewritten_subcategory_id' => $rewrittenArticle->subcategory_id,
+                'validated_subcategory_id' => $validated['subcategory_id'] ?? 'not provided',
+                'explicit_subcategory_id' => $validated['explicit_subcategory_id'] ?? 'not provided',
+                'target_category_id' => $approvedArticle->category_id
+            ]);
+            
+            // Enhanced subcategory handling with priority order:
+            
+            // Priority 1: Use explicit_subcategory_id if provided (highest priority)
+            if (isset($validated['explicit_subcategory_id']) && !empty($validated['explicit_subcategory_id'])) {
+                $subcategory = Subcategory::find($validated['explicit_subcategory_id']);
+                if ($subcategory && $subcategory->parent_category_id == $approvedArticle->category_id) {
+                    $approvedArticle->subcategory_id = $validated['explicit_subcategory_id'];
+                    Log::info('Using explicit_subcategory_id from form submission', [
+                        'subcategory_id' => $validated['explicit_subcategory_id'],
+                        'subcategory_name' => $subcategory->name
+                    ]);
+                } 
+                else if ($subcategory) {
+                    Log::warning('Explicit subcategory_id belongs to different category, cannot use', [
+                        'subcategory_id' => $validated['explicit_subcategory_id'],
+                        'subcategory_category_id' => $subcategory->parent_category_id,
+                        'article_category_id' => $approvedArticle->category_id
+                    ]);
+                }
+            }
+            // Priority 2: Use validated subcategory_id if provided
+            else if (isset($validated['subcategory_id']) && !empty($validated['subcategory_id'])) {
+                $subcategory = Subcategory::find($validated['subcategory_id']);
+                if ($subcategory && $subcategory->parent_category_id == $approvedArticle->category_id) {
+                    $approvedArticle->subcategory_id = $validated['subcategory_id'];
+                    Log::info('Using subcategory_id from validation data', [
+                        'subcategory_id' => $validated['subcategory_id'],
+                        'subcategory_name' => $subcategory->name
+                    ]);
+                } 
+                else if ($subcategory) {
+                    Log::warning('Validated subcategory_id belongs to different category, cannot use', [
+                        'subcategory_id' => $validated['subcategory_id'],
+                        'subcategory_category_id' => $subcategory->parent_category_id,
+                        'article_category_id' => $approvedArticle->category_id
+                    ]);
+                }
+            } 
+            // Priority 3: Use rewritten article's subcategory_id if it exists
+            else if ($rewrittenArticle->subcategory_id) {
+                $subcategory = Subcategory::find($rewrittenArticle->subcategory_id);
+                if ($subcategory && $subcategory->parent_category_id == $approvedArticle->category_id) {
+                    $approvedArticle->subcategory_id = $rewrittenArticle->subcategory_id;
+                    Log::info('Using subcategory_id from rewritten article', [
+                        'subcategory_id' => $rewrittenArticle->subcategory_id,
+                        'subcategory_name' => $subcategory->name
+                    ]);
+                } 
+                else if ($subcategory) {
+                    Log::warning('Rewritten article subcategory_id belongs to different category, cannot use', [
+                        'subcategory_id' => $rewrittenArticle->subcategory_id,
+                        'subcategory_category_id' => $subcategory->parent_category_id,
+                        'article_category_id' => $approvedArticle->category_id
+                    ]);
+                }
+            }
+            
             $approvedArticle->original_article_id = $rewrittenArticle->original_article_id;
             $approvedArticle->status = 'published';
             $approvedArticle->ai_generated = $rewrittenArticle->ai_generated;
             $approvedArticle->published_at = now();
+            
+            // Debug: Log the final subcategory_id value right before save
+            Log::info('Final subcategory_id before save', [
+                'subcategory_id' => $approvedArticle->subcategory_id,
+                'article_id' => $approvedArticle->id ?? 'not yet created'
+            ]);
+            
+            // Save the article
             $approvedArticle->save();
+            
+            // Double check after save
+            Log::info('Article subcategory_id after save', [
+                'article_id' => $approvedArticle->id,
+                'subcategory_id' => $approvedArticle->subcategory_id,
+                'direct_db_value' => DB::table('approved_articles')->where('id', $approvedArticle->id)->value('subcategory_id')
+            ]);
             
             // Đánh dấu bài viết đã được duyệt
             $rewrittenArticle->status = 'approved';
@@ -365,7 +598,9 @@ class RewrittenArticleController extends Controller
 
             Log::info('Bài viết đã được duyệt và chuyển sang ApprovedArticle', [
                 'rewritten_id' => $rewrittenArticle->id,
-                'approved_id' => $approvedArticle->id
+                'approved_id' => $approvedArticle->id,
+                'category_id' => $approvedArticle->category_id,
+                'subcategory_id' => $approvedArticle->subcategory_id
             ]);
             
             return $approvedArticle;
@@ -458,12 +693,23 @@ class RewrittenArticleController extends Controller
     {
         $request->validate([
             'original_article_id' => 'required|exists:approved_articles,id',
-            'category_id' => 'required|exists:categories,id',
-            'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'content' => 'required|string',
+            'category_id' => 'required|exists:categories,id',
+            'subcategory_id' => 'nullable|exists:subcategories,id',
+            'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         try {
+            // Validate that the subcategory belongs to the selected category
+            if (!empty($request->subcategory_id)) {
+                $subcategory = Subcategory::find($request->subcategory_id);
+                if (!$subcategory || $subcategory->parent_category_id != $request->category_id) {
+                    return redirect()->back()->withErrors([
+                        'subcategory_id' => 'Danh mục con phải thuộc danh mục cha đã chọn.'
+                    ])->withInput();
+                }
+            }
+            
             DB::beginTransaction();
 
             $originalArticle = ApprovedArticle::findOrFail($request->original_article_id);
@@ -476,6 +722,18 @@ class RewrittenArticleController extends Controller
             $rewrittenArticle->meta_description = $originalArticle->meta_description;
             $rewrittenArticle->user_id = Auth::id();
             $rewrittenArticle->category_id = $request->category_id;
+            
+            // Ensure subcategory_id is properly set, either from form request or from original article
+            if (!empty($request->subcategory_id)) {
+                $rewrittenArticle->subcategory_id = $request->subcategory_id;
+            } elseif ($originalArticle->subcategory_id) {
+                // Check if original article's subcategory belongs to the selected category
+                $subcategory = Subcategory::find($originalArticle->subcategory_id);
+                if ($subcategory && $subcategory->parent_category_id == $request->category_id) {
+                    $rewrittenArticle->subcategory_id = $originalArticle->subcategory_id;
+                }
+            }
+            
             $rewrittenArticle->original_article_id = $originalArticle->id;
             $rewrittenArticle->status = 'pending';
             $rewrittenArticle->ai_generated = false;
@@ -570,61 +828,26 @@ class RewrittenArticleController extends Controller
     public function aiRewrite(Request $request, RewrittenArticle $rewrittenArticle)
     {
         $validated = $request->validate([
+            'content' => 'required|string',
             'category_id' => 'required|exists:categories,id',
-            'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'subcategory_id' => 'nullable|exists:subcategories,id'
         ]);
-        
+
         try {
-            $aiSettings = DB::table('a_i_settings')->first();
-        } catch (\Exception $e) {
-            Log::error('Error querying ai_settings table: ' . $e->getMessage());
-            return redirect()->back()
-                ->with('error', 'Cài đặt AI chưa được thiết lập. Vui lòng liên hệ quản trị viên.');
-        }
-        
-        if (!$aiSettings) {
-            return redirect()->back()->with('error', 'Cài đặt AI chưa được thiết lập.');
-        }
-        
-        // Initialize AI service
-        $aiService = new AIService();
-        
-        try {
-            // Handle featured image upload if provided
-            if ($request->hasFile('featured_image')) {
-                // Lấy file ảnh từ request
-                $image = $request->file('featured_image');
-                
-                // Tạo tên file duy nhất
-                $filename = Str::random(20) . '.' . $image->getClientOriginalExtension();
-                
-                // Lưu ảnh vào thư mục public/articles
-                $imagePath = $image->storeAs('articles', $filename, 'public');
-                
-                // Save the new image path
-                $rewrittenArticle->featured_image = $imagePath;
-                
-                Log::info('Đã upload ảnh mới cho bài viết AI', [
-                    'article_id' => $rewrittenArticle->id,
-                    'image_path' => $imagePath
-                ]);
+            // Validate that the subcategory belongs to the selected category
+            if (!empty($validated['subcategory_id'])) {
+                $subcategory = Subcategory::find($validated['subcategory_id']);
+                if (!$subcategory || $subcategory->parent_category_id != $validated['category_id']) {
+                    return redirect()->back()->withErrors([
+                        'subcategory_id' => 'Danh mục con phải thuộc danh mục cha đã chọn.'
+                    ])->withInput();
+                }
             }
             
-            // Generate AI content from the existing rewritten article
-            $result = $aiService->rewriteArticle($rewrittenArticle->content);
-            
-            if (!$result['success']) {
-                Log::error('AI rewriting failed', [
-                    'article_id' => $rewrittenArticle->id,
-                    'error' => $result['error']
-                ]);
-                return redirect()->back()
-                    ->with('error', 'Không thể tạo nội dung AI: ' . $result['error']);
-            }
-            
-            // Update the rewritten article with new AI content
-            $rewrittenArticle->content = $result['content'];
+            // Cập nhật nội dung bài viết đã viết lại bằng AI
+            $rewrittenArticle->content = $validated['content'];
             $rewrittenArticle->category_id = $validated['category_id'];
+            $rewrittenArticle->subcategory_id = $validated['subcategory_id'];
             $rewrittenArticle->ai_generated = true;
             $rewrittenArticle->save();
             
@@ -632,7 +855,7 @@ class RewrittenArticleController extends Controller
             if ($rewrittenArticle->status === 'approved' && $rewrittenArticle->original_article_id && $aiSettings->auto_approval) {
                 $originalArticle = ApprovedArticle::find($rewrittenArticle->original_article_id);
                 if ($originalArticle) {
-                    $originalArticle->content = $result['content'];
+                    $originalArticle->content = $validated['content'];
                     
                     // Also update the featured image if a new one was uploaded
                     if ($request->hasFile('featured_image')) {

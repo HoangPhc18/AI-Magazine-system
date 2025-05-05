@@ -132,6 +132,7 @@ class ArticleController extends Controller
                         'source_icon' => $articleData['source_icon'] ?? null,
                         'published_at' => $articleData['date'] ?? now(),
                         'category' => $articleData['category'] ?? null,
+                        'subcategory_id' => $articleData['subcategory_id'] ?? null,
                         'meta_data' => isset($articleData['meta_data']) ? $articleData['meta_data'] : null,
                         'is_processed' => false,
                         'is_ai_rewritten' => false,

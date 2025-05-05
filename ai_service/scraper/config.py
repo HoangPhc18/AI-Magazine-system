@@ -87,6 +87,7 @@ def load_config():
         config["BASE_API_URL"] = f"{config['BACKEND_URL']}:{config['BACKEND_PORT']}/api"
     
     config["CATEGORIES_API_URL"] = f"{config['BASE_API_URL']}/categories"
+    config["SUBCATEGORIES_API_URL"] = f"{config['BASE_API_URL']}/subcategories"
     config["ARTICLES_API_URL"] = f"{config['BASE_API_URL']}/articles"
     config["ARTICLES_BATCH_API_URL"] = f"{config['BASE_API_URL']}/articles/batch"
     config["ARTICLES_IMPORT_API_URL"] = f"{config['BASE_API_URL']}/articles/import"
@@ -94,8 +95,10 @@ def load_config():
     
     # Scraper configuration
     config["MAX_ARTICLES_PER_CATEGORY"] = int(os.getenv("MAX_ARTICLES_PER_CATEGORY", "3"))
+    config["MAX_ARTICLES_PER_SUBCATEGORY"] = int(os.getenv("MAX_ARTICLES_PER_SUBCATEGORY", "2"))
     config["RETENTION_DAYS"] = int(os.getenv("RETENTION_DAYS", "7"))
     config["DEFAULT_BATCH_SIZE"] = int(os.getenv("DEFAULT_BATCH_SIZE", "5"))
+    config["USE_SUBCATEGORIES"] = os.getenv("USE_SUBCATEGORIES", "True").lower() == "true"
     
     # External API keys
     config["WORLDNEWS_API_KEY"] = os.getenv("WORLDNEWS_API_KEY", "")

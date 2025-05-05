@@ -21,6 +21,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Api\FacebookPostController;
 use App\Http\Controllers\Api\UserProfileController;
 use App\Http\Controllers\Api\Admin\WebsiteConfigController;
+use App\Http\Controllers\Api\SubcategoryController;
 
 // Public routes
 Route::post('/auth/register', [AuthController::class, 'register']);
@@ -37,6 +38,12 @@ Route::get('/articles/search', [ArticleController::class, 'search']);
 Route::get('/categories', [CategoryController::class, 'index']);
 Route::get('/categories/{category}', [CategoryController::class, 'show']);
 Route::get('/categories/{category}/articles', [CategoryController::class, 'articles']);
+Route::get('/categories/{category}/subcategories', [CategoryController::class, 'subcategories']);
+
+// Subcategory routes
+Route::get('/subcategories', [SubcategoryController::class, 'index']);
+Route::get('/subcategories/{subcategory}', [SubcategoryController::class, 'show']);
+Route::get('/subcategories/{subcategory}/articles', [SubcategoryController::class, 'articles']);
 
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {

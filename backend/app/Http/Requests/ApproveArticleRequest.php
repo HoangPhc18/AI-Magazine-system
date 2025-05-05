@@ -27,6 +27,8 @@ class ApproveArticleRequest extends FormRequest
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:255',
             'category_id' => 'nullable|exists:categories,id',
+            'subcategory_id' => 'nullable|exists:subcategories,id',
+            'explicit_subcategory_id' => 'nullable|exists:subcategories,id',
             'featured_image' => 'nullable|string',
         ];
     }

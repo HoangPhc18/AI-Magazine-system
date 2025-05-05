@@ -99,14 +99,21 @@ def run_scraper():
             'start_time': scraper_start_time.isoformat() if scraper_start_time else None
         }), 409
     
+    # Lấy tham số từ request (nếu có)
+    data = request.get_json(silent=True) or {}
+    category_id = data.get('category_id')
+    subcategory_id = data.get('subcategory_id')
+    
     # Chạy scraper trong một process riêng biệt
-    success, message = run_scraper_process()
+    success, message = run_scraper_process(category_id, subcategory_id)
     
     if success:
         return jsonify({
             'status': 'started',
             'message': 'Scraper đã được kích hoạt',
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat(),
+            'category_id': category_id,
+            'subcategory_id': subcategory_id
         })
     else:
         return jsonify({
@@ -115,9 +122,71 @@ def run_scraper():
             'timestamp': datetime.now().isoformat()
         }), 500
 
-def run_scraper_process():
+@app.route('/scrape-subcategory', methods=['POST'])
+def scrape_subcategory():
+    """
+    Kích hoạt quá trình scraping cho một danh mục con cụ thể
+    
+    Returns:
+        JSON: Kết quả kích hoạt scraper
+    """
+    global is_scraper_running
+    global scraper_start_time
+    
+    # Kiểm tra xem scraper đã đang chạy chưa
+    if is_scraper_running:
+        logger.warning("Yêu cầu bị từ chối: Scraper đang chạy")
+        return jsonify({
+            'status': 'error',
+            'message': 'Scraper đang chạy',
+            'start_time': scraper_start_time.isoformat() if scraper_start_time else None
+        }), 409
+    
+    # Lấy tham số từ request
+    data = request.get_json(silent=True) or {}
+    category_id = data.get('category_id')
+    subcategory_id = data.get('subcategory_id')
+    
+    # Kiểm tra tham số bắt buộc
+    if not category_id:
+        return jsonify({
+            'status': 'error',
+            'message': 'Thiếu tham số category_id',
+            'timestamp': datetime.now().isoformat()
+        }), 400
+        
+    if not subcategory_id:
+        return jsonify({
+            'status': 'error',
+            'message': 'Thiếu tham số subcategory_id',
+            'timestamp': datetime.now().isoformat()
+        }), 400
+    
+    # Chạy scraper trong một process riêng biệt
+    success, message = run_scraper_process(category_id, subcategory_id)
+    
+    if success:
+        return jsonify({
+            'status': 'started',
+            'message': 'Scraper cho danh mục con đã được kích hoạt',
+            'timestamp': datetime.now().isoformat(),
+            'category_id': category_id,
+            'subcategory_id': subcategory_id
+        })
+    else:
+        return jsonify({
+            'status': 'error',
+            'message': message,
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+def run_scraper_process(category_id=None, subcategory_id=None):
     """
     Hàm chạy quá trình scraping trong một process riêng biệt
+    
+    Args:
+        category_id (int, optional): ID danh mục cần scrape
+        subcategory_id (int, optional): ID danh mục con cần scrape
     """
     lock_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scraper.lock')
     
@@ -161,9 +230,22 @@ def run_scraper_process():
             logger.error(f"Không tìm thấy script: {script_path}")
             return False, f"Không tìm thấy script: {script_path}"
         
+        # Xây dựng tham số dòng lệnh
+        cmd = [sys.executable, script_path]
+        
+        if category_id and subcategory_id:
+            # Chỉ scrape một danh mục con cụ thể
+            cmd.extend(["--category", str(category_id), "--subcategory", str(subcategory_id), "--auto-send", "--use-subcategories"])
+        elif category_id:
+            # Chỉ scrape một danh mục cụ thể
+            cmd.extend(["--category", str(category_id), "--auto-send", "--use-subcategories"])
+        else:
+            # Scrape tất cả danh mục
+            cmd.extend(["--all", "--auto-send", "--use-subcategories"])
+        
         # Chạy script trong process con với các tham số
         process = subprocess.Popen(
-            [sys.executable, script_path, "--all", "--auto-send"],
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
@@ -291,6 +373,12 @@ if __name__ == "__main__":
     
     # Tải cấu hình
     config = get_config()
+    
+    # Đảm bảo các thư mục output tồn tại
+    output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        logger.info(f"Created output directory: {output_dir}")
     
     # Chạy ứng dụng Flask
     port = config["PORT_SCRAPER"]

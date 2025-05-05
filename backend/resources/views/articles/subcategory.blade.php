@@ -1,44 +1,29 @@
 @extends('layouts.app')
 
-@section('title', $category->name . ' - Magazine AI System')
+@section('title', $subcategory->name . ' - ' . $category->name . ' - Magazine AI System')
 
 @section('content')
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Category Header -->
+    <!-- Subcategory Header -->
     <div class="bg-white shadow-md rounded-lg overflow-hidden mb-8">
         <div class="p-6">
-            <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ $category->name }}</h1>
-            @if($category->description)
-                <p class="text-gray-600">{{ $category->description }}</p>
+            <div class="flex items-center mb-2">
+                <a href="{{ route('articles.category', $category->slug) }}" class="text-primary-600 hover:text-primary-800 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    {{ $category->name }}
+                </a>
+                <span class="mx-2 text-gray-400">/</span>
+                <span class="font-semibold text-gray-800">{{ $subcategory->name }}</span>
+            </div>
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">{{ $subcategory->name }}</h1>
+            @if($subcategory->description)
+                <p class="text-gray-600">{{ $subcategory->description }}</p>
             @endif
             <p class="mt-2 text-sm text-gray-500">{{ $articles->total() }} bài viết</p>
         </div>
     </div>
-
-    <!-- Subcategories Section -->
-    @if(isset($subcategories) && $subcategories->count() > 0)
-    <div class="mb-8">
-        <h2 class="text-xl font-semibold text-gray-900 mb-4">Danh mục con</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-            @foreach($subcategories as $subcategory)
-                <a href="{{ route('articles.subcategory', ['category_slug' => $category->slug, 'subcategory_slug' => $subcategory->slug]) }}" class="group">
-                    <div class="bg-white rounded-xl shadow p-4 hover:shadow-md transition-all duration-300 text-center group-hover:bg-gradient-to-br group-hover:from-primary-50 group-hover:to-white transform group-hover:-translate-y-1">
-                        <h3 class="text-md font-semibold text-gray-900 group-hover:text-primary-600 transition-colors duration-300">{{ $subcategory->name }}</h3>
-                        <p class="text-gray-500 text-xs mt-1">{{ $subcategory->articles_count ?? 0 }} bài viết</p>
-                        <div class="mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                            <span class="inline-flex items-center text-xs font-medium text-primary-600">
-                                Xem chi tiết
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                                </svg>
-                            </span>
-                        </div>
-                    </div>
-                </a>
-            @endforeach
-        </div>
-    </div>
-    @endif
 
     <!-- Article Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
@@ -90,11 +75,11 @@
                 </svg>
                 <h3 class="mt-2 text-sm font-medium text-gray-900">Không tìm thấy bài viết</h3>
                 <p class="mt-1 text-sm text-gray-500">
-                    Hiện chưa có bài viết nào trong danh mục này.
+                    Hiện chưa có bài viết nào trong danh mục con này.
                 </p>
                 <div class="mt-6">
-                    <a href="{{ route('home') }}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                        Về trang chủ
+                    <a href="{{ route('articles.category', $category->slug) }}" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Quay lại {{ $category->name }}
                     </a>
                 </div>
             </div>

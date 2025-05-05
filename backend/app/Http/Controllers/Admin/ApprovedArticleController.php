@@ -7,6 +7,7 @@ use App\Models\ApprovedArticle;
 use App\Models\Category;
 use App\Models\Media;
 use App\Models\ArticleFeaturedImage;
+use App\Models\Subcategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
@@ -52,7 +53,7 @@ class ApprovedArticleController extends Controller
             $query->where('category_id', request('category_id'));
         }
 
-        $articles = $query->with(['category', 'user', 'featuredImage'])->latest()->paginate(10);
+        $articles = $query->with(['category', 'subcategory', 'user', 'featuredImage'])->latest()->paginate(10);
 
         // Load categories for filter
         $categories = Category::all();
@@ -80,6 +81,7 @@ class ApprovedArticleController extends Controller
             'title' => 'required|string|max:255',
             'content' => 'required|string',
             'category_id' => 'required|exists:categories,id',
+            'subcategory_id' => 'nullable|exists:subcategories,id',
             'original_article_id' => 'nullable|exists:rewritten_articles,id',
             'ai_generated' => 'nullable|boolean',
             'meta_title' => 'nullable|string|max:255',
@@ -90,6 +92,16 @@ class ApprovedArticleController extends Controller
         ]);
 
         try {
+            // Validate that the subcategory belongs to the selected category
+            if (!empty($validated['subcategory_id'])) {
+                $subcategory = Subcategory::find($validated['subcategory_id']);
+                if (!$subcategory || $subcategory->parent_category_id != $validated['category_id']) {
+                    return redirect()->back()->withErrors([
+                        'subcategory_id' => 'Danh mục con phải thuộc danh mục cha đã chọn.'
+                    ])->withInput();
+                }
+            }
+            
             // Bắt đầu transaction
             DB::beginTransaction();
 
@@ -203,6 +215,7 @@ class ApprovedArticleController extends Controller
 
     /**
      * Update the specified approved article
+     * Always include validation for subcategory_id to ensure it's preserved when updating.
      */
     public function update(Request $request, ApprovedArticle $approvedArticle)
     {
@@ -210,14 +223,81 @@ class ApprovedArticleController extends Controller
             'title' => 'required|string|max:255',
             'content' => 'required|string',
             'category_id' => 'required|exists:categories,id',
+            'subcategory_id' => 'nullable|exists:subcategories,id',
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:255',
             'featured_image_id' => 'nullable|exists:media,id',
             'featured_image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'status' => 'required|in:published,unpublished',
+            'explicit_subcategory_id' => 'nullable|exists:subcategories,id',
         ]);
 
         try {
+            // Use explicit_subcategory_id if provided
+            if (isset($validated['explicit_subcategory_id'])) {
+                $validated['subcategory_id'] = $validated['explicit_subcategory_id'];
+                unset($validated['explicit_subcategory_id']); // Remove it from the data that will be saved
+            }
+            
+            // Also check for the additional selected_subcategory_id field
+            if (isset($request->selected_subcategory_id)) {
+                $validated['subcategory_id'] = $request->selected_subcategory_id === '' ? null : $request->selected_subcategory_id;
+                Log::info('Using selected_subcategory_id value', [
+                    'article_id' => $approvedArticle->id,
+                    'selected_subcategory_id' => $validated['subcategory_id']
+                ]);
+            }
+            
+            // Prioritize the forced_subcategory_id field if it exists
+            if (isset($request->forced_subcategory_id)) {
+                $validated['subcategory_id'] = $request->forced_subcategory_id === '' ? null : $request->forced_subcategory_id;
+                Log::info('Using forced_subcategory_id value', [
+                    'article_id' => $approvedArticle->id,
+                    'forced_subcategory_id' => $validated['subcategory_id']
+                ]);
+            }
+            
+            // Ensure subcategory_id is explicitly set to null if empty string is provided
+            // This ensures empty subcategory selections are properly processed
+            if (isset($validated['subcategory_id']) && $validated['subcategory_id'] === '') {
+                $validated['subcategory_id'] = null;
+            }
+            
+            // Validate that the subcategory belongs to the selected category
+            if (!empty($validated['subcategory_id'])) {
+                $subcategory = Subcategory::find($validated['subcategory_id']);
+                if (!$subcategory || $subcategory->parent_category_id != $validated['category_id']) {
+                    return redirect()->back()->withErrors([
+                        'subcategory_id' => 'Danh mục con phải thuộc danh mục cha đã chọn.'
+                    ])->withInput();
+                }
+            }
+            
+            // Debug logging for subcategory changes
+            Log::info('Updating article with subcategory data', [
+                'article_id' => $approvedArticle->id,
+                'old_category_id' => $approvedArticle->category_id,
+                'new_category_id' => $validated['category_id'],
+                'old_subcategory_id' => $approvedArticle->subcategory_id,
+                'new_subcategory_id' => $validated['subcategory_id'] ?? null,
+                'request_data' => $request->all(),
+                'has_subcategory_change' => ($approvedArticle->subcategory_id != ($validated['subcategory_id'] ?? null))
+            ]);
+            
+            // If category changed but subcategory is still from old category, clear it
+            if ($approvedArticle->category_id != $validated['category_id'] && !empty($approvedArticle->subcategory_id)) {
+                $oldSubcategory = Subcategory::find($approvedArticle->subcategory_id);
+                if ($oldSubcategory && $oldSubcategory->parent_category_id != $validated['category_id']) {
+                    // Force subcategory to null if it doesn't belong to the new category
+                    $validated['subcategory_id'] = null;
+                    Log::info('Cleared subcategory because category changed', [
+                        'article_id' => $approvedArticle->id,
+                        'old_category_id' => $approvedArticle->category_id,
+                        'new_category_id' => $validated['category_id']
+                    ]);
+                }
+            }
+            
             // Bắt đầu transaction để đảm bảo tính nhất quán dữ liệu
             DB::beginTransaction();
             
@@ -310,7 +390,20 @@ class ApprovedArticleController extends Controller
             }
 
             // Update article with validated data
-            $approvedArticle->update($validated);
+            $approvedArticle->fill($validated);
+            
+            // Explicitly set the subcategory_id field to ensure it's updated
+            // This ensures the subcategory change is applied even if it's not detected by other means
+            if (isset($request->subcategory_id)) {
+                $approvedArticle->subcategory_id = $request->subcategory_id === '' ? null : $request->subcategory_id;
+                Log::info('Explicitly setting subcategory_id', [
+                    'article_id' => $approvedArticle->id,
+                    'new_subcategory_id' => $approvedArticle->subcategory_id
+                ]);
+            }
+            
+            // Save the article
+            $approvedArticle->save();
             
             // Process article media entities from content
             // Make sure to process even if only content media has changed and no other fields

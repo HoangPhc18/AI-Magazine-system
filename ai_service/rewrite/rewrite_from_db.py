@@ -115,7 +115,7 @@ def get_unprocessed_articles(connection, limit=3, article_ids=None):
             
             # Query to get specific articles by ID regardless of is_ai_rewritten status
             query = f"""
-            SELECT id, title, content, source_name, source_url, category,
+            SELECT id, title, content, source_name, source_url, category, subcategory_id,
                    DATE_FORMAT(created_at, '%Y-%m-%d') as date
             FROM articles
             WHERE id IN ({placeholders})
@@ -139,7 +139,7 @@ def get_unprocessed_articles(connection, limit=3, article_ids=None):
         else:
             # Query to get articles that haven't been rewritten yet
             query = """
-            SELECT id, title, content, source_name, source_url, category,
+            SELECT id, title, content, source_name, source_url, category, subcategory_id,
                    DATE_FORMAT(created_at, '%Y-%m-%d') as date
             FROM articles
             WHERE content IS NOT NULL 
@@ -300,7 +300,7 @@ def save_rewritten_article(connection, article_id, original_content, rewritten_c
         
         # First get the original article data
         get_query = """
-        SELECT title, slug, source_name, category
+        SELECT title, slug, source_name, category, subcategory_id
         FROM articles 
         WHERE id = %s
         """
@@ -325,6 +325,10 @@ def save_rewritten_article(connection, article_id, original_content, rewritten_c
         # Get the original category (as string) and set default category_id = 1
         category_name = original_article[3] or "Uncategorized"
         category_id = 1  # Default category ID
+        
+        # Get the original subcategory_id
+        subcategory_id = original_article[4]  # This will be None if not set
+        print(f"Original article subcategory_id: {subcategory_id}")
         
         # Try to find the category_id from categories table if it exists
         try:
@@ -351,9 +355,9 @@ def save_rewritten_article(connection, article_id, original_content, rewritten_c
         query = """
         INSERT INTO rewritten_articles 
         (title, slug, content, meta_description, 
-         user_id, category_id, original_article_id, ai_generated, 
+         user_id, category_id, subcategory_id, original_article_id, ai_generated, 
          status, created_at, updated_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
         """
         
         # Execute query with data from original article
@@ -364,6 +368,7 @@ def save_rewritten_article(connection, article_id, original_content, rewritten_c
             meta_description,             # meta_description
             1,                            # user_id (admin)
             category_id,                  # category_id
+            subcategory_id,               # subcategory_id
             article_id,                   # original_article_id
             1,                            # ai_generated
             'pending'                     # status
@@ -374,6 +379,7 @@ def save_rewritten_article(connection, article_id, original_content, rewritten_c
         
         print(f"Saved rewritten article to rewritten_articles table (ID: {cursor.lastrowid})")
         print(f"Using category ID: {category_id} for rewritten article")
+        print(f"Using subcategory ID: {subcategory_id} for rewritten article")
         
         # Also update the original article to mark it as rewritten
         update_query = """
@@ -441,9 +447,11 @@ def process_article(connection, article):
     article_id = article['id']
     title = article['title']
     content = article['content']
+    subcategory_id = article.get('subcategory_id')
     
     print(f"\nProcessing article: {title}")
     print(f"Original content length: {len(content)} chars, {len(content.split())} words")
+    print(f"Original article subcategory_id: {subcategory_id}")
     
     # Rewrite content using Gemini
     rewritten_content, processing_time = rewrite_with_gemini(content)
@@ -474,6 +482,7 @@ def process_article(connection, article):
         "provider": "gemini",
         "model": GEMINI_MODEL,
         "in_target_range": in_target_range,
+        "subcategory_id": subcategory_id,
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
     

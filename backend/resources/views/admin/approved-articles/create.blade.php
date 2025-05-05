@@ -83,6 +83,25 @@
                             </div>
 
                             <div class="sm:col-span-3">
+                                <label for="subcategory_id" class="block text-sm font-medium text-gray-700">Danh mục con</label>
+                                <div class="mt-1">
+                                    <select id="subcategory_id" name="subcategory_id" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md">
+                                        <option value="">-- Chọn danh mục con --</option>
+                                        @if($rewrittenArticle->category && $rewrittenArticle->category->subcategories)
+                                            @foreach($rewrittenArticle->category->subcategories as $subcategory)
+                                                <option value="{{ $subcategory->id }}" {{ old('subcategory_id', $rewrittenArticle->subcategory_id) == $subcategory->id ? 'selected' : '' }}>
+                                                    {{ $subcategory->name }}
+                                                </option>
+                                            @endforeach
+                                        @endif
+                                    </select>
+                                </div>
+                                @error('subcategory_id')
+                                    <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            <div class="sm:col-span-3">
                                 <label for="status" class="block text-sm font-medium text-gray-700">Trạng thái xuất bản</label>
                                 <div class="mt-1">
                                     <select id="status" name="status" class="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md">
@@ -644,6 +663,58 @@
             colorPicker.classList.add('hidden');
             fontSizePicker.classList.add('hidden');
         });
+
+        const categorySelect = document.getElementById('category_id');
+        const subcategorySelect = document.getElementById('subcategory_id');
+        
+        if (categorySelect && subcategorySelect) {
+            // Store initial values
+            const initialCategoryId = categorySelect.value;
+            const initialSubcategoryId = subcategorySelect.value;
+            
+            categorySelect.addEventListener('change', function() {
+                const categoryId = this.value;
+                
+                // Clear current options
+                subcategorySelect.innerHTML = '<option value="">-- Chọn danh mục con --</option>';
+                
+                // Very important: Clear the selected subcategory value when category changes
+                subcategorySelect.value = '';
+                
+                if (categoryId) {
+                    // Fetch subcategories for the selected category
+                    fetch(`/admin/categories/${categoryId}/subcategories`)
+                        .then(response => response.json())
+                        .then(subcategories => {
+                            if (subcategories.length > 0) {
+                                subcategories.forEach(subcategory => {
+                                    const option = document.createElement('option');
+                                    option.value = subcategory.id;
+                                    option.textContent = subcategory.name;
+                                    subcategorySelect.appendChild(option);
+                                });
+                                
+                                // If this is the initial page load and we have both initial values, try to select the initial subcategory
+                                if (categoryId === initialCategoryId && initialSubcategoryId) {
+                                    // Check if the initial subcategory is in the list (exists in the new category)
+                                    const initialOption = Array.from(subcategorySelect.options)
+                                        .find(option => option.value === initialSubcategoryId);
+                                    
+                                    if (initialOption) {
+                                        subcategorySelect.value = initialSubcategoryId;
+                                    }
+                                }
+                            }
+                        })
+                        .catch(error => console.error('Error fetching subcategories:', error));
+                }
+            });
+            
+            // Trigger change event on page load if category is selected
+            if (initialCategoryId) {
+                categorySelect.dispatchEvent(new Event('change'));
+            }
+        }
     });
 </script>
 @endpush

@@ -25,7 +25,8 @@ class Article extends Model
         'is_processed',
         'is_ai_rewritten',
         'ai_rewritten_content',
-        'featured_image_id'
+        'featured_image_id',
+        'subcategory_id'
     ];
 
     protected $casts = [
@@ -64,6 +65,11 @@ class Article extends Model
     public function category()
     {
         return $this->belongsTo(Category::class, 'category', 'name');
+    }
+
+    public function subcategory()
+    {
+        return $this->belongsTo(Subcategory::class, 'subcategory_id');
     }
 
     public function rewrittenArticles()

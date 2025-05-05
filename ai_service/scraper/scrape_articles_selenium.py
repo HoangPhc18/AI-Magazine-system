@@ -93,6 +93,11 @@ def extract_article_content(url):
     }
     
     try:
+        # Validate URL
+        if not url or not url.startswith('http'):
+            logger.error(f"Invalid URL: {url}")
+            return None
+            
         # Get the domain from the URL
         domain = urlparse(url).netloc
         logger.info(f"Detected domain: {domain}")
@@ -100,15 +105,45 @@ def extract_article_content(url):
         # Timeout từ cấu hình hoặc mặc định 15s
         timeout = config.get("REQUEST_TIMEOUT", 15)
         
-        # Fetch the page
-        response = requests.get(url, headers=headers, timeout=timeout)
-        response.raise_for_status()
+        # Fetch the page with retries
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                response = requests.get(url, headers=headers, timeout=timeout)
+                response.raise_for_status()
+                break
+            except (requests.RequestException, requests.HTTPError) as e:
+                retry_count += 1
+                if retry_count >= max_retries:
+                    logger.error(f"Failed to fetch URL after {max_retries} attempts: {str(e)}")
+                    return None
+                logger.warning(f"Retry {retry_count}/{max_retries} - Error fetching URL: {str(e)}")
+                time.sleep(2)  # Wait before retrying
+        
+        # Check content type to ensure it's HTML
+        content_type = response.headers.get('Content-Type', '').lower()
+        if 'text/html' not in content_type:
+            logger.error(f"URL does not return HTML content: {content_type}")
+            return None
+            
+        # Check for empty response
+        if not response.text.strip():
+            logger.error("Empty response from URL")
+            return None
+        
+        # Parse HTML for title extraction in any case (used as fallback)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        fallback_title = ""
+        if soup.title:
+            fallback_title = soup.title.string.strip() if soup.title.string else ""
         
         # Try using domain-specific selectors first
+        extracted_data = None
         for domain_key, selectors in DOMAIN_SELECTORS.items():
             if domain_key in domain:
                 logger.info(f"Using custom selectors for domain: {domain_key}")
-                soup = BeautifulSoup(response.text, 'html.parser')
                 
                 title_element = soup.select_one(selectors["title"])
                 content_element = soup.select_one(selectors["content"])
@@ -121,72 +156,135 @@ def extract_article_content(url):
                     content = re.sub(r'\s+', ' ', content)
                     
                     logger.info(f"Successfully extracted content using custom selectors (Title length: {len(title)}, Content length: {len(content)})")
-                    return {
+                    extracted_data = {
                         "title": title,
                         "content": content
                     }
+                    break
         
-        # If domain-specific extraction fails, fallback to trafilatura
-        logger.info("Using trafilatura for content extraction")
-        downloaded = trafilatura.fetch_url(url)
-        
-        if downloaded:
-            # Extract with trafilatura
-            result = trafilatura.extract(downloaded, output_format="json", include_comments=False, 
-                                          include_tables=False, no_fallback=False)
-            
-            if result:
-                import json
-                data = json.loads(result)
-                title = data.get("title", "")
-                content = data.get("text", "")
+        # If domain-specific extraction fails, try trafilatura
+        if not extracted_data or len(extracted_data.get("content", "")) < 200:  # Minimum content length check
+            logger.info("Using trafilatura for content extraction")
+            try:
+                downloaded = trafilatura.fetch_url(url)
                 
-                logger.info(f"Successfully extracted content using trafilatura (Title length: {len(title)}, Content length: {len(content)})")
-                return {
-                    "title": title,
-                    "content": content
-                }
+                if downloaded:
+                    # Extract with trafilatura
+                    result = trafilatura.extract(downloaded, output_format="json", include_comments=False, 
+                                                include_tables=False, no_fallback=False)
+                    
+                    if result:
+                        import json
+                        data = json.loads(result)
+                        title = data.get("title", "")
+                        content = data.get("text", "")
+                        
+                        # If trafilatura didn't extract a title but we have fallback_title, use it
+                        if not title and fallback_title:
+                            title = fallback_title
+                            logger.info(f"Using fallback title: {title}")
+                        
+                        logger.info(f"Successfully extracted content using trafilatura (Title length: {len(title)}, Content length: {len(content)})")
+                        
+                        if title and content and len(content) >= 200:
+                            extracted_data = {
+                                "title": title,
+                                "content": content
+                            }
+            except Exception as e:
+                logger.error(f"Error using trafilatura: {str(e)}")
         
         # If both methods fail, try a simple extraction with BeautifulSoup
-        logger.info("Fallback to simple extraction with BeautifulSoup")
-        soup = BeautifulSoup(response.text, 'html.parser')
+        if not extracted_data or len(extracted_data.get("content", "")) < 200:
+            logger.info("Fallback to simple extraction with BeautifulSoup")
+            
+            # Get title - use the one we already extracted
+            title = fallback_title
+            
+            # Get main content (improved heuristic)
+            main_content = ""
+            
+            # Try to find the main article container
+            main_candidates = [
+                soup.find('article'),
+                soup.find('div', class_=lambda c: c and ('content' in c.lower() or 'article' in c.lower())),
+                soup.find('div', id=lambda i: i and ('content' in i.lower() or 'article' in i.lower()))
+            ]
+            
+            main_element = next((elem for elem in main_candidates if elem), None)
+            
+            if main_element:
+                # Extract from main element
+                paragraphs = main_element.find_all('p')
+            else:
+                # Extract from whole page
+                paragraphs = soup.find_all('p')
+            
+            for p in paragraphs:
+                text = p.get_text().strip()
+                if len(text) > 30:  # Only consider paragraphs with substantial text
+                    main_content += text + "\n\n"
+            
+            # If p tags didn't work, try div tags
+            if len(main_content) < 200:
+                div_texts = []
+                for div in soup.find_all('div'):
+                    if div.find('div') is None:  # Only leaf divs
+                        text = div.get_text().strip()
+                        if len(text) > 50 and len(text) < 1000:  # Reasonable length for a paragraph
+                            div_texts.append(text)
+                
+                # Sort by length (descending) and take top 10
+                div_texts.sort(key=len, reverse=True)
+                main_content = "\n\n".join(div_texts[:10])
+            
+            if title and main_content and len(main_content) >= 200:
+                logger.info(f"Extracted content with simple fallback (Title length: {len(title)}, Content length: {len(main_content)})")
+                extracted_data = {
+                    "title": title,
+                    "content": main_content.strip()
+                }
         
-        # Get title
-        title = soup.title.string if soup.title else ""
+        # If we have content but no title, try to generate a title from content
+        if extracted_data and extracted_data["content"] and not extracted_data.get("title"):
+            # Generate title from first sentence of content
+            first_sentence = re.split(r'(?<=[.!?])\s+', extracted_data["content"].strip())[0]
+            if first_sentence and len(first_sentence) > 5:
+                if len(first_sentence) > 100:
+                    extracted_data["title"] = first_sentence[:100] + "..."
+                else:
+                    extracted_data["title"] = first_sentence
+                logger.info(f"Generated title from content: {extracted_data['title']}")
         
-        # Get main content (simple heuristic)
-        main_content = ""
-        paragraphs = soup.find_all('p')
-        for p in paragraphs:
-            text = p.get_text().strip()
-            if len(text) > 50:  # Only consider paragraphs with substantial text
-                main_content += text + "\n\n"
-        
-        if title and main_content:
-            logger.info(f"Extracted content with simple fallback (Title length: {len(title)}, Content length: {len(main_content)})")
-            return {
-                "title": title,
-                "content": main_content
-            }
-        
-        logger.warning("Failed to extract content using all methods")
-        return {
-            "title": "",
-            "content": ""
-        }
-        
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error fetching URL: {str(e)}")
-        return {
-            "title": "",
-            "content": f"Error fetching URL: {str(e)}"
-        }
+        # Final check to make sure we have both title and content
+        if extracted_data and extracted_data.get("title") and extracted_data.get("content"):
+            # Final cleaning
+            content = extracted_data["content"]
+            
+            # Remove excessive newlines
+            content = re.sub(r'\n{3,}', '\n\n', content)
+            
+            # Ensure content is long enough
+            if len(content) < 200:
+                logger.error(f"Content too short after cleaning: {len(content)} chars")
+                return None
+                
+            extracted_data["content"] = content
+                
+            logger.info(f"Successfully extracted content from URL: {url}")
+            logger.info(f"Title: {extracted_data['title']}")
+            logger.info(f"Content length: {len(extracted_data['content'])}")
+            
+            return extracted_data
+        else:
+            logger.error("Failed to extract complete content (missing title or content)")
+            return None
+            
     except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        return {
-            "title": "",
-            "content": f"Error extracting content: {str(e)}"
-        }
+        logger.error(f"Error extracting content from URL: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return None
 
 if __name__ == '__main__':
     # Test the function

@@ -43,13 +43,13 @@
 
             @if($rewrittenArticle->status === 'pending')
             <div class="flex space-x-4 mb-6">
-                <a href="{{ route('admin.rewritten-articles.approve', $rewrittenArticle) }}" 
+                <button type="button" id="approveButton"
                    class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg inline-flex items-center">
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                     </svg>
                     Duyệt bài viết
-                </a>
+                </button>
                 <form action="{{ route('admin.rewritten-articles.reject', $rewrittenArticle) }}" method="POST" class="inline">
                     @csrf
                     @method('PATCH')
@@ -62,11 +62,22 @@
                         Từ chối bài viết
                     </button>
                 </form>
+                
+                <!-- Hidden form for approval with subcategory data -->
+                <form id="approveForm" action="{{ route('admin.rewritten-articles.approve', $rewrittenArticle) }}" method="POST" class="hidden">
+                    @csrf
+                    @method('POST')
+                    <input type="hidden" name="subcategory_id" value="{{ $rewrittenArticle->subcategory_id }}">
+                    <input type="hidden" name="explicit_subcategory_id" value="{{ $rewrittenArticle->subcategory_id }}">
+                </form>
             </div>
             @endif
 
             <div class="flex items-center text-sm text-gray-500 mb-6">
                 <span class="mr-4">Danh mục: {{ $rewrittenArticle->category->name }}</span>
+                @if($rewrittenArticle->subcategory)
+                <span class="mr-4">Danh mục con: {{ $rewrittenArticle->subcategory->name }}</span>
+                @endif
                 <span class="mr-4">Tạo bởi: {{ $rewrittenArticle->user->name }}</span>
                 <span>Ngày tạo: {{ $rewrittenArticle->created_at->format('d/m/Y H:i') }}</span>
             </div>
@@ -164,4 +175,28 @@
         </div>
     </div>
 </div>
-@endsection 
+@endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const approveButton = document.getElementById('approveButton');
+    const approveForm = document.getElementById('approveForm');
+    
+    if (approveButton && approveForm) {
+        approveButton.addEventListener('click', function() {
+            if (confirm('Bạn có chắc chắn muốn duyệt bài viết này?')) {
+                // Log subcategory data before submitting form
+                console.log('Submitting approval with subcategory_id:', 
+                    document.querySelector('input[name="subcategory_id"]').value);
+                console.log('Explicit subcategory_id:', 
+                    document.querySelector('input[name="explicit_subcategory_id"]').value);
+                
+                // Submit the form
+                approveForm.submit();
+            }
+        });
+    }
+});
+</script>
+@endpush 

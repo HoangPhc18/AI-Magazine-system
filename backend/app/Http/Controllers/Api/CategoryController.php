@@ -27,4 +27,13 @@ class CategoryController extends Controller
             ->get();
         return response()->json($articles);
     }
+    
+    /**
+     * Get subcategories for a given category
+     */
+    public function subcategories(Category $category)
+    {
+        $subcategories = $category->subcategories()->orderBy('name')->get();
+        return response()->json($subcategories);
+    }
 }

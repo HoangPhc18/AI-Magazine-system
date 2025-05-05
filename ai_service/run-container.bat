@@ -2,8 +2,8 @@
 echo ===== Chay du an AI Service voi cong 55025 =====
 echo.
 
-echo Dang build image ai-service:55025...
-docker build -t ai-service:55025 .
+echo Dang build image ai-service:55025 tu optimized-dockerfile...
+docker build -t ai-service:55025 -f optimized-dockerfile .
 if %ERRORLEVEL% NEQ 0 (
     echo Loi khi build image!
     pause

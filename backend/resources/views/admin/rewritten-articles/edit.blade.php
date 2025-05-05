@@ -24,6 +24,10 @@
             @csrf
             @method('PUT')
             
+            <!-- Test hidden input to force subcategory value -->
+            <input type="hidden" name="test_subcategory_id" value="1">
+            <!-- End test input -->
+            
             <div>
                 <label for="title" class="block text-sm font-medium text-gray-700">Tiêu đề</label>
                 <input type="text" name="title" id="title" value="{{ old('title', $rewrittenArticle->title) }}" required
@@ -40,6 +44,21 @@
                             {{ $category->name }}
                         </option>
                     @endforeach
+                </select>
+            </div>
+
+            <div>
+                <label for="subcategory_id" class="block text-sm font-medium text-gray-700">Danh mục con</label>
+                <select name="subcategory_id" id="subcategory_id"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <option value="">Chọn danh mục con</option>
+                    @if($rewrittenArticle->category && $rewrittenArticle->category->subcategories)
+                        @foreach($rewrittenArticle->category->subcategories as $subcategory)
+                            <option value="{{ $subcategory->id }}" {{ old('subcategory_id', $rewrittenArticle->subcategory_id) == $subcategory->id ? 'selected' : '' }}>
+                                {{ $subcategory->name }}
+                            </option>
+                        @endforeach
+                    @endif
                 </select>
             </div>
 
@@ -133,4 +152,110 @@
         </form>
     </div>
 </div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const categorySelect = document.getElementById('category_id');
+    const subcategorySelect = document.getElementById('subcategory_id');
+    const form = document.querySelector('form');
+    
+    if (categorySelect && subcategorySelect) {
+        // Store initial values
+        const initialCategoryId = categorySelect.value;
+        const initialSubcategoryId = subcategorySelect.value ? subcategorySelect.value.toString() : '';
+        
+        // Log initial values for debugging
+        console.log('Initial values:', {
+            categoryId: initialCategoryId,
+            subcategoryId: initialSubcategoryId
+        });
+        
+        categorySelect.addEventListener('change', function() {
+            const categoryId = this.value;
+            
+            // Clear current options and reset value
+            subcategorySelect.innerHTML = '<option value="">Chọn danh mục con</option>';
+            subcategorySelect.value = '';
+            
+            if (categoryId) {
+                // Fetch subcategories for the selected category
+                fetch(`/admin/categories/${categoryId}/subcategories`)
+                    .then(response => response.json())
+                    .then(subcategories => {
+                        if (subcategories.length > 0) {
+                            subcategories.forEach(subcategory => {
+                                const option = document.createElement('option');
+                                option.value = subcategory.id.toString();
+                                option.textContent = subcategory.name;
+                                subcategorySelect.appendChild(option);
+                            });
+                            
+                            // If this is the initial page load and we have both initial values, try to select the initial subcategory
+                            if (categoryId === initialCategoryId && initialSubcategoryId) {
+                                // Check if the initial subcategory is in the list (exists in the new category)
+                                const initialOption = Array.from(subcategorySelect.options)
+                                    .find(option => option.value === initialSubcategoryId);
+                                
+                                if (initialOption) {
+                                    subcategorySelect.value = initialSubcategoryId;
+                                    console.log('Selected initial subcategory:', initialSubcategoryId);
+                                }
+                            }
+                        }
+                    })
+                    .catch(error => console.error('Error fetching subcategories:', error));
+            }
+        });
+        
+        // Add a change event listener to the subcategory select
+        subcategorySelect.addEventListener('change', function() {
+            console.log('Subcategory changed to:', this.value);
+            
+            // Store the subcategory selection in a data attribute to ensure it's preserved
+            this.setAttribute('data-selected-value', this.value);
+            
+            // Create or update a hidden input field with the current subcategory value
+            let hiddenSubcategoryInput = document.getElementById('hidden_subcategory_id');
+            if (!hiddenSubcategoryInput) {
+                hiddenSubcategoryInput = document.createElement('input');
+                hiddenSubcategoryInput.type = 'hidden';
+                hiddenSubcategoryInput.id = 'hidden_subcategory_id'; 
+                hiddenSubcategoryInput.name = 'explicit_subcategory_id';
+                form.appendChild(hiddenSubcategoryInput);
+            }
+            hiddenSubcategoryInput.value = this.value;
+        });
+        
+        // Ensure form includes the latest subcategory value when submitting
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                // Get the currently selected subcategory value
+                const currentSubcategoryValue = subcategorySelect.value;
+                
+                // Create or update a hidden input field with the current subcategory value
+                let hiddenSubcategoryInput = document.getElementById('hidden_subcategory_id');
+                if (!hiddenSubcategoryInput) {
+                    hiddenSubcategoryInput = document.createElement('input');
+                    hiddenSubcategoryInput.type = 'hidden';
+                    hiddenSubcategoryInput.id = 'hidden_subcategory_id'; 
+                    hiddenSubcategoryInput.name = 'explicit_subcategory_id';
+                    form.appendChild(hiddenSubcategoryInput);
+                }
+                
+                // Set the value to the current selection
+                hiddenSubcategoryInput.value = currentSubcategoryValue;
+                console.log('Form submitted with subcategory_id:', currentSubcategoryValue);
+            });
+        }
+        
+        // Trigger change event on page load if category is selected
+        if (initialCategoryId) {
+            // Force reload of subcategories to ensure they match the category
+            categorySelect.dispatchEvent(new Event('change'));
+        }
+    }
+});
+</script>
+@endpush
 @endsection 

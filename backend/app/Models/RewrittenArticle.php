@@ -19,6 +19,7 @@ class RewrittenArticle extends Model
         'featured_image',
         'user_id',
         'category_id',
+        'subcategory_id',
         'original_article_id',
         'status',
         'ai_generated',
@@ -45,6 +46,11 @@ class RewrittenArticle extends Model
     public function category()
     {
         return $this->belongsTo(Category::class);
+    }
+
+    public function subcategory()
+    {
+        return $this->belongsTo(Subcategory::class);
     }
 
     public function originalArticle()

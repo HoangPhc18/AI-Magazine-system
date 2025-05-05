@@ -114,6 +114,9 @@
                     <div class="bg-white rounded-xl shadow p-5 hover:shadow-md transition-all duration-300 text-center group-hover:bg-gradient-to-br group-hover:from-primary-50 group-hover:to-white transform group-hover:-translate-y-1">
                         <h3 class="text-lg font-semibold text-gray-900 group-hover:text-primary-600 transition-colors duration-300">{{ $category->name }}</h3>
                         <p class="text-gray-500 text-sm mt-1">{{ $category->articles_count }} bài viết</p>
+                        @if($category->subcategories_count > 0)
+                            <p class="text-gray-500 text-xs mt-1">{{ $category->subcategories_count }} danh mục con</p>
+                        @endif
                         <div class="mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                             <span class="inline-flex items-center text-xs font-medium text-primary-600">
                                 Xem danh mục

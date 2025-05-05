@@ -24,6 +24,7 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/articles', [HomeController::class, 'allArticles'])->name('articles.all');
 Route::get('/articles/{slug}', [HomeController::class, 'showArticle'])->name('articles.show');
 Route::get('/category/{slug}', [HomeController::class, 'categoryArticles'])->name('articles.category');
+Route::get('/category/{category_slug}/subcategory/{subcategory_slug}', [HomeController::class, 'subcategoryArticles'])->name('articles.subcategory');
 Route::get('/search', [HomeController::class, 'search'])->name('articles.search');
 
 // Auth routes
@@ -52,6 +53,7 @@ Route::middleware(['auth', AdminMiddleware::class])->prefix('admin')->name('admi
     
     // Category management
     Route::resource('categories', CategoryController::class);
+    Route::get('categories/{category}/subcategories', [CategoryController::class, 'getSubcategories'])->name('categories.subcategories');
     
     // Article management
     Route::resource('articles', ArticleController::class);

@@ -156,6 +156,11 @@
                                     <div class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                                         {{ $article->category->name }}
                                     </div>
+                                    @if($article->subcategory)
+                                        <div class="mt-1 inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
+                                            {{ $article->subcategory->name }}
+                                        </div>
+                                    @endif
                                 </td>
                                 <td class="px-6 py-4">
                                     <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium 

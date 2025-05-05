@@ -9,6 +9,7 @@ Hệ thống scraper tự động thu thập tin tức từ nhiều nguồn khá
 
 - Thu thập tin tức từ nhiều nguồn API
 - Tìm kiếm bài viết theo danh mục
+- Tìm kiếm bài viết theo danh mục con
 - Trích xuất nội dung đầy đủ từ các URL bài viết
 - Lưu trữ kết quả trong thư mục `output`
 - Gửi bài viết đến backend API
@@ -82,16 +83,47 @@ python main.py --help
 ```
 
 Các tùy chọn:
+- `--all`: Xử lý tất cả các danh mục
+- `--category ID`: Xử lý danh mục với ID được chỉ định
+- `--subcategory ID`: Xử lý danh mục con với ID được chỉ định (kết hợp với --category)
+- `--keyword TEXT`: Tìm kiếm bài viết với từ khóa cụ thể
+- `--import-dir DIR`: Thư mục chứa file JSON cần import
+- `--import-file FILE`: File JSON cần import
+- `--auto-send`: Tự động gửi bài viết không cần xác nhận
+- `--use-subcategories`: Sử dụng danh mục con khi tìm kiếm (mặc định khi dùng --all)
 - `--skip-search`: Bỏ qua bước tìm kiếm URL bài viết
 - `--skip-extraction`: Bỏ qua bước trích xuất nội dung
 - `--skip-send`: Bỏ qua bước gửi đến backend
 - `--input-file FILE`: File JSON chứa bài viết để xử lý
-- `--auto-send`: Tự động gửi bài viết không cần xác nhận
 - `--batch-size N`: Số lượng bài viết gửi trong mỗi request (mặc định: 5)
 - `--verbose`: Hiển thị nhiều thông tin hơn
 - `--retention-days N`: Số ngày giữ lại files trước khi xóa (mặc định: 7)
 - `--no-cleanup`: Không xóa files cũ
 - `--output-dir DIR`: Thư mục lưu kết quả (mặc định: ./output)
+
+### API Endpoints
+
+Hệ thống cung cấp các API endpoints thông qua Flask:
+
+- **GET /health**: Kiểm tra trạng thái API
+- **POST /reload-config**: Tải lại cấu hình từ file .env
+- **POST /run**: Kích hoạt quá trình scraping với các tham số tùy chọn
+  - Tham số JSON: `category_id` (tùy chọn), `subcategory_id` (tùy chọn)
+- **POST /scrape-subcategory**: Kích hoạt scraping cho một danh mục con cụ thể
+  - Tham số JSON: `category_id` (bắt buộc), `subcategory_id` (bắt buộc)
+
+### Ví dụ sử dụng API:
+
+```bash
+# Scrape tất cả danh mục
+curl -X POST http://localhost:5001/run
+
+# Scrape một danh mục cụ thể
+curl -X POST http://localhost:5001/run -H "Content-Type: application/json" -d '{"category_id": 5}'
+
+# Scrape một danh mục con cụ thể
+curl -X POST http://localhost:5001/scrape-subcategory -H "Content-Type: application/json" -d '{"category_id": 5, "subcategory_id": 10}'
+```
 
 ### Tự động hóa
 

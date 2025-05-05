@@ -25,4 +25,12 @@ class Category extends Model
     {
         return $this->hasMany(RewrittenArticle::class);
     }
+
+    /**
+     * Get the subcategories for this category.
+     */
+    public function subcategories()
+    {
+        return $this->hasMany(Subcategory::class, 'parent_category_id');
+    }
 } 

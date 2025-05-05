@@ -41,10 +41,15 @@ BACKEND_URL = config["BACKEND_URL"]
 BACKEND_PORT = config["BACKEND_PORT"]
 BASE_API_URL = config["BASE_API_URL"]
 CATEGORIES_API_URL = config["CATEGORIES_API_URL"]
+SUBCATEGORIES_API_URL = config["SUBCATEGORIES_API_URL"]
 BACKEND_API_URL = config["ARTICLES_API_URL"]
+ARTICLES_IMPORT_API_URL = config["ARTICLES_IMPORT_API_URL"]
+ARTICLES_CHECK_API_URL = config["ARTICLES_CHECK_API_URL"]
 
 # 🔹 Số bài viết tối đa cho mỗi danh mục
 MAX_ARTICLES_PER_CATEGORY = config.get("MAX_ARTICLES_PER_CATEGORY", 3)
+MAX_ARTICLES_PER_SUBCATEGORY = config.get("MAX_ARTICLES_PER_SUBCATEGORY", 2)
+USE_SUBCATEGORIES = config.get("USE_SUBCATEGORIES", True)
 
 # Thông tin cấu hình service
 PORT = config["PORT_SCRAPER"]
@@ -137,6 +142,51 @@ def fetch_categories_from_backend():
         logger.error(f"Error fetching categories from backend: {str(e)}")
         return None
 
+def fetch_subcategories_by_category(category_id):
+    """
+    Lấy danh sách các danh mục con cho một danh mục cụ thể từ backend.
+    
+    Args:
+        category_id (int): ID của danh mục cha
+        
+    Returns:
+        list: Danh sách các danh mục con
+    """
+    try:
+        # Tạo URL API để lấy danh mục con
+        api_url = f"{CATEGORIES_API_URL}/{category_id}/subcategories"
+        
+        # Log thông tin request
+        logger.info(f"Fetching subcategories for category ID {category_id} from: {api_url}")
+        
+        # Gửi request đến backend API
+        headers = {
+            'User-Agent': random.choice(USER_AGENTS),
+            'Accept': 'application/json'
+        }
+        
+        response = requests.get(api_url, headers=headers, timeout=30)
+        
+        # Kiểm tra response
+        if response.status_code == 200:
+            subcategories = response.json()
+            
+            if isinstance(subcategories, list) and len(subcategories) > 0:
+                logger.info(f"Found {len(subcategories)} subcategories for category ID {category_id}")
+                for subcategory in subcategories[:3]:  # Hiển thị 3 danh mục con đầu tiên
+                    logger.info(f"Subcategory: ID: {subcategory.get('id')}, Name: {subcategory.get('name')}")
+                return subcategories
+            else:
+                logger.info(f"No subcategories found for category ID {category_id}")
+                return []
+        else:
+            logger.error(f"Failed to fetch subcategories. Status code: {response.status_code}")
+            return []
+            
+    except Exception as e:
+        logger.error(f"Error fetching subcategories: {str(e)}")
+        return []
+
 def get_category_by_id(category_id):
     """
     Lấy thông tin danh mục từ backend dựa trên ID
@@ -164,7 +214,34 @@ def get_category_by_id(category_id):
         logger.error(f"Error while fetching category with ID {category_id}: {str(e)}")
         return None
 
-def import_article_to_backend(category_id, article_url, title, content):
+def get_subcategory_by_id(subcategory_id):
+    """
+    Lấy thông tin danh mục con từ backend dựa trên ID
+    
+    Args:
+        subcategory_id: ID của danh mục con cần lấy
+        
+    Returns:
+        dict: Thông tin danh mục con hoặc None nếu không tìm thấy
+    """
+    try:
+        logger.info(f"Fetching subcategory with ID {subcategory_id} from backend")
+        response = requests.get(f"{SUBCATEGORIES_API_URL}/{subcategory_id}")
+        
+        if response.status_code == 200:
+            subcategory = response.json()
+            logger.info(f"Successfully fetched subcategory: {subcategory['name']}")
+            return subcategory
+        else:
+            logger.error(f"Failed to fetch subcategory with ID {subcategory_id}. Status code: {response.status_code}")
+            logger.error(f"Response: {response.text}")
+            return None
+            
+    except Exception as e:
+        logger.error(f"Error while fetching subcategory with ID {subcategory_id}: {str(e)}")
+        return None
+
+def import_article_to_backend(category_id, article_url, title, content, subcategory_id=None):
     """
     Gửi bài viết đã tìm được vào backend.
     
@@ -173,6 +250,7 @@ def import_article_to_backend(category_id, article_url, title, content):
         article_url (str): URL bài viết
         title (str): Tiêu đề bài viết
         content (str): Nội dung bài viết
+        subcategory_id (int, optional): ID của danh mục con (nếu có)
         
     Returns:
         bool: True nếu thành công, False nếu thất bại
@@ -184,21 +262,98 @@ def import_article_to_backend(category_id, article_url, title, content):
             'Content-Type': 'application/json',
         }
         
-        data = {
+        # Phân tích URL để lấy domain
+        source_name = ""
+        try:
+            parsed_url = urlparse(article_url)
+            source_name = parsed_url.netloc
+        except:
+            source_name = "unknown-source"
+        
+        # Tạo slug từ tiêu đề
+        slug = generate_slug(title, add_uuid=True)
+        
+        # Tạo summary từ content
+        summary = ""
+        if content:
+            sentences = re.split(r'[.!?]+', content)
+            if len(sentences) >= 2:
+                summary = '. '.join(s.strip() for s in sentences[:2] if s.strip()) + '.'
+            else:
+                summary = sentences[0].strip() if sentences else ""
+        
+        # Đảm bảo category_id là số nguyên
+        try:
+            category_id = int(category_id)
+        except (ValueError, TypeError):
+            logger.error(f"Invalid category_id: {category_id}")
+            return False
+        
+        # Tạo article object
+        article = {
             'category_id': category_id,
             'url': article_url,
+            'source_url': article_url,
+            'source_name': source_name,
+            'source_icon': f"https://www.google.com/s2/favicons?domain={source_name}",
             'title': title,
-            'content': content
+            'slug': slug,
+            'summary': summary,
+            'content': content,
+            'published_at': datetime.now().isoformat(),
+            'is_published': 1,
+            'is_imported': 1,
+            'category': category_id  # Thêm field category để đảm bảo tương thích
         }
         
+        # Thêm subcategory_id vào request nếu có
+        if subcategory_id:
+            # Đảm bảo subcategory_id là số nguyên
+            try:
+                subcategory_id = int(subcategory_id)
+                article['subcategory_id'] = subcategory_id
+            except (ValueError, TypeError):
+                logger.error(f"Invalid subcategory_id: {subcategory_id}")
+                # Không return False ở đây, chỉ không thêm subcategory_id vào request
+            
+            # Thêm thông tin danh mục con
+            subcategory = get_subcategory_by_id(subcategory_id)
+            if subcategory and 'name' in subcategory:
+                article['subcategory_name'] = subcategory['name']
+        
+        # Đóng gói article trong mảng "articles" như API yêu cầu
+        data = {
+            'articles': [article]
+        }
+        
+        # Log chi tiết request để debug
+        logger.info(f"Article request: title='{title}', category_id={category_id}, subcategory_id={subcategory_id if subcategory_id else 'None'}")
+        
         # Sử dụng endpoint import thay vì API articles trực tiếp
-        import_endpoint = f"{BACKEND_API_URL}/import"
+        import_endpoint = f"{ARTICLES_IMPORT_API_URL}"
         logger.info(f"Importing article to backend: {import_endpoint}")
-        response = requests.post(import_endpoint, headers=headers, json=data, timeout=30)
+        
+        # Gửi request với timeout dài hơn để xử lý bài viết lớn
+        response = requests.post(import_endpoint, headers=headers, json=data, timeout=60)
         
         if response.status_code == 200 or response.status_code == 201:
-            logger.info(f"Successfully imported article for category ID {category_id}")
-            return True
+            # Phân tích kết quả trả về
+            result = response.json()
+            if result.get('status') == 'success':
+                logger.info(f"Successfully imported article for category ID {category_id}{' and subcategory ID ' + str(subcategory_id) if subcategory_id else ''}")
+                return True
+            elif result.get('status') == 'warning':
+                # Trường hợp có cảnh báo nhưng không lỗi
+                logger.warning(f"Warning when importing article: {result.get('message')}")
+                if result.get('skipped', 0) > 0:
+                    # Bị bỏ qua nhưng không phải lỗi
+                    logger.warning(f"Article was skipped. Reason: {result.get('errors', ['Unknown reason'])[0]}")
+                    # Vẫn trả về True vì đây không phải lỗi kỹ thuật
+                    return True
+                return True
+            else:
+                logger.error(f"Failed to import article. Status: {result.get('status')}, Message: {result.get('message')}")
+                return False
         else:
             logger.error(f"Failed to import article. Status code: {response.status_code}, Response: {response.text}")
             return False
@@ -720,83 +875,159 @@ def search_google_news(keyword):
     logger.error(f"All keyword searches failed. Errors: {errors}")
     return None
 
-def search_with_category(category_id):
+def search_with_category(category_id, subcategory_id=None):
     """
-    Tìm kiếm bài viết dựa trên ID danh mục từ backend.
+    Tìm kiếm bài viết dựa trên ID danh mục hoặc danh mục con từ backend.
     
     Args:
         category_id (int): ID của danh mục
+        subcategory_id (int, optional): ID của danh mục con (nếu có)
         
     Returns:
         dict: Thông tin bài viết đã tìm thấy và trích xuất, hoặc None nếu thất bại
     """
     try:
-        # Lấy thông tin danh mục từ backend
-        category = get_category_by_id(category_id)
-        
-        if not category:
-            logger.error(f"Could not find category with ID: {category_id}")
-            return None
-        
-        # Sử dụng tên danh mục (cột name) làm từ khóa tìm kiếm
-        if 'name' not in category:
-            logger.error(f"Category data does not contain 'name' field: {category}")
-            return None
+        # Ưu tiên tìm kiếm với subcategory nếu có
+        if subcategory_id:
+            subcategory = get_subcategory_by_id(subcategory_id)
             
-        category_name = category['name']
-        logger.info(f"Using category name '{category_name}' as search keyword")
+            if not subcategory:
+                logger.error(f"Could not find subcategory with ID: {subcategory_id}")
+                return None
+            
+            # Sử dụng tên danh mục con làm từ khóa tìm kiếm
+            if 'name' not in subcategory:
+                logger.error(f"Subcategory data does not contain 'name' field: {subcategory}")
+                return None
+                
+            keyword = subcategory['name']
+            logger.info(f"Using subcategory name '{keyword}' as search keyword")
+            
+            # Lấy thông tin danh mục chính
+            category = get_category_by_id(category_id)
+            
+            if not category:
+                logger.error(f"Could not find category with ID: {category_id}")
+                return None
+                
+            category_name = category['name']
+        else:
+            # Lấy thông tin danh mục từ backend
+            category = get_category_by_id(category_id)
+            
+            if not category:
+                logger.error(f"Could not find category with ID: {category_id}")
+                return None
+            
+            # Sử dụng tên danh mục (cột name) làm từ khóa tìm kiếm
+            if 'name' not in category:
+                logger.error(f"Category data does not contain 'name' field: {category}")
+                return None
+                
+            keyword = category['name']
+            logger.info(f"Using category name '{keyword}' as search keyword")
+            category_name = keyword
         
-        # Tìm kiếm bài viết với từ khóa là tên danh mục
-        article_url = search_google_news(category_name)
+        # Tìm kiếm bài viết với từ khóa
+        article_url = search_google_news(keyword)
         
         if not article_url:
-            logger.error(f"No article URL found for category: {category_name}")
+            logger.error(f"No article URL found for keyword: {keyword}")
             return None
         
+        # Kiểm tra URL
+        if not article_url.startswith('http'):
+            logger.error(f"Invalid URL format: {article_url}")
+            return None
+            
         # Kiểm tra bài viết đã tồn tại trong database chưa
         if check_article_exists(article_url):
             logger.warning(f"Bài viết đã tồn tại trong database, tìm bài viết khác: {article_url}")
-            # Có thể thêm logic để tìm bài viết khác ở đây nếu cần
-            # Hiện tại chúng ta chấp nhận và tiếp tục xử lý, nhưng không import vào database
+            # Thử tìm URL khác nếu URL này đã tồn tại
+            for attempt in range(3):
+                logger.info(f"Attempting to find a different article (attempt {attempt+1}/3)")
+                new_url = search_google_news(keyword + f" -{article_url.split('/')[2]}")
+                if new_url and new_url != article_url and not check_article_exists(new_url):
+                    article_url = new_url
+                    logger.info(f"Found alternative URL: {article_url}")
+                    break
+                time.sleep(1)
         
         logger.info(f"Found article URL: {article_url}, extracting content...")
         
         # Trích xuất nội dung bài viết
         article_data = extract_article_content(article_url)
         
-        if not article_data or not article_data.get("title") or not article_data.get("content"):
-            logger.error(f"Failed to extract content from URL: {article_url}")
+        if not article_data:
+            logger.error(f"Failed to extract any content from URL: {article_url}")
+            return None
+            
+        # Kiểm tra dữ liệu có đủ các trường cần thiết không
+        if not article_data.get("title"):
+            logger.error(f"Extracted article has no title: {article_url}")
+            return None
+            
+        if not article_data.get("content"):
+            logger.error(f"Extracted article has no content: {article_url}")
+            return None
+        
+        # Kiểm tra độ dài nội dung
+        content_length = len(article_data.get("content", ""))
+        if content_length < 100:
+            logger.error(f"Article content too short ({content_length} chars): {article_url}")
             return None
             
         logger.info(f"Successfully extracted content from URL: {article_url}")
         logger.info(f"Title: {article_data.get('title')}")
-        logger.info(f"Content length: {len(article_data.get('content', ''))}")
+        logger.info(f"Content length: {content_length} chars")
         
         # Lưu dữ liệu bài viết vào file JSON
         json_filepath = save_article_to_json(
             category_id=category_id,
             category_name=category_name,
             article_url=article_url,
-            article_data=article_data
+            article_data=article_data,
+            subcategory_id=subcategory_id,
+            subcategory_name=keyword if subcategory_id else None
         )
         
         if not json_filepath:
-            logger.error(f"Failed to save article to JSON for category: {category_name}")
+            logger.error(f"Failed to save article to JSON for keyword: {keyword}")
+            return None
         
         # Lưu thông tin vào backend nếu bài viết chưa tồn tại
+        import_success = False
         if not check_article_exists(article_url):
-            import_article_to_backend(category_id, article_url, article_data["title"], article_data["content"])
+            import_success = import_article_to_backend(
+                category_id, 
+                article_url, 
+                article_data["title"], 
+                article_data["content"],
+                subcategory_id
+            )
+            if import_success:
+                logger.info(f"Successfully imported article to backend")
+            else:
+                logger.warning(f"Failed to import article to backend, but continuing with local save")
         else:
             logger.info(f"Bỏ qua import vì bài viết đã tồn tại trong database")
+            import_success = True  # Đánh dấu là thành công vì bài viết đã tồn tại
         
-        return {
+        result = {
             "category_id": category_id,
             "category_name": category_name,
             "url": article_url,
             "title": article_data.get("title", ""),
             "content_length": len(article_data.get("content", "")),
-            "json_filepath": json_filepath
+            "json_filepath": json_filepath,
+            "import_success": import_success
         }
+        
+        if subcategory_id:
+            result["subcategory_id"] = subcategory_id
+            result["subcategory_name"] = keyword
+        
+        return result
         
     except Exception as e:
         logger.error(f"Error in search_with_category: {str(e)}")
@@ -804,7 +1035,7 @@ def search_with_category(category_id):
 
 def process_all_categories():
     """
-    Xử lý tất cả các danh mục từ backend, tìm kiếm và lưu trữ bài viết cho mỗi danh mục.
+    Xử lý tất cả các danh mục từ backend, chỉ tìm kiếm và lưu trữ bài viết cho các danh mục con.
     
     Returns:
         dict: Kết quả xử lý các danh mục
@@ -827,7 +1058,7 @@ def process_all_categories():
         
         # Xử lý từng danh mục
         for category in categories:
-            # Kiểm tra cấu trúc danh mục hợp lệ (id, name, slug, description, created_at, updated_at, deleted_at)
+            # Kiểm tra cấu trúc danh mục hợp lệ
             category_id = category.get('id')
             category_name = category.get('name')
             
@@ -845,39 +1076,58 @@ def process_all_categories():
             # Log thông tin chi tiết về danh mục
             logger.info(f"Processing category: ID: {category_id}, Name: {category_name}, Slug: {category.get('slug', 'N/A')}")
             
-            # Giới hạn số bài viết theo cấu hình
-            if result['success'] >= MAX_ARTICLES_PER_CATEGORY and MAX_ARTICLES_PER_CATEGORY > 0:
-                logger.info(f"Reached maximum number of articles per category: {MAX_ARTICLES_PER_CATEGORY}")
-                break
+            # Lấy danh sách danh mục con
+            subcategories = fetch_subcategories_by_category(category_id)
             
-            # Tìm kiếm và trích xuất nội dung bài viết cho danh mục này
-            article_result = search_with_category(category_id)
-            
-            if not article_result:
-                logger.error(f"No article found or failed to process for category: {category_name}")
-                result['failed'] += 1
-                result['categories'].append({
-                    'id': category_id,
-                    'name': category_name,
-                    'status': 'failed',
-                    'error': 'No article found or processing failed'
-                })
+            if subcategories and len(subcategories) > 0:
+                logger.info(f"Found {len(subcategories)} subcategories for category {category_name}")
+                
+                # Xử lý từng danh mục con
+                for subcategory in subcategories:
+                    subcategory_id = subcategory.get('id')
+                    subcategory_name = subcategory.get('name')
+                    
+                    logger.info(f"Processing subcategory: ID: {subcategory_id}, Name: {subcategory_name}")
+                    
+                    # Giới hạn số bài viết theo cấu hình
+                    articles_per_subcategory = MAX_ARTICLES_PER_SUBCATEGORY
+                    
+                    # Tìm kiếm và trích xuất nội dung bài viết cho danh mục con này
+                    for i in range(articles_per_subcategory):
+                        if result['success'] >= MAX_ARTICLES_PER_CATEGORY and MAX_ARTICLES_PER_CATEGORY > 0:
+                            logger.info(f"Reached maximum articles limit ({MAX_ARTICLES_PER_CATEGORY}), stopping")
+                            break
+                            
+                        logger.info(f"Finding article {i+1}/{articles_per_subcategory} for subcategory {subcategory_name}")
+                        
+                        # Tìm kiếm bài viết với subcategory
+                        article_result = search_with_category(category_id, subcategory_id)
+                        
+                        if article_result:
+                            # Đánh dấu thành công và lưu kết quả
+                            result['success'] += 1
+                            result['categories'].append({
+                                'id': category_id,
+                                'name': category_name,
+                                'subcategory_id': subcategory_id,
+                                'subcategory_name': subcategory_name,
+                                'status': 'success',
+                                'url': article_result['url'],
+                                'title': article_result['title'],
+                                'content_length': article_result['content_length'],
+                                'json_filepath': article_result['json_filepath']
+                            })
+                        else:
+                            logger.warning(f"Failed to find article for subcategory: {subcategory_name}")
+                            break
+                            
+                        # Thêm thời gian nghỉ để tránh bị chặn
+                        time.sleep(2)
+            else:
+                logger.info(f"No subcategories found for category {category_name}. Skipping.")
+                # Không còn tìm kiếm cho category khi không có subcategory
                 continue
-            
-            # Thêm thông tin vào kết quả
-            logger.info(f"Successfully processed article for category {category_name}: {article_result['url']}")
-            result['success'] += 1
-            result['categories'].append({
-                'id': category_id,
-                'name': category_name,
-                'slug': category.get('slug'),
-                'status': 'success',
-                'url': article_result['url'],
-                'title': article_result['title'],
-                'content_length': article_result['content_length'],
-                'json_filepath': article_result['json_filepath']
-            })
-            
+        
         logger.info(f"Processed all categories. Success: {result['success']}, Failed: {result['failed']}")
         return result
             
@@ -885,7 +1135,7 @@ def process_all_categories():
         logger.error(f"Error processing categories: {str(e)}")
         return result
 
-def save_article_to_json(category_id, category_name, article_url, article_data):
+def save_article_to_json(category_id, category_name, article_url, article_data, subcategory_id=None, subcategory_name=None):
     """
     Lưu thông tin bài viết vào file JSON.
     
@@ -894,36 +1144,105 @@ def save_article_to_json(category_id, category_name, article_url, article_data):
         category_name (str): Tên danh mục
         article_url (str): URL của bài viết
         article_data (dict): Dữ liệu bài viết gồm title và content
+        subcategory_id (int, optional): ID của danh mục con (nếu có)
+        subcategory_name (str, optional): Tên danh mục con (nếu có)
         
     Returns:
         str: Đường dẫn đến file JSON đã lưu
     """
     try:
-        # Tạo thư mục output nếu chưa tồn tại
-        if not os.path.exists(OUTPUT_DIR):
-            os.makedirs(OUTPUT_DIR)
-            logger.info(f"Created output directory: {OUTPUT_DIR}")
+        # Kiểm tra và log chi tiết về dữ liệu đầu vào
+        logger.info(f"Saving article to JSON: category_id={category_id}, subcategory_id={subcategory_id}")
         
-        # Tạo tên file dựa trên thời gian và danh mục
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        sanitized_name = re.sub(r'[^\w\-_]', '_', category_name)
-        filename = f"{OUTPUT_DIR}/{sanitized_name}_{category_id}_{timestamp}.json"
+        # Đảm bảo có title
+        title = article_data.get("title", "").strip()
+        if not title:
+            logger.error("Cannot save article without a title")
+            return None
+        
+        # Đảm bảo có content
+        content = article_data.get("content", "").strip()
+        if not content:
+            logger.error("Cannot save article without content")
+            return None
+            
+        # Đảm bảo category_id là số nguyên
+        try:
+            category_id = int(category_id)
+        except (ValueError, TypeError):
+            logger.error(f"Invalid category_id: {category_id}")
+            return None
+            
+        # Đảm bảo subcategory_id là số nguyên nếu có
+        if subcategory_id:
+            try:
+                subcategory_id = int(subcategory_id)
+            except (ValueError, TypeError):
+                logger.error(f"Invalid subcategory_id: {subcategory_id}")
+                subcategory_id = None
+        
+        # Tạo tên file từ tiêu đề bài viết
+        # Loại bỏ ký tự không hợp lệ cho tên file
+        title_slug = generate_slug(title, add_uuid=True)
+        
+        # Tạo tên file với format: category_id-subcategory_id-title_slug.json (nếu có subcategory)
+        # hoặc category_id-title_slug.json (nếu không có subcategory)
+        if subcategory_id:
+            filename = os.path.join(OUTPUT_DIR, f"{category_id}-{subcategory_id}-{title_slug}.json")
+        else:
+            filename = os.path.join(OUTPUT_DIR, f"{category_id}-{title_slug}.json")
+        
+        # Phân tích URL để lấy domain
+        source_name = ""
+        try:
+            parsed_url = urlparse(article_url)
+            source_name = parsed_url.netloc
+        except:
+            source_name = "unknown-source"
+
+        # Xác định summary từ nội dung nếu không có
+        content = article_data.get("content", "")
+        summary = article_data.get("summary", "")
+        if not summary and content:
+            sentences = re.split(r'[.!?]+', content)
+            if len(sentences) >= 2:
+                summary = '. '.join(s.strip() for s in sentences[:2] if s.strip()) + '.'
+            else:
+                summary = sentences[0].strip() if sentences else ""
+                
+        # Đảm bảo summary không quá dài
+        if len(summary) > 300:
+            summary = summary[:297] + "..."
         
         # Chuẩn bị dữ liệu JSON
         article_json = {
             "category_id": category_id,
             "category_name": category_name,
+            "category": category_id,  # Thêm trường này cho tương thích với API
             "url": article_url,
-            "title": article_data.get("title", ""),
-            "content": article_data.get("content", ""),
-            "scraped_at": datetime.now().isoformat()
+            "source_url": article_url,
+            "source_name": source_name,
+            "source_icon": f"https://www.google.com/s2/favicons?domain={source_name}",
+            "title": title,
+            "slug": title_slug,
+            "summary": summary,
+            "content": content,
+            "published_at": datetime.now().isoformat(),
+            "extracted_at": datetime.now().isoformat(),
+            "is_published": 1,
+            "is_imported": 1
         }
+        
+        # Thêm thông tin subcategory nếu có
+        if subcategory_id:
+            article_json["subcategory_id"] = subcategory_id
+            article_json["subcategory_name"] = subcategory_name
         
         # Ghi file JSON
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(article_json, f, ensure_ascii=False, indent=4)
             
-        logger.info(f"Saved article to JSON file: {filename}")
+        logger.info(f"Saved article to file: {filename}")
         return filename
         
     except Exception as e:
@@ -942,7 +1261,7 @@ def check_article_exists(url):
     """
     try:
         # URL để kiểm tra bài viết
-        check_url = f"{BACKEND_API_URL}/articles/check"
+        check_url = f"{ARTICLES_CHECK_API_URL}"
         
         headers = {
             'User-Agent': random.choice(USER_AGENTS),
@@ -976,6 +1295,60 @@ def check_article_exists(url):
         logger.error(f"Lỗi khi kiểm tra bài viết: {str(e)}")
         # Trong trường hợp lỗi, giả định bài viết chưa tồn tại để tiếp tục xử lý
         return False
+
+def generate_slug(text, max_length=50, add_uuid=False):
+    """
+    Tạo slug từ chuỗi văn bản, phù hợp cho tên file và URL.
+    
+    Args:
+        text (str): Chuỗi văn bản cần tạo slug
+        max_length (int): Độ dài tối đa của slug
+        add_uuid (bool): Thêm UUID để đảm bảo slug là duy nhất
+        
+    Returns:
+        str: Slug được tạo từ chuỗi văn bản
+    """
+    try:
+        if not text:
+            logger.warning("Empty text provided for slug generation")
+            text = "article"
+            
+        # Chuyển sang chữ thường và loại bỏ dấu tiếng Việt
+        text = text.lower().strip()
+        text = remove_vietnamese_accents(text)
+        
+        # Loại bỏ các ký tự không phải chữ cái, số, dấu cách
+        text = re.sub(r'[^\w\s-]', '', text)
+        
+        # Thay thế dấu cách bằng dấu gạch ngang
+        text = re.sub(r'\s+', '-', text)
+        
+        # Loại bỏ nhiều dấu gạch ngang liên tiếp
+        text = re.sub(r'-+', '-', text)
+        
+        # Loại bỏ dấu gạch ngang ở đầu và cuối
+        text = text.strip('-')
+        
+        # Giới hạn độ dài
+        if len(text) > max_length:
+            text = text[:max_length].rstrip('-')
+        
+        # Kiểm tra nếu slug quá ngắn
+        if len(text) < 3:
+            text = f"article-{text}"
+        
+        # Thêm UUID nếu cần
+        if add_uuid:
+            import uuid
+            uuid_str = str(uuid.uuid4())[:8]
+            text = f"{text}-{uuid_str}"
+            
+        return text
+    except Exception as e:
+        logger.error(f"Error generating slug: {str(e)}")
+        # Trả về một giá trị mặc định nếu có lỗi
+        import uuid
+        return f"article-{str(uuid.uuid4())[:8]}"
 
 if __name__ == '__main__':
     # Kiểm tra xem có chạy chế độ xử lý tất cả danh mục hay không
