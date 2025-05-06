@@ -196,10 +196,106 @@
             <!-- Rewritten Content -->
             <div>
                 <h2 class="text-lg font-medium text-gray-900 mb-2">Nội dung viết lại</h2>
-                <div class="mt-2 p-4 bg-green-50 rounded-lg border border-green-200 text-gray-700 text-sm whitespace-pre-line prose prose-sm max-w-none">
-                    <h3 class="text-xl font-bold mb-4">{{ $keywordRewrite->source_title }}</h3>
-                    {{ $keywordRewrite->rewritten_content }}
-                </div>
+
+                @if($keywordRewrite->all_articles)
+                    <!-- Tabs for multiple articles -->
+                    <div class="mb-4">
+                        <div class="sm:hidden">
+                            <label for="article-tabs" class="sr-only">Chọn bài viết</label>
+                            <select id="article-tabs" name="article-tabs" class="block w-full rounded-md border-gray-300 focus:border-primary-500 focus:ring-primary-500">
+                                <?php 
+                                $articles = json_decode($keywordRewrite->all_articles, true);
+                                $articleCount = is_array($articles) ? count($articles) : 0;
+                                ?>
+                                @if($articleCount > 0)
+                                    @foreach($articles as $index => $article)
+                                        @if($article['status'] === 'completed')
+                                            <option value="article-{{ $index }}" {{ $index === 0 ? 'selected' : '' }}>Bài viết {{ $index + 1 }}</option>
+                                        @endif
+                                    @endforeach
+                                @else
+                                    <option value="article-0">Bài viết 1</option>
+                                @endif
+                            </select>
+                        </div>
+                        <div class="hidden sm:block">
+                            <div class="border-b border-gray-200">
+                                <nav class="-mb-px flex space-x-4" aria-label="Tabs">
+                                    <?php 
+                                    $articles = json_decode($keywordRewrite->all_articles, true);
+                                    $articleCount = is_array($articles) ? count($articles) : 0;
+                                    ?>
+                                    @if($articleCount > 0)
+                                        @foreach($articles as $index => $article)
+                                            @if($article['status'] === 'completed')
+                                                <button id="tab-article-{{ $index }}" 
+                                                        data-article-id="{{ $index }}"
+                                                        class="article-tab {{ $index === 0 ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }} whitespace-nowrap py-2 px-4 border-b-2 font-medium text-sm">
+                                                    Bài viết {{ $index + 1 }}
+                                                </button>
+                                            @endif
+                                        @endforeach
+                                    @else
+                                        <button id="tab-article-0" 
+                                                data-article-id="0"
+                                                class="article-tab border-primary-500 text-primary-600 whitespace-nowrap py-2 px-4 border-b-2 font-medium text-sm">
+                                            Bài viết 1
+                                        </button>
+                                    @endif
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab content -->
+                    <?php $articles = json_decode($keywordRewrite->all_articles, true); ?>
+                    @if(is_array($articles))
+                        @foreach($articles as $index => $article)
+                            @if($article['status'] === 'completed')
+                                <div id="article-content-{{ $index }}" class="article-content mt-2 p-4 bg-green-50 rounded-lg border border-green-200 text-gray-700 text-sm whitespace-pre-line prose prose-sm max-w-none {{ $index === 0 ? '' : 'hidden' }}">
+                                    <h3 class="text-xl font-bold mb-4">{{ $article['source_title'] }}</h3>
+                                    <p class="text-xs text-gray-500 mb-4">
+                                        <a href="{{ $article['source_url'] }}" target="_blank" class="text-primary-600 hover:text-primary-900 hover:underline">
+                                            Nguồn: {{ $article['source_url'] }}
+                                            <svg class="inline-block ml-1 h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                            </svg>
+                                        </a>
+                                    </p>
+                                    {{ $article['rewritten_content'] }}
+                                </div>
+                            @elseif($article['status'] === 'failed')
+                                <div id="article-content-{{ $index }}" class="article-content mt-2 p-4 bg-red-50 rounded-lg border border-red-200 text-gray-700 text-sm {{ $index === 0 ? '' : 'hidden' }}">
+                                    <div class="flex items-start">
+                                        <div class="flex-shrink-0">
+                                            <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                            </svg>
+                                        </div>
+                                        <div class="ml-3">
+                                            <h3 class="text-lg font-medium text-red-800">Bài viết không thể tạo</h3>
+                                            <div class="mt-2 text-sm text-red-700">
+                                                <p>{{ $article['error_message'] ?? 'Không thể tạo bài viết này. Vui lòng thử lại.' }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endif
+                        @endforeach
+                    @else
+                        <!-- Fallback to original content when articles array doesn't exist -->
+                        <div class="mt-2 p-4 bg-green-50 rounded-lg border border-green-200 text-gray-700 text-sm whitespace-pre-line prose prose-sm max-w-none">
+                            <h3 class="text-xl font-bold mb-4">{{ $keywordRewrite->source_title }}</h3>
+                            {{ $keywordRewrite->rewritten_content }}
+                        </div>
+                    @endif
+                @else
+                    <!-- Original single article display -->
+                    <div class="mt-2 p-4 bg-green-50 rounded-lg border border-green-200 text-gray-700 text-sm whitespace-pre-line prose prose-sm max-w-none">
+                        <h3 class="text-xl font-bold mb-4">{{ $keywordRewrite->source_title }}</h3>
+                        {{ $keywordRewrite->rewritten_content }}
+                    </div>
+                @endif
             </div>
         </div>
     </div>
@@ -209,12 +305,70 @@
 @if($keywordRewrite->status == 'completed')
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // Toggle source content
         const toggleSourceBtn = document.getElementById('toggleSourceBtn');
         const sourceContent = document.getElementById('sourceContent');
         
-        toggleSourceBtn.addEventListener('click', function() {
-            sourceContent.classList.toggle('hidden');
+        if (toggleSourceBtn && sourceContent) {
+            toggleSourceBtn.addEventListener('click', function() {
+                sourceContent.classList.toggle('hidden');
+            });
+        }
+        
+        // Handle article tabs
+        const articleTabs = document.querySelectorAll('.article-tab');
+        const articleContents = document.querySelectorAll('.article-content');
+        const articleTabSelect = document.getElementById('article-tabs');
+        
+        // Handle desktop tabs
+        articleTabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                const articleId = this.getAttribute('data-article-id');
+                
+                // Update active tab
+                articleTabs.forEach(t => {
+                    t.classList.remove('border-primary-500', 'text-primary-600');
+                    t.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                });
+                this.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                this.classList.add('border-primary-500', 'text-primary-600');
+                
+                // Show selected content
+                articleContents.forEach(content => {
+                    content.classList.add('hidden');
+                });
+                document.getElementById(`article-content-${articleId}`).classList.remove('hidden');
+                
+                // Update mobile select if it exists
+                if (articleTabSelect) {
+                    articleTabSelect.value = `article-${articleId}`;
+                }
+            });
         });
+        
+        // Handle mobile select
+        if (articleTabSelect) {
+            articleTabSelect.addEventListener('change', function() {
+                const articleId = this.value.replace('article-', '');
+                
+                // Update desktop tabs
+                articleTabs.forEach(tab => {
+                    if (tab.getAttribute('data-article-id') === articleId) {
+                        tab.classList.remove('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                        tab.classList.add('border-primary-500', 'text-primary-600');
+                    } else {
+                        tab.classList.remove('border-primary-500', 'text-primary-600');
+                        tab.classList.add('border-transparent', 'text-gray-500', 'hover:text-gray-700', 'hover:border-gray-300');
+                    }
+                });
+                
+                // Show selected content
+                articleContents.forEach(content => {
+                    content.classList.add('hidden');
+                });
+                document.getElementById(`article-content-${articleId}`).classList.remove('hidden');
+            });
+        }
     });
 </script>
 @endif

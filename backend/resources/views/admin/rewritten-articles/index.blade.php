@@ -143,18 +143,33 @@
                             <td class="px-6 py-4">
                                 @php
                                     $originalArticle = null;
+                                    $source_url = null;
+                                    $source_name = null;
+                                    
                                     if ($article->originalArticle && $article->originalArticle->original_article_id) {
                                         $originalArticle = \App\Models\Article::find($article->originalArticle->original_article_id);
+                                        
+                                        if ($originalArticle) {
+                                            $source_url = $originalArticle->source_url;
+                                            $source_name = $originalArticle->source_name;
+                                        }
+                                    } elseif ($article->original_article_id) {
+                                        // Check if it directly references an Article
+                                        $directArticle = \App\Models\Article::find($article->original_article_id);
+                                        if ($directArticle) {
+                                            $source_url = $directArticle->source_url;
+                                            $source_name = $directArticle->source_name;
+                                        }
                                     }
                                 @endphp
 
-                                @if($originalArticle && $originalArticle->source_url)
+                                @if($source_url)
                                     <div class="flex items-center">
-                                        <a href="{{ $originalArticle->source_url }}" 
+                                        <a href="{{ $source_url }}" 
                                            target="_blank" rel="noopener noreferrer"
                                            class="text-green-600 hover:text-green-800 mr-2"
-                                           title="{{ $originalArticle->source_name ? $originalArticle->source_name : 'Xem nguồn gốc bài viết' }}">
-                                            @if(strpos($originalArticle->source_url, 'facebook.com') !== false)
+                                           title="{{ $source_name ? $source_name : 'Xem nguồn gốc bài viết' }}">
+                                            @if(strpos($source_url, 'facebook.com') !== false)
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="#1877F2">
                                                 <path d="M12.001 2.002c-5.522 0-9.999 4.477-9.999 9.999 0 4.99 3.656 9.126 8.437 9.879v-6.988h-2.54v-2.891h2.54V9.798c0-2.508 1.493-3.891 3.776-3.891 1.094 0 2.24.195 2.24.195v2.459h-1.264c-1.24 0-1.628.772-1.628 1.563v1.875h2.771l-.443 2.891h-2.328v6.988C18.344 21.129 22 16.992 22 12.001c0-5.522-4.477-9.999-9.999-9.999z"/>
                                             </svg>
@@ -164,11 +179,17 @@
                                             </svg>
                                             @endif
                                         </a>
-                                        <span class="text-sm text-gray-600">{{ $originalArticle->source_name ?: '' }}</span>
+                                        <span class="text-sm text-gray-600">
+                                            @if(strpos($source_url, 'facebook.com') !== false)
+                                                Facebook
+                                            @else
+                                                {{ $source_name ?: '' }}
+                                            @endif
+                                        </span>
                                     </div>
-                                @elseif($originalArticle && $originalArticle->source_name)
+                                @elseif($source_name)
                                     <span class="text-sm text-gray-500">
-                                        {{ $originalArticle->source_name }}
+                                        {{ $source_name }}
                                     </span>
                                 @else
                                     <span class="text-sm text-gray-500">Không có nguồn</span>

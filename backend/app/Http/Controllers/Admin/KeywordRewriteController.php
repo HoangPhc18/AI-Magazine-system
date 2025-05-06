@@ -7,6 +7,7 @@ use App\Models\KeywordRewrite;
 use App\Models\RewrittenArticle;
 use App\Models\Category;
 use App\Models\Subcategory;
+use App\Models\Article;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
@@ -350,33 +351,124 @@ class KeywordRewriteController extends Controller
         }
         
         try {
-            // Find or create a general category
-            $category = Category::firstOrCreate(
-                ['slug' => 'tin-tuc'],
-                ['name' => 'Tin tức', 'description' => 'Tin tức tổng hợp']
-            );
+            // Check if we have multiple articles to process
+            $allArticles = json_decode($keywordRewrite->all_articles ?? '[]', true);
+            $createdArticleIds = [];
             
-            // Find or create the "HOT" subcategory under the "Tin tức" category
-            $subcategory = Subcategory::firstOrCreate(
-                ['slug' => 'hot', 'parent_category_id' => $category->id],
-                ['name' => 'HOT', 'description' => 'Tin tức nổi bật, thu hút sự chú ý']
-            );
-            
-            // Create a new rewritten article
-            $rewrittenArticle = RewrittenArticle::create([
-                'title' => $keywordRewrite->source_title ?? "Bài viết về {$keywordRewrite->keyword}",
-                'slug' => Str::slug($keywordRewrite->source_title ?? "Bài viết về {$keywordRewrite->keyword}") . '-' . time(),
-                'content' => $keywordRewrite->rewritten_content,
-                'meta_title' => $keywordRewrite->source_title,
-                'meta_description' => Str::limit(strip_tags($keywordRewrite->rewritten_content), 160),
-                'user_id' => auth()->id(),
-                'category_id' => $category->id,
-                'subcategory_id' => $subcategory->id,
-                'status' => 'pending',
-            ]);
-            
-            return redirect()->route('admin.rewritten-articles.edit', $rewrittenArticle->id)
-                ->with('success', 'Bài viết đã được chuyển đổi thành công. Bạn có thể chỉnh sửa trước khi xuất bản.');
+            if (!empty($allArticles) && is_array($allArticles)) {
+                // Process all successful articles
+                $successfulArticles = array_filter($allArticles, function($article) {
+                    return isset($article['status']) && $article['status'] === 'completed';
+                });
+                
+                foreach ($successfulArticles as $articleData) {
+                    // Check if we have all required data
+                    if (empty($articleData['source_title']) || empty($articleData['rewritten_content'])) {
+                        continue;
+                    }
+                    
+                    // Find or create a general category
+                    $category = Category::firstOrCreate(
+                        ['slug' => 'tin-tuc'],
+                        ['name' => 'Tin tức', 'description' => 'Tin tức tổng hợp']
+                    );
+                    
+                    // Find or create the "HOT" subcategory under the "Tin tức" category
+                    $subcategory = Subcategory::firstOrCreate(
+                        ['slug' => 'hot', 'parent_category_id' => $category->id],
+                        ['name' => 'HOT', 'description' => 'Tin tức nổi bật, thu hút sự chú ý']
+                    );
+                    
+                    // Create a new article record to save the original source
+                    $article = null;
+                    if (!empty($articleData['source_url'])) {
+                        $article = Article::create([
+                            'title' => $articleData['source_title'] ?? "Bài viết gốc về {$keywordRewrite->keyword}",
+                            'slug' => Str::slug($articleData['source_title'] ?? "Bài viết gốc về {$keywordRewrite->keyword}") . '-' . time() . '-' . rand(1000, 9999),
+                            'summary' => Str::limit(strip_tags($articleData['source_content'] ?? ""), 160),
+                            'content' => $articleData['source_content'] ?? "",
+                            'source_name' => parse_url($articleData['source_url'], PHP_URL_HOST) ?? "Unknown",
+                            'source_url' => $articleData['source_url'],
+                            'is_processed' => true
+                        ]);
+                    }
+                    
+                    // Create a new rewritten article
+                    $rewrittenArticle = RewrittenArticle::create([
+                        'title' => $articleData['source_title'] ?? "Bài viết về {$keywordRewrite->keyword}",
+                        'slug' => Str::slug($articleData['source_title'] ?? "Bài viết về {$keywordRewrite->keyword}") . '-' . time() . '-' . rand(1000, 9999),
+                        'content' => $articleData['rewritten_content'],
+                        'meta_title' => $articleData['source_title'],
+                        'meta_description' => Str::limit(strip_tags($articleData['rewritten_content']), 160),
+                        'user_id' => auth()->id(),
+                        'category_id' => $category->id,
+                        'subcategory_id' => $subcategory->id,
+                        'status' => 'pending',
+                        'original_article_id' => $article ? $article->id : null,
+                        'ai_generated' => true,
+                    ]);
+                    
+                    $createdArticleIds[] = $rewrittenArticle->id;
+                }
+                
+                if (count($createdArticleIds) > 0) {
+                    // Redirect to the first created article
+                    $firstArticleId = $createdArticleIds[0];
+                    
+                    $message = 'Đã tạo ' . count($createdArticleIds) . ' bài viết thành công từ từ khóa "' . $keywordRewrite->keyword . '".';
+                    
+                    return redirect()->route('admin.rewritten-articles.edit', $firstArticleId)
+                        ->with('success', $message);
+                } else {
+                    throw new \Exception("Không thể tạo bài viết từ dữ liệu đã có.");
+                }
+            } else {
+                // Use the original implementation for backward compatibility
+                
+                // Find or create a general category
+                $category = Category::firstOrCreate(
+                    ['slug' => 'tin-tuc'],
+                    ['name' => 'Tin tức', 'description' => 'Tin tức tổng hợp']
+                );
+                
+                // Find or create the "HOT" subcategory under the "Tin tức" category
+                $subcategory = Subcategory::firstOrCreate(
+                    ['slug' => 'hot', 'parent_category_id' => $category->id],
+                    ['name' => 'HOT', 'description' => 'Tin tức nổi bật, thu hút sự chú ý']
+                );
+                
+                // Create a new article record to save the original source
+                $article = null;
+                if ($keywordRewrite->source_url) {
+                    $article = Article::create([
+                        'title' => $keywordRewrite->source_title ?? "Bài viết gốc về {$keywordRewrite->keyword}",
+                        'slug' => Str::slug($keywordRewrite->source_title ?? "Bài viết gốc về {$keywordRewrite->keyword}") . '-' . time(),
+                        'summary' => Str::limit(strip_tags($keywordRewrite->source_content ?? ""), 160),
+                        'content' => $keywordRewrite->source_content ?? "",
+                        'source_name' => parse_url($keywordRewrite->source_url, PHP_URL_HOST) ?? "Unknown",
+                        'source_url' => $keywordRewrite->source_url,
+                        'is_processed' => true
+                    ]);
+                }
+                
+                // Create a new rewritten article
+                $rewrittenArticle = RewrittenArticle::create([
+                    'title' => $keywordRewrite->source_title ?? "Bài viết về {$keywordRewrite->keyword}",
+                    'slug' => Str::slug($keywordRewrite->source_title ?? "Bài viết về {$keywordRewrite->keyword}") . '-' . time(),
+                    'content' => $keywordRewrite->rewritten_content,
+                    'meta_title' => $keywordRewrite->source_title,
+                    'meta_description' => Str::limit(strip_tags($keywordRewrite->rewritten_content), 160),
+                    'user_id' => auth()->id(),
+                    'category_id' => $category->id,
+                    'subcategory_id' => $subcategory->id,
+                    'status' => 'pending',
+                    'original_article_id' => $article ? $article->id : null,
+                    'ai_generated' => true,
+                ]);
+                
+                return redirect()->route('admin.rewritten-articles.edit', $rewrittenArticle->id)
+                    ->with('success', 'Bài viết đã được chuyển đổi thành công. Bạn có thể chỉnh sửa trước khi xuất bản.');
+            }
             
         } catch (\Exception $e) {
             return redirect()->back()

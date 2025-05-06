@@ -141,6 +141,7 @@
                             <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider w-1/6">Danh mục</th>
                             <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider w-1/8">Trạng thái</th>
                             <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider w-1/8">Nguồn gốc</th>
+                            <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider w-1/8">URL Nguồn</th>
                             <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider w-1/6">Ngày xuất bản</th>
                             <th scope="col" class="px-6 py-4 text-left text-xs font-medium text-gray-700 uppercase tracking-wider w-1/6">Thao tác</th>
                         </tr>
@@ -188,6 +189,54 @@
                                             </svg>
                                             Thủ công
                                         </span>
+                                    @endif
+                                </td>
+                                <td class="px-6 py-4">
+                                    @php
+                                        $source_url = null;
+                                        $source_name = null;
+                                        
+                                        if ($article->original_article_id) {
+                                            $originalArticle = \App\Models\Article::find($article->original_article_id);
+                                            if ($originalArticle) {
+                                                $source_url = $originalArticle->source_url;
+                                                $source_name = $originalArticle->source_name;
+                                            }
+                                        } elseif ($article->originalArticle && $article->originalArticle->original_article_id) {
+                                            $originalArticle = \App\Models\Article::find($article->originalArticle->original_article_id);
+                                            if ($originalArticle) {
+                                                $source_url = $originalArticle->source_url;
+                                                $source_name = $originalArticle->source_name;
+                                            }
+                                        }
+                                    @endphp
+
+                                    @if($source_url)
+                                        <div class="flex items-center">
+                                            <a href="{{ $source_url }}" 
+                                            target="_blank" rel="noopener noreferrer"
+                                            class="text-green-600 hover:text-green-800 mr-2"
+                                            title="{{ $source_name ? $source_name : 'Xem nguồn gốc bài viết' }}">
+                                                @if(strpos($source_url, 'facebook.com') !== false)
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="#1877F2">
+                                                    <path d="M12.001 2.002c-5.522 0-9.999 4.477-9.999 9.999 0 4.99 3.656 9.126 8.437 9.879v-6.988h-2.54v-2.891h2.54V9.798c0-2.508 1.493-3.891 3.776-3.891 1.094 0 2.24.195 2.24.195v2.459h-1.264c-1.24 0-1.628.772-1.628 1.563v1.875h2.771l-.443 2.891h-2.328v6.988C18.344 21.129 22 16.992 22 12.001c0-5.522-4.477-9.999-9.999-9.999z"/>
+                                                </svg>
+                                                @else
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                                </svg>
+                                                @endif
+                                            </a>
+                                            <span class="text-sm text-gray-600 truncate max-w-sm">
+                                                @if(strpos($source_url, 'facebook.com') !== false)
+                                                    Facebook
+                                                @else
+                                                    {{ $source_name ?: $source_url }}
+                                                @endif
+                                            </span>
+                                        </div>
+                                    @else
+                                        <span class="text-sm text-gray-500">Không có nguồn</span>
                                     @endif
                                 </td>
                                 <td class="px-6 py-4 text-sm text-gray-500">

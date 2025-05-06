@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class FacebookPostController extends Controller
 {
@@ -335,24 +336,42 @@ class FacebookPostController extends Controller
         ]);
 
         try {
-            // Call the API to create rewritten article
-            $rewriteServiceUrl = config('services.facebook_rewrite.url', 'http://localhost:5001');
-            $endpoint = "/api/admin/facebook/create-article";
+            // Create an Article to store the source information
+            $slug = Str::slug($request->title) . '-' . Str::random(6);
+            $article = \App\Models\Article::create([
+                'title' => $request->title,
+                'slug' => $slug . '-source',
+                'summary' => Str::limit(strip_tags($facebookPost->content), 160),
+                'content' => $facebookPost->content,
+                'source_name' => 'Facebook',
+                'source_url' => $facebookPost->source_url,
+                'is_processed' => true
+            ]);
             
-            // Tăng timeout cho API lưu bài viết
-            $response = Http::timeout(180)
-                ->post($endpoint, [
-                    'post_id' => $facebookPost->id,
-                    'title' => $request->title,
-                    'content' => $request->content,
-                    'category_id' => $request->category_id
-                ]);
+            // Create the RewrittenArticle linked to the original Article
+            $rewrittenArticle = \App\Models\RewrittenArticle::create([
+                'title' => $request->title,
+                'slug' => $slug,
+                'content' => $request->content,
+                'user_id' => auth()->id(),
+                'category_id' => $request->category_id,
+                'original_article_id' => $article->id,
+                'ai_generated' => true,
+                'status' => 'pending'
+            ]);
             
-            if (!$response->successful()) {
-                return redirect()->back()
-                    ->with('error', 'Không thể lưu bài viết: ' . $response->body())
-                    ->withInput();
-            }
+            // Mark the Facebook post as processed
+            $facebookPost->update([
+                'processed' => true,
+                'status' => 'processed'
+            ]);
+            
+            Log::info('Rewritten article created from Facebook post', [
+                'facebook_post_id' => $facebookPost->id,
+                'article_id' => $article->id,
+                'rewritten_article_id' => $rewrittenArticle->id,
+                'source_url' => $facebookPost->source_url
+            ]);
             
             return redirect()->route('admin.facebook-posts.index')
                 ->with('success', 'Đã tạo bài viết viết lại thành công.');

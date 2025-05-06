@@ -59,6 +59,54 @@
                             </div>
                         </div>
                         <div class="col-span-3">
+                            <span class="text-sm font-medium text-gray-500">URL Nguồn</span>
+                            <div class="mt-1">
+                                @php
+                                    $source_url = null;
+                                    $source_name = null;
+                                    
+                                    if ($approvedArticle->original_article_id) {
+                                        $originalArticle = \App\Models\Article::find($approvedArticle->original_article_id);
+                                        if ($originalArticle) {
+                                            $source_url = $originalArticle->source_url;
+                                            $source_name = $originalArticle->source_name;
+                                        }
+                                    } elseif ($approvedArticle->originalArticle && $approvedArticle->originalArticle->original_article_id) {
+                                        $originalArticle = \App\Models\Article::find($approvedArticle->originalArticle->original_article_id);
+                                        if ($originalArticle) {
+                                            $source_url = $originalArticle->source_url;
+                                            $source_name = $originalArticle->source_name;
+                                        }
+                                    }
+                                @endphp
+
+                                @if($source_url)
+                                    <a href="{{ $source_url }}" 
+                                       target="_blank" rel="noopener noreferrer"
+                                       class="text-blue-600 hover:text-blue-900 text-sm flex items-center">
+                                        @if(strpos($source_url, 'facebook.com') !== false)
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 24 24" fill="#1877F2">
+                                                <path d="M12.001 2.002c-5.522 0-9.999 4.477-9.999 9.999 0 4.99 3.656 9.126 8.437 9.879v-6.988h-2.54v-2.891h2.54V9.798c0-2.508 1.493-3.891 3.776-3.891 1.094 0 2.24.195 2.24.195v2.459h-1.264c-1.24 0-1.628.772-1.628 1.563v1.875h2.771l-.443 2.891h-2.328v6.988C18.344 21.129 22 16.992 22 12.001c0-5.522-4.477-9.999-9.999-9.999z"/>
+                                            </svg>
+                                        @else
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                                            </svg>
+                                        @endif
+                                        <span class="truncate">
+                                            @if(strpos($source_url, 'facebook.com') !== false)
+                                                Facebook
+                                            @else
+                                                {{ $source_name ?: $source_url }}
+                                            @endif
+                                        </span>
+                                    </a>
+                                @else
+                                    <span class="text-sm text-gray-500">Không có nguồn</span>
+                                @endif
+                            </div>
+                        </div>
+                        <div class="col-span-3">
                             <span class="text-sm font-medium text-gray-500">Đường dẫn</span>
                             <div class="mt-1 text-sm text-gray-900">{{ $approvedArticle->slug }}</div>
                         </div>

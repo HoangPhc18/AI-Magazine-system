@@ -121,13 +121,24 @@ class FacebookRewriteController extends Controller
             // Create the rewritten article
             $slug = Str::slug($request->title) . '-' . Str::random(6);
             
+            // Create an Article to store the source information
+            $article = \App\Models\Article::create([
+                'title' => $request->title,
+                'slug' => $slug . '-source',
+                'summary' => Str::limit(strip_tags($post->content), 160),
+                'content' => $post->content,
+                'source_name' => 'Facebook',
+                'source_url' => $post->source_url,
+                'is_processed' => true
+            ]);
+            
             $rewrittenArticle = RewrittenArticle::create([
                 'title' => $request->title,
                 'slug' => $slug,
                 'content' => $request->content,
                 'user_id' => Auth::id(),
                 'category_id' => $request->category_id,
-                'original_article_id' => $post->id,
+                'original_article_id' => $article->id,
                 'ai_generated' => true,
                 'status' => 'pending',
                 'created_at' => now(),

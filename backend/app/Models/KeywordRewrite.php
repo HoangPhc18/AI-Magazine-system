@@ -24,6 +24,7 @@ class KeywordRewrite extends Model
         'created_by',
         'status',
         'error_message',
+        'all_articles',
     ];
 
     /**

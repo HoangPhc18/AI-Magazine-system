@@ -71,112 +71,166 @@ def process_keyword_task(keyword, rewrite_id, callback_url):
     logger.info(f"Modified callback URL: {callback_url}")
     
     try:
-        # Step 1: Search Google News for the keyword
-        logger.info(f"Searching Google News for: {keyword}")
-        article_url = search_google_news(keyword)
+        # Số lượng bài viết cần tạo
+        num_articles = 3
         
-        if not article_url:
-            logger.error(f"No article found for keyword: {keyword}")
-            send_callback(callback_url, rewrite_id, "failed", 
-                         error_message="Không tìm thấy bài viết nào cho từ khóa đã cho. Hệ thống đã lọc ra các trang không thể trích xuất nội dung như laodong.vn và baomoi.com.")
-            return
+        # Mảng lưu kết quả của các bài viết
+        articles = []
+        
+        # Bắt đầu tìm kiếm và xử lý 3 bài viết khác nhau
+        for article_index in range(num_articles):
+            logger.info(f"Processing article {article_index + 1}/{num_articles} for keyword: {keyword}")
             
-        logger.info(f"Found article URL: {article_url}")
-        
-        # Thử tìm bài viết tối đa 3 lần
-        max_retries = 3
-        article_data = None
-        
-        for attempt in range(1, max_retries + 1):
-            # Step 2: Extract content from the URL
-            logger.info(f"Extracting content from URL (attempt {attempt}/{max_retries}): {article_url}")
-            article_data = extract_article_content(article_url)
+            # Step 1: Search Google News for the keyword, skip previous results
+            logger.info(f"Searching Google News for: {keyword}, skipping first {article_index} results")
+            article_url = search_google_news(keyword, skip=article_index)
             
-            # Kiểm tra xem article_data có phải là None không
-            if article_data is None:
-                logger.error(f"Failed to extract content from {article_url} - article_data is None")
+            if not article_url:
+                logger.error(f"No article found for keyword: {keyword} (article index: {article_index})")
+                # Add failure information for this article
+                articles.append({
+                    "index": article_index,
+                    "status": "failed",
+                    "error_message": f"Không tìm thấy bài viết thứ {article_index + 1} cho từ khóa đã cho. Hệ thống đã lọc ra các trang không thể trích xuất nội dung như laodong.vn và baomoi.com."
+                })
+                continue
+                
+            logger.info(f"Found article URL: {article_url}")
+            
+            # Thử tìm bài viết tối đa 3 lần
+            max_retries = 3
+            article_data = None
+            
+            for attempt in range(1, max_retries + 1):
+                # Step 2: Extract content from the URL
+                logger.info(f"Extracting content from URL (attempt {attempt}/{max_retries}): {article_url}")
+                article_data = extract_article_content(article_url)
+                
+                # Kiểm tra xem article_data có phải là None không
+                if article_data is None:
+                    logger.error(f"Failed to extract content from {article_url} - article_data is None")
+                    if attempt < max_retries:
+                        logger.warning(f"Failed to extract content on attempt {attempt}, trying another URL")
+                        article_url = search_google_news(keyword, skip=article_index + attempt)
+                        if not article_url:
+                            logger.error(f"No more articles found for keyword: {keyword}")
+                            break
+                        continue
+                    else:
+                        # Add failure information for this article
+                        articles.append({
+                            "index": article_index,
+                            "status": "failed",
+                            "source_url": article_url,
+                            "error_message": f"Không thể trích xuất nội dung từ URL bài viết sau {max_retries} lần thử."
+                        })
+                        break
+                
+                # Bây giờ chúng ta biết article_data không phải là None, an toàn để truy cập các thuộc tính của nó
+                if article_data.get("title") and article_data.get("content") and len(article_data.get("content", "")) > 200:
+                    logger.info(f"Successfully extracted content - Title: {article_data['title']}, Content length: {len(article_data['content'])}")
+                    break
+                    
+                # Log chi tiết hơn về vấn đề trích xuất
+                if not article_data.get("title"):
+                    logger.warning(f"Failed to extract title from {article_url}")
+                elif not article_data.get("content"):
+                    logger.warning(f"Failed to extract content from {article_url}")
+                elif len(article_data.get("content", "")) <= 200:
+                    logger.warning(f"Extracted content too short ({len(article_data.get('content', ''))} chars) from {article_url}")
+                
                 if attempt < max_retries:
                     logger.warning(f"Failed to extract content on attempt {attempt}, trying another URL")
-                    article_url = search_google_news(keyword, skip=attempt)
+                    # Tìm URL khác
+                    article_url = search_google_news(keyword, skip=article_index + attempt)
                     if not article_url:
                         logger.error(f"No more articles found for keyword: {keyword}")
-                        send_callback(callback_url, rewrite_id, "failed", 
-                                    error_message=f"Không tìm thấy bài viết thay thế sau {attempt} lần thử. Hệ thống đã lọc ra các trang không thể trích xuất nội dung.")
-                        return
-                    continue
-                else:
-                    logger.error(f"Failed to extract content after {max_retries} attempts")
-                    send_callback(callback_url, rewrite_id, "failed", 
-                                error_message=f"Không thể trích xuất nội dung từ URL bài viết sau {max_retries} lần thử. Vui lòng thử từ khóa khác.")
-                    return
+                        # Add failure information for this article
+                        articles.append({
+                            "index": article_index,
+                            "status": "failed",
+                            "error_message": f"Không tìm thấy bài viết thay thế sau {attempt} lần thử."
+                        })
+                        break
             
-            # Bây giờ chúng ta biết article_data không phải là None, an toàn để truy cập các thuộc tính của nó
-            if article_data.get("title") and article_data.get("content") and len(article_data.get("content", "")) > 200:
-                logger.info(f"Successfully extracted content - Title: {article_data['title']}, Content length: {len(article_data['content'])}")
-                break
+            # Kiểm tra lại sau khi thử tối đa số lần
+            if (not article_data or 
+                not article_data.get("title") or 
+                not article_data.get("content") or 
+                len(article_data.get("content", "")) < 200):
                 
-            # Log chi tiết hơn về vấn đề trích xuất
-            if not article_data.get("title"):
-                logger.warning(f"Failed to extract title from {article_url}")
-            elif not article_data.get("content"):
-                logger.warning(f"Failed to extract content from {article_url}")
-            elif len(article_data.get("content", "")) <= 200:
-                logger.warning(f"Extracted content too short ({len(article_data.get('content', ''))} chars) from {article_url}")
+                logger.error(f"Failed to extract content from URL after {max_retries} attempts")
+                if not articles or len(articles) <= article_index or articles[article_index]["status"] != "failed":
+                    error_detail = "Không thể trích xuất "
+                    
+                    if not article_data:
+                        error_detail += "dữ liệu bài viết"
+                    else:
+                        if not article_data.get("title"):
+                            error_detail += "tiêu đề"
+                        if not article_data.get("content"):
+                            error_detail += " và nội dung" if not article_data.get("title") else "nội dung"
+                        elif len(article_data.get("content", "")) < 200:
+                            error_detail += "đủ nội dung (nội dung quá ngắn)"
+                    
+                    articles.append({
+                        "index": article_index,
+                        "status": "failed",
+                        "source_url": article_url,
+                        "error_message": f"{error_detail} từ URL bài viết sau {max_retries} lần thử."
+                    })
+                continue
+                
+            # Step 3: Rewrite the content using Gemini
+            logger.info(f"Rewriting content using Gemini (model: {GEMINI_MODEL}) for article {article_index + 1}")
+            rewritten_content = rewrite_content(article_data["title"], article_data["content"])
             
-            if attempt < max_retries:
-                logger.warning(f"Failed to extract content on attempt {attempt}, trying another URL")
-                # Tìm URL khác
-                article_url = search_google_news(keyword, skip=attempt)
-                if not article_url:
-                    logger.error(f"No more articles found for keyword: {keyword}")
-                    send_callback(callback_url, rewrite_id, "failed", 
-                                 error_message=f"Không tìm thấy bài viết thay thế sau {attempt} lần thử. Hệ thống đã lọc ra các trang không thể trích xuất nội dung như laodong.vn và baomoi.com.")
-                    return
+            if rewritten_content.startswith("Error:"):
+                logger.error(f"Error rewriting content: {rewritten_content}")
+                articles.append({
+                    "index": article_index,
+                    "status": "failed",
+                    "source_url": article_url,
+                    "source_title": article_data["title"],
+                    "source_content": article_data["content"],
+                    "error_message": rewritten_content
+                })
+                continue
+                
+            logger.info(f"Successfully rewrote content for article {article_index + 1}. Rewritten length: {len(rewritten_content)}")
+            
+            # Add successful article information
+            articles.append({
+                "index": article_index,
+                "status": "completed",
+                "source_url": article_url,
+                "source_title": article_data["title"],
+                "source_content": article_data["content"],
+                "rewritten_content": rewritten_content
+            })
         
-        # Kiểm tra lại sau khi thử tối đa số lần
-        if (not article_data or 
-            not article_data.get("title") or 
-            not article_data.get("content") or 
-            len(article_data.get("content", "")) < 200):
+        # Check if we have at least one successful article
+        successful_articles = [article for article in articles if article["status"] == "completed"]
+        
+        # Step 4: Send back the results
+        if len(successful_articles) > 0:
+            # At least one article was successfully processed
+            logger.info(f"Completed keyword rewrite task for: {keyword} (ID: {rewrite_id}) - {len(successful_articles)}/{num_articles} articles created")
             
-            logger.error(f"Failed to extract content from URL after {max_retries} attempts")
-            error_detail = "Không thể trích xuất "
-            
-            if not article_data:
-                error_detail += "dữ liệu bài viết"
-            else:
-                if not article_data.get("title"):
-                    error_detail += "tiêu đề"
-                if not article_data.get("content"):
-                    error_detail += " và nội dung" if not article_data.get("title") else "nội dung"
-                elif len(article_data.get("content", "")) < 200:
-                    error_detail += "đủ nội dung (nội dung quá ngắn)"
-            
+            # Use the first successful article as the primary result, but send all articles
+            primary_article = successful_articles[0]
+            send_callback(callback_url, rewrite_id, "completed", 
+                         source_url=primary_article["source_url"],
+                         source_title=primary_article["source_title"],
+                         source_content=primary_article["source_content"],
+                         rewritten_content=primary_article["rewritten_content"],
+                         all_articles=articles)
+        else:
+            # No articles were successfully processed
+            logger.error(f"Failed to process any articles for keyword: {keyword}")
+            error_messages = [article.get("error_message", "Unknown error") for article in articles]
             send_callback(callback_url, rewrite_id, "failed", 
-                         source_url=article_url,
-                         error_message=f"{error_detail} từ URL bài viết sau {max_retries} lần thử. Vui lòng thử từ khóa khác hoặc cung cấp URL bài viết cụ thể.")
-            return
-            
-        # Step 3: Rewrite the content using Gemini
-        logger.info(f"Rewriting content using Gemini (model: {GEMINI_MODEL})")
-        rewritten_content = rewrite_content(article_data["title"], article_data["content"])
-        
-        if rewritten_content.startswith("Error:"):
-            logger.error(f"Error rewriting content: {rewritten_content}")
-            send_callback(callback_url, rewrite_id, "failed", 
-                         source_url=article_url,
-                         source_title=article_data["title"],
-                         source_content=article_data["content"],
-                         error_message=rewritten_content)
-            return
-            
-        logger.info(f"Successfully rewrote content. Rewritten length: {len(rewritten_content)}")
-        
-        # Step 4: Send back the result
-        send_callback(callback_url, rewrite_id, "completed", 
-                     source_url=article_url,
-                     source_title=article_data["title"],
-                     rewritten_content=rewritten_content)
+                         error_message=f"Không thể tạo bài viết nào từ từ khóa '{keyword}'. Chi tiết lỗi: " + " | ".join(error_messages))
         
         logger.info(f"Keyword rewrite task completed for: {keyword} (ID: {rewrite_id})")
         
@@ -185,7 +239,7 @@ def process_keyword_task(keyword, rewrite_id, callback_url):
         send_callback(callback_url, rewrite_id, "failed", error_message=f"Processing error: {str(e)}")
 
 def send_callback(callback_url, rewrite_id, status, source_url=None, source_title=None, 
-               rewritten_content=None, error_message=None):
+               source_content=None, rewritten_content=None, error_message=None, all_articles=None):
     """
     Gửi kết quả xử lý về cho backend thông qua callback URL
     
@@ -195,27 +249,31 @@ def send_callback(callback_url, rewrite_id, status, source_url=None, source_titl
         status (str): Trạng thái mới (completed, failed)
         source_url (str, optional): URL nguồn
         source_title (str, optional): Tiêu đề nguồn
+        source_content (str, optional): Nội dung nguồn
         rewritten_content (str, optional): Nội dung đã viết lại
         error_message (str, optional): Thông báo lỗi nếu có
+        all_articles (list, optional): Danh sách tất cả các bài viết đã xử lý
     """
     try:
-        data = {
+        payload = {
             'rewrite_id': rewrite_id,
-            'status': status,
+            'status': status
         }
         
+        # Add optional fields if they exist
         if source_url:
-            data['source_url'] = source_url
-            
+            payload['source_url'] = source_url
         if source_title:
-            data['source_title'] = source_title
-            
+            payload['source_title'] = source_title
+        if source_content:
+            payload['source_content'] = source_content
         if rewritten_content:
-            data['rewritten_content'] = rewritten_content
-            
+            payload['rewritten_content'] = rewritten_content
         if error_message:
-            data['error_message'] = error_message
-            
+            payload['error_message'] = error_message
+        if all_articles:
+            payload['all_articles'] = all_articles
+        
         # Use BACKEND_URL from environment and append path
         backend_url = config.get('BACKEND_URL')
         if backend_url:
@@ -237,20 +295,22 @@ def send_callback(callback_url, rewrite_id, status, source_url=None, source_titl
                 
                 # Attempt the request with custom headers
                 logger.info(f"Sending callback with Host: magazine.test to: {fixed_callback_url}")
-                response = requests.post(fixed_callback_url, json=data, headers=headers, timeout=30)
+                response = requests.post(fixed_callback_url, json=payload, headers=headers, timeout=30)
             else:
                 # Nếu không chạy trong Docker, không cần header đặc biệt
-                response = requests.post(fixed_callback_url, json=data, timeout=30)
+                response = requests.post(fixed_callback_url, json=payload, timeout=30)
         else:
             # Fallback to the original URL
             fixed_callback_url = callback_url
-            response = requests.post(fixed_callback_url, json=data, timeout=30)
+            logger.info(f"Sending callback to original URL: {fixed_callback_url}")
+            response = requests.post(fixed_callback_url, json=payload, timeout=30)
         
         if response.status_code >= 200 and response.status_code < 300:
-            logger.info(f"Callback successfully sent to {fixed_callback_url}, status code: {response.status_code}")
+            logger.info(f"Callback successfully sent, status code: {response.status_code}")
         else:
             logger.error(f"Error sending callback: {response.status_code} - {response.text}")
     except Exception as e:
+        # Log any errors that occur during callback
         logger.error(f"Error sending callback: {str(e)}")
 
 @app.route('/api/keyword_rewrite/process', methods=['POST'])

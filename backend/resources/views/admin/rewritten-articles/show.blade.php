@@ -131,7 +131,12 @@
                     
                     @if($originalArticle && $originalArticle->source_name)
                     <div class="mt-2 text-sm text-gray-600">
-                        <span class="font-medium">Nguồn:</span> {{ $originalArticle->source_name }}
+                        <span class="font-medium">Nguồn:</span> 
+                        @if($originalArticle->source_url && strpos($originalArticle->source_url, 'facebook.com') !== false)
+                            Facebook
+                        @else
+                            {{ $originalArticle->source_name }}
+                        @endif
                     </div>
                     @endif
                 </div>

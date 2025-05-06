@@ -114,6 +114,7 @@ class KeywordRewriteController extends Controller
             'source_content' => 'nullable|string',
             'rewritten_content' => 'nullable|string',
             'error_message' => 'nullable|string',
+            'all_articles' => 'nullable|array',
         ]);
 
         if ($validator->fails()) {
@@ -125,21 +126,42 @@ class KeywordRewriteController extends Controller
 
         $keywordRewrite = KeywordRewrite::findOrFail($request->rewrite_id);
         
-        $keywordRewrite->update([
+        // Prepare data for update
+        $updateData = [
             'status' => $request->status,
             'source_url' => $request->source_url,
             'source_title' => $request->source_title,
             'source_content' => $request->source_content,
             'rewritten_content' => $request->rewritten_content,
             'error_message' => $request->error_message,
-        ]);
+        ];
+        
+        // Add all_articles field if present
+        if ($request->has('all_articles')) {
+            $updateData['all_articles'] = json_encode($request->all_articles);
+        }
+        
+        $keywordRewrite->update($updateData);
 
         // Lưu thông báo vào session với rewrite_id
         session()->flash('keyword_rewrite_completed_' . $request->rewrite_id, true);
         session()->flash('keyword_rewrite_status_' . $request->rewrite_id, $request->status);
         
         if ($request->status == 'completed') {
-            session()->flash('keyword_rewrite_message_' . $request->rewrite_id, 'Bài viết đã được tạo thành công từ từ khóa "' . $keywordRewrite->keyword . '"');
+            // Check if we have multiple articles
+            $articleCount = 0;
+            if ($request->has('all_articles') && is_array($request->all_articles)) {
+                $successfulArticles = array_filter($request->all_articles, function($article) {
+                    return isset($article['status']) && $article['status'] === 'completed';
+                });
+                $articleCount = count($successfulArticles);
+            }
+            
+            if ($articleCount > 1) {
+                session()->flash('keyword_rewrite_message_' . $request->rewrite_id, 'Đã tạo ' . $articleCount . ' bài viết thành công từ từ khóa "' . $keywordRewrite->keyword . '"');
+            } else {
+                session()->flash('keyword_rewrite_message_' . $request->rewrite_id, 'Bài viết đã được tạo thành công từ từ khóa "' . $keywordRewrite->keyword . '"');
+            }
         } else {
             session()->flash('keyword_rewrite_message_' . $request->rewrite_id, 'Xử lý từ khóa "' . $keywordRewrite->keyword . '" thất bại: ' . $request->error_message);
         }

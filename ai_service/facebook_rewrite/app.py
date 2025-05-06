@@ -183,36 +183,175 @@ def save_rewritten_article(post_id, post_data, rewritten_data):
         # Generate slug from title
         slug = generate_slug(clean_title)
         
-        # Insert into rewritten_articles table
-        insert_query = """
-        INSERT INTO rewritten_articles (
-            title, slug, content, meta_description, user_id, category_id, 
-            original_article_id, ai_generated, status, 
-            created_at, updated_at
-        )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        # Find or create the "Tin tức" category
+        find_category_query = """
+        SELECT id FROM categories WHERE slug = 'tin-tuc' LIMIT 1
         """
+        cursor.execute(find_category_query)
+        category_result = cursor.fetchone()
+        
+        if category_result:
+            category_id = category_result[0]
+            logger.info(f"Found existing 'Tin tức' category with ID: {category_id}")
+        else:
+            # Create the "Tin tức" category
+            create_category_query = """
+            INSERT INTO categories (name, slug, description, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s)
+            """
+            cursor.execute(create_category_query, (
+                'Tin tức',
+                'tin-tuc',
+                'Tin tức tổng hợp',
+                now,
+                now
+            ))
+            category_id = cursor.lastrowid
+            logger.info(f"Created new 'Tin tức' category with ID: {category_id}")
+        
+        # Default values for user_id
+        user_id = 1  # System user
+        
+        # First, create an Article entry to store the source information
+        # Get the Facebook post source_url
+        source_url = ""
+        get_facebook_post_query = """
+        SELECT source_url FROM facebook_posts WHERE id = %s
+        """
+        cursor.execute(get_facebook_post_query, (post_id,))
+        facebook_post_result = cursor.fetchone()
+        
+        if facebook_post_result and facebook_post_result[0]:
+            source_url = facebook_post_result[0]
+            logger.info(f"Found source_url for Facebook post {post_id}: {source_url}")
+        
+        # Create the Article entry
+        article_slug = f"{slug}-source-{post_id}"
+        create_article_query = """
+        INSERT INTO articles (
+            title, slug, summary, content, source_name, source_url, is_processed, created_at, updated_at
+        )
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        # Create summary from the first part of content
+        summary = clean_content[:160] + "..." if len(clean_content) > 160 else clean_content
+        
+        cursor.execute(create_article_query, (
+            clean_title,
+            article_slug,
+            summary,
+            post_data.get("content", ""),
+            "Facebook",
+            source_url,
+            1,  # is_processed = true
+            now,
+            now
+        ))
+        
+        original_article_id = cursor.lastrowid
+        logger.info(f"Created article record with ID {original_article_id} for storing source information")
+        
+        # Check if subcategories table exists
+        subcategory_id = None
+        try:
+            # First check if subcategories table exists
+            check_table_query = """
+            SELECT COUNT(*)
+            FROM information_schema.tables 
+            WHERE table_schema = %s 
+            AND table_name = 'subcategories'
+            """
+            cursor.execute(check_table_query, (DB_CONFIG['database'],))
+            table_exists = cursor.fetchone()[0] > 0
+            
+            if table_exists:
+                # Find or create the "Xu hướng" subcategory under the "Tin tức" category
+                find_subcategory_query = """
+                SELECT id FROM subcategories WHERE slug = 'xu-huong' AND parent_category_id = %s LIMIT 1
+                """
+                cursor.execute(find_subcategory_query, (category_id,))
+                subcategory_result = cursor.fetchone()
+                
+                if subcategory_result:
+                    subcategory_id = subcategory_result[0]
+                    logger.info(f"Found existing 'Xu hướng' subcategory with ID: {subcategory_id}")
+                else:
+                    # Create the "Xu hướng" subcategory
+                    create_subcategory_query = """
+                    INSERT INTO subcategories (name, slug, description, parent_category_id, created_at, updated_at)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                    """
+                    cursor.execute(create_subcategory_query, (
+                        'Xu hướng',
+                        'xu-huong',
+                        'Các xu hướng mới nổi và phổ biến',
+                        category_id,
+                        now,
+                        now
+                    ))
+                    subcategory_id = cursor.lastrowid
+                    logger.info(f"Created new 'Xu hướng' subcategory with ID: {subcategory_id}")
+            else:
+                logger.warning("Subcategories table does not exist. Will save article without subcategory.")
+        except mysql.connector.Error as e:
+            logger.warning(f"Error when checking for subcategories: {e}. Will save article without subcategory.")
         
         # Create a meta description from the first 100-200 chars of the content
         meta_desc = clean_content[:200] + "..." if len(clean_content) > 200 else clean_content
         
-        # Default values for user_id and category_id, adjust as needed
-        user_id = 1  # System user
-        category_id = 1  # Default category
+        # Prepare the SQL statement based on whether we have a subcategory_id
+        if subcategory_id:
+            # Insert into rewritten_articles table with subcategory_id
+            insert_query = """
+            INSERT INTO rewritten_articles (
+                title, slug, content, meta_description, user_id, category_id, subcategory_id,
+                original_article_id, ai_generated, status, 
+                created_at, updated_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            
+            insert_params = (
+                clean_title,
+                slug,
+                clean_content,
+                meta_desc,
+                user_id,
+                category_id,
+                subcategory_id,
+                original_article_id,  # Use the created article record instead of post_id
+                1,  # ai_generated = true
+                'pending',  # status
+                now,
+                now
+            )
+        else:
+            # Insert without subcategory_id field
+            insert_query = """
+            INSERT INTO rewritten_articles (
+                title, slug, content, meta_description, user_id, category_id,
+                original_article_id, ai_generated, status, 
+                created_at, updated_at
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            
+            insert_params = (
+                clean_title,
+                slug,
+                clean_content,
+                meta_desc,
+                user_id,
+                category_id,
+                original_article_id,  # Use the created article record instead of post_id
+                1,  # ai_generated = true
+                'pending',  # status
+                now,
+                now
+            )
         
-        cursor.execute(insert_query, (
-            clean_title,
-            slug,
-            clean_content,
-            meta_desc,
-            user_id,
-            category_id,
-            post_id,
-            1,  # ai_generated = true
-            'pending',  # status
-            now,
-            now
-        ))
+        cursor.execute(insert_query, insert_params)
         
         # Update facebook_posts to mark as processed
         update_query = """
@@ -223,7 +362,7 @@ def save_rewritten_article(post_id, post_data, rewritten_data):
         cursor.execute(update_query, (now, post_id))
         
         conn.commit()
-        logger.info(f"Successfully saved rewritten article for post ID {post_id}")
+        logger.info(f"Successfully saved rewritten article for post ID {post_id} with category_id {category_id} and subcategory_id {subcategory_id}")
         return True
     except mysql.connector.Error as err:
         logger.error(f"Database error when saving article: {err}")
@@ -552,7 +691,10 @@ def process_batch():
     for post in posts:
         try:
             # Process each post
+            logger.info(f"Processing post ID {post['id']}")
             rewritten_data = rewrite_text_with_gemma(post["content"])
+            
+            # Try to save with proper category and subcategory
             save_result = save_rewritten_article(post["id"], post, rewritten_data)
             
             results.append({
@@ -561,14 +703,32 @@ def process_batch():
                 "saved": save_result
             })
             
-            # Add a small delay to avoid overwhelming the Ollama API
+            # Add a small delay to avoid overwhelming the API
             time.sleep(1)
             
+        except mysql.connector.Error as db_err:
+            # Handle database errors specifically
+            error_msg = str(db_err)
+            logger.error(f"Database error processing post {post['id']}: {error_msg}")
+            
+            if "categories" in error_msg or "subcategories" in error_msg:
+                error_detail = "Error with categories or subcategories. Ensure tables exist and have correct structure."
+            else:
+                error_detail = "Database error occurred during processing."
+                
+            results.append({
+                "post_id": post["id"],
+                "error": error_detail,
+                "detail": error_msg
+            })
+            
         except Exception as e:
+            # Handle other errors
             logger.error(f"Error processing post {post['id']}: {e}")
             results.append({
                 "post_id": post["id"],
-                "error": str(e)
+                "error": "General processing error",
+                "detail": str(e)
             })
     
     return jsonify({

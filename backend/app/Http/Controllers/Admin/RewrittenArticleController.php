@@ -470,6 +470,7 @@ class RewrittenArticleController extends Controller
                 'subcategory_id_value' => $validated['subcategory_id'] ?? null,
                 'has_explicit_subcategory_id' => isset($validated['explicit_subcategory_id']),
                 'explicit_subcategory_id_value' => $validated['explicit_subcategory_id'] ?? null,
+                'original_article_id' => $rewrittenArticle->original_article_id,
             ]);
             
             DB::beginTransaction();
@@ -566,7 +567,23 @@ class RewrittenArticleController extends Controller
                 }
             }
             
-            $approvedArticle->original_article_id = $rewrittenArticle->original_article_id;
+            // Transfer original_article_id and look up source_url if available
+            $sourceUrl = null;
+            
+            if ($rewrittenArticle->original_article_id) {
+                $approvedArticle->original_article_id = $rewrittenArticle->original_article_id;
+                
+                // Try to get source_url from the original article
+                $originalArticle = \App\Models\Article::find($rewrittenArticle->original_article_id);
+                if ($originalArticle && $originalArticle->source_url) {
+                    $sourceUrl = $originalArticle->source_url;
+                    Log::info('Found source_url in original article', [
+                        'original_article_id' => $rewrittenArticle->original_article_id,
+                        'source_url' => $sourceUrl
+                    ]);
+                }
+            }
+            
             $approvedArticle->status = 'published';
             $approvedArticle->ai_generated = $rewrittenArticle->ai_generated;
             $approvedArticle->published_at = now();
@@ -574,7 +591,8 @@ class RewrittenArticleController extends Controller
             // Debug: Log the final subcategory_id value right before save
             Log::info('Final subcategory_id before save', [
                 'subcategory_id' => $approvedArticle->subcategory_id,
-                'article_id' => $approvedArticle->id ?? 'not yet created'
+                'article_id' => $approvedArticle->id ?? 'not yet created',
+                'source_url' => $sourceUrl
             ]);
             
             // Save the article
@@ -600,7 +618,8 @@ class RewrittenArticleController extends Controller
                 'rewritten_id' => $rewrittenArticle->id,
                 'approved_id' => $approvedArticle->id,
                 'category_id' => $approvedArticle->category_id,
-                'subcategory_id' => $approvedArticle->subcategory_id
+                'subcategory_id' => $approvedArticle->subcategory_id,
+                'original_article_id' => $approvedArticle->original_article_id
             ]);
             
             return $approvedArticle;
