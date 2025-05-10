@@ -152,4 +152,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
 EXPOSE 55025
 
 # Entrypoint
-ENTRYPOINT ["/app/start.sh"] 
+ENTRYPOINT ["/bin/bash", "/app/start.sh"] 
