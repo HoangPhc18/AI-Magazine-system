@@ -58,6 +58,7 @@ if [ "$ENVIRONMENT" == "linux" ]; then
     if [ -f ".env" ]; then
         sed -i "s/DB_HOST=.*/DB_HOST=$HOST_IP/g" .env
         sed -i "s|BACKEND_URL=.*|BACKEND_URL=http://$HOST_IP|g" .env
+        sed -i "s|BACKEND_PORT=.*|BACKEND_PORT=80|g" .env
         
         # Kiểm tra và cập nhật OLLAMA_HOST
         if grep -q "OLLAMA_HOST=" .env; then
@@ -84,6 +85,7 @@ else
     if [ -f ".env" ]; then
         sed -i "s/DB_HOST=.*/DB_HOST=$HOST_IP/g" .env
         sed -i "s|BACKEND_URL=.*|BACKEND_URL=http://$HOST_IP|g" .env
+        sed -i "s|BACKEND_PORT=.*|BACKEND_PORT=80|g" .env
         
         # Kiểm tra và cập nhật OLLAMA_HOST
         if grep -q "OLLAMA_HOST=" .env; then

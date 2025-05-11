@@ -26,6 +26,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, WebDriverException
+from unidecode import unidecode
 
 # Import cấu hình từ module config
 from config import get_config
@@ -81,6 +82,36 @@ USER_AGENTS = [
     "Mozilla/5.0 (iPhone; CPU iPhone OS 16_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Mobile/15E148 Safari/604.1"
 ]
 
+def get_api_headers(content_type=None):
+    """
+    Tạo headers chuẩn cho API requests với xử lý đặc biệt cho magazine.test trên Linux
+    
+    Args:
+        content_type (str, optional): Loại nội dung, ví dụ 'application/json'
+        
+    Returns:
+        dict: Headers đã được chuẩn hóa
+    """
+    # Tải lại cấu hình để có thông tin mới nhất
+    current_config = get_config()
+    
+    # Tạo headers cơ bản
+    headers = {
+        'User-Agent': random.choice(USER_AGENTS),
+        'Accept': 'application/json',
+    }
+    
+    # Thêm Content-Type nếu được chỉ định
+    if content_type:
+        headers['Content-Type'] = content_type
+    
+    # Thêm Host header nếu cấu hình yêu cầu
+    if current_config.get("USE_HOST_HEADER", False):
+        headers['Host'] = 'magazine.test'
+        logger.debug("Sử dụng Host header: magazine.test")
+    
+    return headers
+
 def fetch_categories_from_backend():
     """
     Lấy danh sách các danh mục từ backend.
@@ -93,13 +124,11 @@ def fetch_categories_from_backend():
         config = get_config()
         categories_url = config["CATEGORIES_API_URL"]
         
-        headers = {
-            'User-Agent': random.choice(USER_AGENTS),
-            'Accept': 'application/json',
-        }
-        
         # Gọi API lấy danh sách danh mục
         logger.info(f"Fetching categories from backend: {categories_url}")
+        
+        # Sử dụng hàm get_api_headers
+        headers = get_api_headers()
         
         response = requests.get(categories_url, headers=headers, timeout=15)
         
@@ -160,10 +189,7 @@ def fetch_subcategories_by_category(category_id):
         logger.info(f"Fetching subcategories for category ID {category_id} from: {api_url}")
         
         # Gửi request đến backend API
-        headers = {
-            'User-Agent': random.choice(USER_AGENTS),
-            'Accept': 'application/json'
-        }
+        headers = get_api_headers()
         
         response = requests.get(api_url, headers=headers, timeout=30)
         
@@ -199,7 +225,8 @@ def get_category_by_id(category_id):
     """
     try:
         logger.info(f"Fetching category with ID {category_id} from backend")
-        response = requests.get(f"{CATEGORIES_API_URL}/{category_id}")
+        headers = get_api_headers()
+        response = requests.get(f"{CATEGORIES_API_URL}/{category_id}", headers=headers, timeout=15)
         
         if response.status_code == 200:
             category = response.json()
@@ -226,7 +253,8 @@ def get_subcategory_by_id(subcategory_id):
     """
     try:
         logger.info(f"Fetching subcategory with ID {subcategory_id} from backend")
-        response = requests.get(f"{SUBCATEGORIES_API_URL}/{subcategory_id}")
+        headers = get_api_headers()
+        response = requests.get(f"{SUBCATEGORIES_API_URL}/{subcategory_id}", headers=headers, timeout=15)
         
         if response.status_code == 200:
             subcategory = response.json()
@@ -256,11 +284,7 @@ def import_article_to_backend(category_id, article_url, title, content, subcateg
         bool: True nếu thành công, False nếu thất bại
     """
     try:
-        headers = {
-            'User-Agent': random.choice(USER_AGENTS),
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-        }
+        headers = get_api_headers('application/json')
         
         # Phân tích URL để lấy domain
         source_name = ""
@@ -1263,18 +1287,20 @@ def check_article_exists(url):
         # URL để kiểm tra bài viết
         check_url = f"{ARTICLES_CHECK_API_URL}"
         
-        headers = {
-            'User-Agent': random.choice(USER_AGENTS),
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-        }
+        # Sử dụng hàm get_api_headers để lấy headers nhất quán
+        headers = get_api_headers('application/json')
         
         data = {
             'url': url
         }
         
         logger.info(f"Kiểm tra bài viết đã tồn tại: {url}")
+        logger.info(f"Gửi request đến: {check_url} với headers: {headers}")
+        
         response = requests.post(check_url, headers=headers, json=data, timeout=10)
+        
+        # Log phản hồi
+        logger.info(f"Response status code: {response.status_code}")
         
         if response.status_code == 200:
             result = response.json()
@@ -1287,6 +1313,22 @@ def check_article_exists(url):
                 logger.info(f"Bài viết chưa tồn tại trong database: {url}")
                 return False
         else:
+            # Nếu API thất bại, thử sử dụng domain trực tiếp nếu đang sử dụng Host header
+            current_config = get_config()
+            if current_config.get("USE_HOST_HEADER", False):
+                try:
+                    direct_url = "http://magazine.test/api/articles/check"
+                    logger.info(f"Thử kiểm tra bài viết qua domain trực tiếp: {direct_url}")
+                    direct_response = requests.post(direct_url, headers={'Content-Type': 'application/json'}, json=data, timeout=10)
+                    
+                    if direct_response.status_code == 200:
+                        direct_result = direct_response.json()
+                        direct_exists = direct_result.get('exists', False)
+                        logger.info(f"Kết quả kiểm tra qua domain: {direct_exists}")
+                        return direct_exists
+                except Exception as domain_err:
+                    logger.error(f"Không thể kiểm tra qua domain: {str(domain_err)}")
+            
             # Nếu API thất bại, giả định bài viết chưa tồn tại để tiếp tục xử lý
             logger.warning(f"Không thể kiểm tra bài viết, giả định chưa tồn tại: {url}")
             return False

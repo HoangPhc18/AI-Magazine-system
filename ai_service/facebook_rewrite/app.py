@@ -164,9 +164,14 @@ def save_rewritten_article(post_id, post_data, rewritten_data):
         logger.error("Could not connect to database")
         return False
     
+    cursor = None
     try:
         cursor = conn.cursor()
         now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Log detailed debug info
+        logger.info(f"Saving rewritten article for post ID: {post_id}")
+        logger.info(f"Database connection to: {DB_CONFIG['host']}:{DB_CONFIG.get('port', 3306)}")
         
         # Get title and content from rewritten_data
         title = rewritten_data.get("title", "")
@@ -199,15 +204,21 @@ def save_rewritten_article(post_id, post_data, rewritten_data):
             INSERT INTO categories (name, slug, description, created_at, updated_at)
             VALUES (%s, %s, %s, %s, %s)
             """
-            cursor.execute(create_category_query, (
-                'Tin tức',
-                'tin-tuc',
-                'Tin tức tổng hợp',
-                now,
-                now
-            ))
-            category_id = cursor.lastrowid
-            logger.info(f"Created new 'Tin tức' category with ID: {category_id}")
+            try:
+                cursor.execute(create_category_query, (
+                    'Tin tức',
+                    'tin-tuc',
+                    'Tin tức tổng hợp',
+                    now,
+                    now
+                ))
+                category_id = cursor.lastrowid
+                logger.info(f"Created new 'Tin tức' category with ID: {category_id}")
+            except mysql.connector.Error as err:
+                logger.error(f"SQL Error when creating category: {err}")
+                logger.error(f"SQL Query: {create_category_query}")
+                logger.error(f"Params count: {create_category_query.count('%s')}")
+                raise
         
         # Default values for user_id
         user_id = 1  # System user
@@ -229,25 +240,32 @@ def save_rewritten_article(post_id, post_data, rewritten_data):
         article_slug = f"{slug}-source-{post_id}"
         create_article_query = """
         INSERT INTO articles (
-            title, slug, summary, content, source_name, source_url, is_processed, created_at, updated_at
+            title, slug, summary, content, source_name, source_url, is_processed, created_at, updated_at, published_at
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         
         # Create summary from the first part of content
         summary = clean_content[:160] + "..." if len(clean_content) > 160 else clean_content
         
-        cursor.execute(create_article_query, (
-            clean_title,
-            article_slug,
-            summary,
-            post_data.get("content", ""),
-            "Facebook",
-            source_url,
-            1,  # is_processed = true
-            now,
-            now
-        ))
+        try:
+            cursor.execute(create_article_query, (
+                clean_title,
+                article_slug,
+                summary,
+                post_data.get("content", ""),
+                "Facebook",
+                source_url,
+                1,  # is_processed = true
+                now,
+                now,
+                now   # published_at = now
+            ))
+        except mysql.connector.Error as err:
+            logger.error(f"SQL Error when inserting article: {err}")
+            logger.error(f"SQL Query: {create_article_query}")
+            logger.error(f"Params count: {create_article_query.count('%s')}")
+            raise
         
         original_article_id = cursor.lastrowid
         logger.info(f"Created article record with ID {original_article_id} for storing source information")
@@ -282,16 +300,22 @@ def save_rewritten_article(post_id, post_data, rewritten_data):
                     INSERT INTO subcategories (name, slug, description, parent_category_id, created_at, updated_at)
                     VALUES (%s, %s, %s, %s, %s, %s)
                     """
-                    cursor.execute(create_subcategory_query, (
-                        'Xu hướng',
-                        'xu-huong',
-                        'Các xu hướng mới nổi và phổ biến',
-                        category_id,
-                        now,
-                        now
-                    ))
-                    subcategory_id = cursor.lastrowid
-                    logger.info(f"Created new 'Xu hướng' subcategory with ID: {subcategory_id}")
+                    try:
+                        cursor.execute(create_subcategory_query, (
+                            'Xu hướng',
+                            'xu-huong',
+                            'Các xu hướng mới nổi và phổ biến',
+                            category_id,
+                            now,
+                            now
+                        ))
+                        subcategory_id = cursor.lastrowid
+                        logger.info(f"Created new 'Xu hướng' subcategory with ID: {subcategory_id}")
+                    except mysql.connector.Error as err:
+                        logger.error(f"SQL Error when creating subcategory: {err}")
+                        logger.error(f"SQL Query: {create_subcategory_query}")
+                        logger.error(f"Params count: {create_subcategory_query.count('%s')}")
+                        raise
             else:
                 logger.warning("Subcategories table does not exist. Will save article without subcategory.")
         except mysql.connector.Error as e:
@@ -351,7 +375,15 @@ def save_rewritten_article(post_id, post_data, rewritten_data):
                 now
             )
         
-        cursor.execute(insert_query, insert_params)
+        try:
+            cursor.execute(insert_query, insert_params)
+            logger.info(f"Successfully inserted into rewritten_articles")
+        except mysql.connector.Error as err:
+            logger.error(f"SQL Error when inserting rewritten article: {err}")
+            logger.error(f"SQL Query: {insert_query}")
+            logger.error(f"Params count: {insert_query.count('%s')}")
+            logger.error(f"Params provided: {len(insert_params)}")
+            raise
         
         # Update facebook_posts to mark as processed
         update_query = """
@@ -359,7 +391,13 @@ def save_rewritten_article(post_id, post_data, rewritten_data):
         SET processed = 1, updated_at = %s
         WHERE id = %s
         """
-        cursor.execute(update_query, (now, post_id))
+        try:
+            cursor.execute(update_query, (now, post_id))
+        except mysql.connector.Error as err:
+            logger.error(f"SQL Error when updating facebook_posts: {err}")
+            logger.error(f"SQL Query: {update_query}")
+            logger.error(f"Params count: {update_query.count('%s')}")
+            raise
         
         conn.commit()
         logger.info(f"Successfully saved rewritten article for post ID {post_id} with category_id {category_id} and subcategory_id {subcategory_id}")
@@ -809,6 +847,29 @@ def reload_configuration():
         }), 500
 
 if __name__ == '__main__':
+    # Kiểm tra kết nối đến cơ sở dữ liệu và phiên bản
+    conn = get_db_connection()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT VERSION()")
+            version = cursor.fetchone()
+            logger.info(f"Kết nối thành công đến MySQL. Phiên bản: {version[0]}")
+            
+            # Kiểm tra chi tiết bảng articles
+            try:
+                cursor.execute("SHOW CREATE TABLE articles")
+                table_info = cursor.fetchone()
+                logger.info(f"Cấu trúc bảng articles: {table_info[1]}")
+            except mysql.connector.Error as err:
+                logger.warning(f"Không thể lấy thông tin bảng articles: {err}")
+                
+            cursor.close()
+            conn.close()
+        except mysql.connector.Error as err:
+            logger.error(f"Lỗi khi kiểm tra phiên bản MySQL: {err}")
+            conn.close()
+    
     # Sử dụng cấu hình từ config thay vì biến môi trường
     port = config.get('PORT_FACEBOOK_REWRITE', 5005)
     host = config.get('HOST', '0.0.0.0')

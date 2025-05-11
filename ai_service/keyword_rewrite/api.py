@@ -274,29 +274,86 @@ def send_callback(callback_url, rewrite_id, status, source_url=None, source_titl
         if all_articles:
             payload['all_articles'] = all_articles
         
-        # Sửa URL callback để sử dụng host.docker.internal hoặc đúng domain nếu chạy trong Docker
+        # Sửa URL callback dựa trên môi trường
         if os.path.exists('/.dockerenv'):
-            # Thay thế localhost hoặc 127.0.0.1 bằng host.docker.internal cho Windows
+            # Lấy cấu hình từ config
+            backend_url = config.get("BACKEND_URL", "http://localhost")
+            
+            # Phát hiện hệ điều hành bằng cách kiểm tra nhiều dấu hiệu
+            # Method 1: Kiểm tra platform
+            is_linux = 'linux' in sys.platform.lower()
+            
+            # Method 2: Kiểm tra file /etc/os-release
+            if os.path.exists('/etc/os-release'):
+                try:
+                    with open('/etc/os-release', 'r') as f:
+                        if 'Linux' in f.read():
+                            is_linux = True
+                except:
+                    pass
+            
+            # Method 3: Kiểm tra đường dẫn Docker
+            if os.path.exists('/var/run/docker.sock'):
+                is_linux = True
+                
+            # Method 4: Kiểm tra kết nối được với host.docker.internal hay không
+            try:
+                # Thử kết nối đến host.docker.internal với timeout ngắn
+                test_response = requests.get("http://host.docker.internal", timeout=0.5)
+                is_linux = False  # Nếu kết nối được, có thể là Windows
+            except:
+                # Không kết nối được, có thể là Linux
+                # Nhưng không đủ để kết luận, giữ nguyên is_linux
+                pass
+                
+            # Method 5: Kiểm tra kết nối được với 172.17.0.1 hay không
+            try:
+                # Thử kết nối đến 172.17.0.1 với timeout ngắn
+                test_response = requests.get("http://172.17.0.1", timeout=0.5)
+                is_linux = True  # Nếu kết nối được, có thể là Linux
+            except:
+                # Không kết nối được, không đủ để kết luận
+                pass
+                
+            # Phân tích URL callback
             parsed_url = urllib.parse.urlparse(callback_url)
             hostname = parsed_url.netloc.split(':')[0]
             
+            # Ghi nhận thông tin phát hiện môi trường
+            logger.info(f"Phát hiện môi trường: {'Linux' if is_linux else 'Windows'}")
+            
             if hostname in ['localhost', '127.0.0.1']:
-                # Chuyển sang sử dụng Virtual Host hoặc host.docker.internal
-                if 'magazine.test' in callback_url:
-                    # Đã có domain, giữ nguyên
-                    fixed_callback_url = callback_url
+                # Chọn host IP phù hợp theo nền tảng
+                if is_linux:
+                    new_hostname = '172.17.0.1'
                 else:
-                    # Thay localhost bằng host.docker.internal và đảm bảo sử dụng port 80
-                    new_netloc = parsed_url.netloc.replace(hostname, 'host.docker.internal')
-                    # Nếu có port 8000, thay bằng port 80 hoặc bỏ port (mặc định là 80)
-                    if ':8000' in new_netloc:
-                        new_netloc = new_netloc.replace(':8000', '')
-                    parsed_url = parsed_url._replace(netloc=new_netloc)
-                    fixed_callback_url = urllib.parse.urlunparse(parsed_url)
-            else:
-                fixed_callback_url = callback_url
+                    new_hostname = 'host.docker.internal'
                 
-            # Add headers for virtual host
+                # Thay thế hostname và đảm bảo port 80
+                new_netloc = parsed_url.netloc.replace(hostname, new_hostname)
+                if ':8000' in new_netloc:
+                    new_netloc = new_netloc.replace(':8000', '')
+                    
+                parsed_url = parsed_url._replace(netloc=new_netloc)
+                fixed_callback_url = urllib.parse.urlunparse(parsed_url)
+                
+                logger.info(f"Đã điều chỉnh URL callback từ {callback_url} thành {fixed_callback_url}")
+            else:
+                # Kiểm tra xem URL đã có chứa host.docker.internal mà container không kết nối được
+                if 'host.docker.internal' in callback_url and is_linux:
+                    # Thay host.docker.internal bằng 172.17.0.1 cho Linux
+                    fixed_callback_url = callback_url.replace('host.docker.internal', '172.17.0.1')
+                    logger.info(f"Đã điều chỉnh URL host.docker.internal thành 172.17.0.1: {fixed_callback_url}")
+                # Kiểm tra xem URL đã có chứa 172.17.0.1 mà container không kết nối được
+                elif '172.17.0.1' in callback_url and not is_linux:
+                    # Thay 172.17.0.1 bằng host.docker.internal cho Windows
+                    fixed_callback_url = callback_url.replace('172.17.0.1', 'host.docker.internal')
+                    logger.info(f"Đã điều chỉnh URL 172.17.0.1 thành host.docker.internal: {fixed_callback_url}")
+                else:
+                    # Giữ URL nguyên bản nếu không cần điều chỉnh
+                    fixed_callback_url = callback_url
+                
+            # Chuẩn bị headers
             headers = {
                 'Host': 'magazine.test',
                 'Content-Type': 'application/json'

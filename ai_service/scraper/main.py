@@ -1193,9 +1193,35 @@ def check_backend_api():
         bool: True nếu kết nối thành công, False nếu thất bại
     """
     try:
+        # Tải lại cấu hình để có thông tin mới nhất
+        current_config = get_config()
+        
         logger.info(f"Kiểm tra kết nối đến Backend API: {CATEGORIES_API_URL}")
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36'}
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36'
+        }
+        
+        # Thêm Host header nếu cấu hình yêu cầu
+        if current_config.get("USE_HOST_HEADER", False):
+            headers['Host'] = 'magazine.test'
+            logger.info("Sử dụng Host header: magazine.test")
+            
+        # Kiểm tra phát hiện môi trường
+        if os.path.exists('/.dockerenv'):
+            logger.info(f"Đang chạy trong Docker container. Backend URL: {CATEGORIES_API_URL}")
+            if 'linux' in sys.platform.lower():
+                logger.info("Hệ điều hành: Linux")
+            else:
+                logger.info("Hệ điều hành: Windows hoặc khác")
+        
+        # Thử kết nối đến API
+        logger.info(f"Gửi request đến: {CATEGORIES_API_URL} với headers: {headers}")
         response = requests.get(CATEGORIES_API_URL, headers=headers, timeout=10)
+        
+        # Log phản hồi
+        logger.info(f"Response status code: {response.status_code}")
+        logger.info(f"Response headers: {response.headers}")
         
         if response.status_code == 200:
             categories = response.json()
@@ -1207,7 +1233,26 @@ def check_backend_api():
                 
             return True
         else:
+            # Nếu thất bại và đang sử dụng Host header, thử kết nối trực tiếp đến magazine.test
+            if current_config.get("USE_HOST_HEADER", False):
+                try:
+                    direct_url = "http://magazine.test/api/categories"
+                    logger.info(f"Thử kết nối trực tiếp đến domain: {direct_url}")
+                    direct_response = requests.get(direct_url, timeout=10)
+                    
+                    if direct_response.status_code == 200:
+                        categories = direct_response.json()
+                        logger.info(f"Kết nối thành công thông qua domain magazine.test! Tìm thấy {len(categories)} danh mục.")
+                        # Cập nhật URL sử dụng domain cho lần sau
+                        config["BACKEND_URL"] = "http://magazine.test"
+                        config["BASE_API_URL"] = "http://magazine.test/api"
+                        config["CATEGORIES_API_URL"] = f"{config['BASE_API_URL']}/categories"
+                        return True
+                except Exception as domain_err:
+                    logger.error(f"Không thể kết nối trực tiếp đến domain magazine.test: {str(domain_err)}")
+            
             logger.error(f"Lỗi API HTTP {response.status_code}: {response.text}")
+            logger.error("Không thể kết nối đến backend API. Vui lòng kiểm tra lại cấu hình và kết nối mạng.")
             return False
     except Exception as e:
         logger.error(f"Lỗi kết nối API: {str(e)}")

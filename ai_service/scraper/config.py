@@ -12,6 +12,7 @@ import logging
 from pathlib import Path
 from dotenv import load_dotenv
 import json
+import requests
 
 # Setup logging
 logging.basicConfig(
@@ -113,6 +114,49 @@ def load_config():
         config["BASE_API_URL"] = f"{config['BACKEND_URL']}/api"
     else:
         config["BASE_API_URL"] = f"{config['BACKEND_URL']}:{config['BACKEND_PORT']}/api"
+    
+    # Kiểm tra nếu ta cần sử dụng domain magazine.test thay vì IP
+    if os.path.exists('/.dockerenv'):
+        # Khi chạy trong Docker, kiểm tra xem có thể sử dụng domain magazine.test
+        try:
+            # Tạo URL kiểm tra
+            test_url = f"{config['BACKEND_URL']}/api/categories"
+            logger.info(f"Thử kết nối đến API bằng URL: {test_url}")
+            
+            # Thiết lập header Host
+            headers = {'Host': 'magazine.test'}
+            
+            response = requests.get(test_url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                logger.info("Kết nối thành công đến backend thông qua IP với Host header magazine.test")
+                # Đã kết nối được, sử dụng URL cùng với header Host
+                config["USE_HOST_HEADER"] = True
+            else:
+                logger.warning(f"Kết nối đến backend thông qua IP với Host header magazine.test trả về mã lỗi: {response.status_code}")
+                config["USE_HOST_HEADER"] = False
+        except Exception as e:
+            logger.warning(f"Không thể kết nối đến backend thông qua IP với Host header: {str(e)}")
+            config["USE_HOST_HEADER"] = False
+            
+            # Thử kết nối trực tiếp đến magazine.test nếu gặp lỗi với IP
+            try:
+                # Thử kết nối trực tiếp đến magazine.test
+                test_url_domain = "http://magazine.test/api/categories"
+                logger.info(f"Thử kết nối trực tiếp đến domain: {test_url_domain}")
+                response = requests.get(test_url_domain, timeout=5)
+                
+                if response.status_code == 200:
+                    logger.info("Kết nối thành công đến backend thông qua domain magazine.test")
+                    # Cập nhật URL sử dụng domain
+                    config["BACKEND_URL"] = "http://magazine.test"
+                    config["BASE_API_URL"] = f"{config['BACKEND_URL']}/api"
+                    config["USE_HOST_HEADER"] = False
+                else:
+                    logger.warning(f"Kết nối đến domain magazine.test trả về mã lỗi: {response.status_code}")
+            except Exception as domain_err:
+                logger.warning(f"Không thể kết nối trực tiếp đến domain magazine.test: {str(domain_err)}")
+    else:
+        config["USE_HOST_HEADER"] = False
     
     config["CATEGORIES_API_URL"] = f"{config['BASE_API_URL']}/categories"
     config["SUBCATEGORIES_API_URL"] = f"{config['BASE_API_URL']}/subcategories"

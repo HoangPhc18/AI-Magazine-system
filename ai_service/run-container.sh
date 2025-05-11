@@ -21,6 +21,7 @@ echo "=== Dang chay container ==="
 docker run -d --name ai-service-all \
   -p 55025:55025 \
   -e BACKEND_URL=http://172.17.0.1 \
+  -e BACKEND_PORT=80 \
   -e DB_HOST=172.17.0.1 \
   -e OLLAMA_HOST=http://172.17.0.1:11434 \
   -e OLLAMA_BASE_URL=http://172.17.0.1:11434 \
