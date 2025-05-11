@@ -18,16 +18,25 @@ fi
 # Xử lý các biến môi trường
 log "Đang cấu hình biến môi trường..."
 
-# Ưu tiên các biến môi trường được truyền vào qua Docker run
-# Nếu không có, sử dụng các giá trị từ file .env
-if [ -z "$BACKEND_URL" ]; then
-    # Kiểm tra xem chúng ta có đang chạy trong Docker không
-    if [ -f /.dockerenv ]; then
-        log "Phát hiện đang chạy trong Docker. Sử dụng host.docker.internal..."
-        export BACKEND_URL="http://host.docker.internal"
-        export DB_HOST="host.docker.internal"
-        export OLLAMA_HOST="http://host.docker.internal:11434"
-        export OLLAMA_BASE_URL="http://host.docker.internal:11434"
+# Thêm vào phần phát hiện môi trường Docker
+if [ -f /.dockerenv ]; then
+    log "Phát hiện đang chạy trong Docker. Kiểm tra môi trường..."
+    
+    # Kiểm tra xem có đang chạy trên Linux không
+    if [ -z "$BACKEND_URL" ]; then
+        if grep -q "Linux" /etc/os-release; then
+            log "Phát hiện môi trường Linux. Sử dụng 172.17.0.1..."
+            export BACKEND_URL="http://172.17.0.1"
+            export DB_HOST="172.17.0.1"
+            export OLLAMA_HOST="http://172.17.0.1:11434"
+            export OLLAMA_BASE_URL="http://172.17.0.1:11434"
+        else
+            log "Phát hiện môi trường Windows. Sử dụng host.docker.internal..."
+            export BACKEND_URL="http://host.docker.internal"
+            export DB_HOST="host.docker.internal"
+            export OLLAMA_HOST="http://host.docker.internal:11434"
+            export OLLAMA_BASE_URL="http://host.docker.internal:11434"
+        fi
     fi
 fi
 

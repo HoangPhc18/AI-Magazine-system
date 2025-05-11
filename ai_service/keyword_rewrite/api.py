@@ -274,35 +274,40 @@ def send_callback(callback_url, rewrite_id, status, source_url=None, source_titl
         if all_articles:
             payload['all_articles'] = all_articles
         
-        # Use BACKEND_URL from environment and append path
-        backend_url = config.get('BACKEND_URL')
-        if backend_url:
-            # Extract the path from the original callback_url
+        # Sửa URL callback để sử dụng host.docker.internal hoặc đúng domain nếu chạy trong Docker
+        if os.path.exists('/.dockerenv'):
+            # Thay thế localhost hoặc 127.0.0.1 bằng host.docker.internal cho Windows
             parsed_url = urllib.parse.urlparse(callback_url)
-            api_path = parsed_url.path
+            hostname = parsed_url.netloc.split(':')[0]
             
-            # Replace any domain/host part with our backend URL
-            fixed_callback_url = f"{backend_url}{api_path}"
-            logger.info(f"Using BACKEND_URL from environment: {fixed_callback_url}")
-            
-            # Kiểm tra nếu đang chạy trong Docker container và giao tiếp với host
-            if os.path.exists('/.dockerenv') and 'host.docker.internal' in backend_url:
-                # Add custom headers for Host header to ensure proper virtual host routing
-                headers = {
-                    'Host': 'magazine.test',
-                    'Content-Type': 'application/json'
-                }
-                
-                # Attempt the request with custom headers
-                logger.info(f"Sending callback with Host: magazine.test to: {fixed_callback_url}")
-                response = requests.post(fixed_callback_url, json=payload, headers=headers, timeout=30)
+            if hostname in ['localhost', '127.0.0.1']:
+                # Chuyển sang sử dụng Virtual Host hoặc host.docker.internal
+                if 'magazine.test' in callback_url:
+                    # Đã có domain, giữ nguyên
+                    fixed_callback_url = callback_url
+                else:
+                    # Thay localhost bằng host.docker.internal và đảm bảo sử dụng port 80
+                    new_netloc = parsed_url.netloc.replace(hostname, 'host.docker.internal')
+                    # Nếu có port 8000, thay bằng port 80 hoặc bỏ port (mặc định là 80)
+                    if ':8000' in new_netloc:
+                        new_netloc = new_netloc.replace(':8000', '')
+                    parsed_url = parsed_url._replace(netloc=new_netloc)
+                    fixed_callback_url = urllib.parse.urlunparse(parsed_url)
             else:
-                # Nếu không chạy trong Docker, không cần header đặc biệt
-                response = requests.post(fixed_callback_url, json=payload, timeout=30)
+                fixed_callback_url = callback_url
+                
+            # Add headers for virtual host
+            headers = {
+                'Host': 'magazine.test',
+                'Content-Type': 'application/json'
+            }
+            
+            logger.info(f"Sending callback with Host: magazine.test to: {fixed_callback_url}")
+            response = requests.post(fixed_callback_url, json=payload, headers=headers, timeout=30)
         else:
-            # Fallback to the original URL
+            # Không chạy trong Docker, sử dụng callback_url nguyên bản
             fixed_callback_url = callback_url
-            logger.info(f"Sending callback to original URL: {fixed_callback_url}")
+            logger.info(f"Sending callback to: {fixed_callback_url}")
             response = requests.post(fixed_callback_url, json=payload, timeout=30)
         
         if response.status_code >= 200 and response.status_code < 300:

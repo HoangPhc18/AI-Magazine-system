@@ -70,9 +70,37 @@ def load_config():
     config["DB_CONNECTION"] = os.getenv("DB_CONNECTION", "mysql")
     
     # API Configuration
-    config["BACKEND_URL"] = os.getenv("BACKEND_URL", "http://host.docker.internal")
+    config["BACKEND_URL"] = os.getenv("BACKEND_URL", "http://localhost")
     config["BACKEND_PORT"] = os.getenv("BACKEND_PORT", "80")
     config["SCRAPER_URL"] = os.getenv("SCRAPER_URL", "http://localhost:55025/scraper")
+    
+    # Kiểm tra xem chúng ta có đang chạy trong Docker container không
+    if os.path.exists('/.dockerenv'):
+        logger.info("Phát hiện đang chạy trong Docker container.")
+        # Phát hiện hệ điều hành hoặc môi trường
+        is_linux = False
+        
+        # Kiểm tra nếu đang chạy trên Linux
+        if os.path.exists('/etc/os-release'):
+            with open('/etc/os-release', 'r') as f:
+                if 'Linux' in f.read():
+                    is_linux = True
+        
+        # Hoặc kiểm tra theo platform
+        if 'linux' in sys.platform.lower():
+            is_linux = True
+            
+        if is_linux and config["BACKEND_URL"] == "http://localhost":
+            logger.info("Phát hiện Linux. Điều chỉnh BACKEND_URL...")
+            config["BACKEND_URL"] = "http://172.17.0.1"
+            config["DB_HOST"] = "172.17.0.1"
+        elif config["BACKEND_URL"] == "http://localhost":
+            logger.info("Phát hiện Windows. Điều chỉnh BACKEND_URL...")
+            config["BACKEND_URL"] = "http://host.docker.internal"
+            config["DB_HOST"] = "host.docker.internal"
+        
+        logger.info(f"BACKEND_URL đã điều chỉnh thành: {config['BACKEND_URL']}")
+        logger.info(f"DB_HOST đã điều chỉnh thành: {config['DB_HOST']}")
     
     # Service Configuration
     config["PORT_SCRAPER"] = int(os.getenv("PORT_SCRAPER", "5001"))

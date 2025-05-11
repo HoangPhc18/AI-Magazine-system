@@ -74,14 +74,51 @@ def load_config():
     config["BACKEND_PORT"] = os.getenv("BACKEND_PORT", "8000")
     config["AI_SERVICE_URL"] = os.getenv("AI_SERVICE_URL", "http://localhost:55025")
     
+    # Kiểm tra xem chúng ta có đang chạy trong Docker container không
+    if os.path.exists('/.dockerenv'):
+        logger.info("Phát hiện đang chạy trong Docker container.")
+        # Phát hiện hệ điều hành hoặc môi trường
+        is_linux = False
+        
+        # Kiểm tra nếu đang chạy trên Linux
+        if os.path.exists('/etc/os-release'):
+            with open('/etc/os-release', 'r') as f:
+                if 'Linux' in f.read():
+                    is_linux = True
+        
+        # Hoặc kiểm tra theo platform
+        if 'linux' in sys.platform.lower():
+            is_linux = True
+            
+        # Đảm bảo OLLAMA_HOST có trong config trước khi sử dụng
+        if "OLLAMA_HOST" not in config:
+            config["OLLAMA_HOST"] = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+        if "OLLAMA_BASE_URL" not in config:
+            config["OLLAMA_BASE_URL"] = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+            
+        if is_linux and config["BACKEND_URL"] == "http://localhost":
+            logger.info("Phát hiện Linux. Điều chỉnh BACKEND_URL...")
+            config["BACKEND_URL"] = "http://172.17.0.1"
+            config["DB_HOST"] = "172.17.0.1"
+            config["OLLAMA_HOST"] = "http://172.17.0.1:11434"
+            config["OLLAMA_BASE_URL"] = "http://172.17.0.1:11434"
+        elif config["BACKEND_URL"] == "http://localhost":
+            logger.info("Phát hiện Windows. Điều chỉnh BACKEND_URL...")
+            config["BACKEND_URL"] = "http://host.docker.internal"
+            config["DB_HOST"] = "host.docker.internal"
+            config["OLLAMA_HOST"] = "http://host.docker.internal:11434"
+            config["OLLAMA_BASE_URL"] = "http://host.docker.internal:11434"
+        
+        logger.info(f"BACKEND_URL đã điều chỉnh thành: {config['BACKEND_URL']}")
+        logger.info(f"DB_HOST đã điều chỉnh thành: {config['DB_HOST']}")
+        logger.info(f"OLLAMA_HOST đã điều chỉnh thành: {config['OLLAMA_HOST']}")
+    
     # Service Configuration
     config["PORT_REWRITE"] = int(os.getenv("PORT_REWRITE", "5002"))
     config["HOST"] = os.getenv("HOST", "0.0.0.0")
     config["DEBUG"] = os.getenv("DEBUG", "False").lower() == "true"
     
     # AI Configuration
-    config["OLLAMA_HOST"] = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-    config["OLLAMA_BASE_URL"] = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     config["OLLAMA_MODEL"] = os.getenv("OLLAMA_MODEL", "gemma2:latest")
     config["MODEL_NAME"] = os.getenv("MODEL_NAME", "gemma2:latest")
     
