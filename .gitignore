@@ -1,0 +1,112 @@
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Env / secrets =====
+.env
+.env.*
+*.env
+**/.env
+**/.env.*
+!.env.example
+backend/.env
+backend/.env.*
+
+# ===== Python =====
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage*
+htmlcov/
+.ipynb_checkpoints/
+
+# Python logs/temp
+*.log
+logs/
+**/logs/
+*.pid
+*.out
+
+# ===== Node / JavaScript =====
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/*
+!.yarn/patches
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== PHP / Laravel =====
+backend/vendor/
+backend/node_modules/
+backend/storage/
+backend/bootstrap/cache/
+backend/public/storage
+backend/.phpunit.cache/
+
+# Composer / PHP misc
+composer.phar
+.phpunit.result.cache
+.php-cs-fixer.cache
+
+# If vendor at repo root (Composer)
+vendor/
+
+# ===== IDE / Editor =====
+.vscode/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+.idea/
+.fleet/
+.nova/
+*.code-workspace
+.history/
+
+# ===== Docker =====
+*.tar
+.docker/
+
+# ===== Project-specific (AI services) =====
+ai_service/venv/
+ai_service/**/__pycache__/
+ai_service/**/.env
+ai_service/**/logs/
+ai_service/**/*.log
+
+# Facebook scraper sensitive/session data
+ai_service/facebook_scraper/chrome_profile/
+ai_service/facebook_scraper/cookies/
+ai_service/facebook_scraper/*.pkl
+ai_service/facebook_scraper/*.json
+
+# Scraper outputs and temp files
+ai_service/scraper/output/
+
+# ===== Cache / temp =====
+cache/
+**/cache/
+tmp/
+.temp/
+*.tmp
+
+# ===== Misc binaries =====
+*.swp
+*.swo
+*.lock
